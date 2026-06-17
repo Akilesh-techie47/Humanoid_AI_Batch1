@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "110126190014",
+    "project_id": "humanoid-ai-ff680",
+    "storage_bucket": "humanoid-ai-ff680.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:110126190014:android:fb9b99776e53c0a1827def",
+        "android_client_info": {
+          "package_name": "com.humanoidai"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCjQnZ9fwpF2PUYF6NCOl4DE5AOogOnDuM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
