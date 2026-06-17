@@ -6,9 +6,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,11 +17,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.humanoidai.ui.components.SidePanelDrawer
 import com.humanoidai.ui.theme.*
+import kotlinx.coroutines.launch
 
-// -----------------------------------------------------------------
-// Data model
-// -----------------------------------------------------------------
 enum class EventType { DETECTION, ALERT, SYSTEM }
 
 data class HistoryEvent(
@@ -35,13 +32,9 @@ data class HistoryEvent(
     val type: EventType
 )
 
-// -----------------------------------------------------------------
-// HistoryScreen
-// -----------------------------------------------------------------
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryScreen(navController: NavController) {
-
-    // Grouped by date — real events stored/retrieved from DB in Phase 3+
     val events = remember {
         listOf(
             HistoryEvent(1, "Person A detected", "Confidence: 97%", "09:14 AM", "Today", EventType.DETECTION),
@@ -54,26 +47,46 @@ fun HistoryScreen(navController: NavController) {
     }
 
     val grouped = events.groupBy { it.date }
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(BackgroundDark)
-            .padding(horizontal = 16.dp)
+    SidePanelDrawer(
+        navController = navController,
+        drawerState = drawerState
     ) {
-        Spacer(modifier = Modifier.height(16.dp))
-        Text("History", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-        Spacer(modifier = Modifier.height(16.dp))
-
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            grouped.forEach { (date, dayEvents) ->
-                item {
-                    DateHeader(date)
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-                items(dayEvents) { event ->
-                    HistoryEventRow(event)
-                    Spacer(modifier = Modifier.height(8.dp))
+        Scaffold(
+            containerColor = BackgroundDark,
+            topBar = {
+                CenterAlignedTopAppBar(
+                    title = {
+                        Text("ACTIVITY HISTORY", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AccentCyan)
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                            Icon(Icons.Default.Menu, "Menu", tint = Color.White)
+                        }
+                    },
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
+                )
+            }
+        ) { padding ->
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                grouped.forEach { (date, dayEvents) ->
+                    item {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        DateHeader(date)
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                    items(dayEvents) { event ->
+                        HistoryEventRow(event)
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
                 }
             }
         }
@@ -83,7 +96,7 @@ fun HistoryScreen(navController: NavController) {
 @Composable
 private fun DateHeader(date: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(Icons.Default.DateRange, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(16.dp))
+        Icon(Icons.Default.DateRange, null, tint = AccentCyan, modifier = Modifier.size(16.dp))
         Spacer(modifier = Modifier.width(6.dp))
         Text(date, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = AccentCyan)
     }
@@ -94,7 +107,7 @@ private fun HistoryEventRow(event: HistoryEvent) {
     val (icon, iconColor) = when (event.type) {
         EventType.DETECTION -> Pair(Icons.Default.Person, AccentCyan)
         EventType.ALERT     -> Pair(Icons.Default.Notifications, Color(0xFFFF5C5C))
-        EventType.SYSTEM    -> Pair(Icons.Default.DateRange, TextSecondary)
+        EventType.SYSTEM    -> Pair(Icons.Default.Settings, TextSecondary)
     }
 
     Row(
@@ -104,7 +117,7 @@ private fun HistoryEventRow(event: HistoryEvent) {
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(22.dp))
+        Icon(icon, null, tint = iconColor, modifier = Modifier.size(22.dp))
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(event.title, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)

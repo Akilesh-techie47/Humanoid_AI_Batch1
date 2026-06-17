@@ -54,7 +54,8 @@ class AuthViewModel : ViewModel() {
     fun sendOtp(
         phoneNumber: String,
         activity: Activity? = null,
-        onCodeSent: () -> Unit
+        onCodeSent: () -> Unit,
+        onAutoSignIn: () -> Unit = {}
     ) {
         if (phoneNumber.isBlank()) {
             _authState.value = AuthState.Error("Enter a valid phone number")
@@ -66,7 +67,7 @@ class AuthViewModel : ViewModel() {
         val callbacks = object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
             override fun onVerificationCompleted(credential: PhoneAuthCredential) {
                 // Auto-retrieval: sign in directly without manual OTP entry
-                signInWithPhoneCredential(credential) {}
+                signInWithPhoneCredential(credential, onAutoSignIn)
             }
 
             override fun onVerificationFailed(e: FirebaseException) {

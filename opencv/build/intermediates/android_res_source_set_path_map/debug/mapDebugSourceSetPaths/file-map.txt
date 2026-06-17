@@ -1,0 +1,9 @@
+org.opencv-pngs-0 D:\Projects(ASC)\opencv\build\generated\res\pngs\debug
+org.opencv-updated_navigation_xml-1 D:\Projects(ASC)\opencv\build\generated\updated_navigation_xml\debug
+org.opencv-mergeDebugResources-2 D:\Projects(ASC)\opencv\build\intermediates\incremental\debug\mergeDebugResources\merged.dir
+org.opencv-mergeDebugResources-3 D:\Projects(ASC)\opencv\build\intermediates\incremental\debug\mergeDebugResources\stripped.dir
+org.opencv-debug-4 D:\Projects(ASC)\opencv\build\intermediates\merged_res\debug\mergeDebugResources
+org.opencv-debug-5 D:\Projects(ASC)\opencv\build\intermediates\packaged_res\debug\packageDebugResources
+org.opencv-java-6 D:\Projects(ASC)\opencv\java\res
+org.opencv-debug-7 D:\Projects(ASC)\opencv\src\debug\res
+gradleHome-0 D:\.gradle\.gradle

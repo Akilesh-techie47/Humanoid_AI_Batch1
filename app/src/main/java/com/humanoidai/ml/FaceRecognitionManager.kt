@@ -17,10 +17,8 @@ import kotlin.math.sqrt
 class FaceRecognitionManager {
 
     companion object {
-        // Cosine similarity threshold — tune this after testing:
-        // Higher = stricter matching (fewer false positives)
-        // Lower  = more lenient (more false positives)
-        private const val SIMILARITY_THRESHOLD = 0.75f
+        // Reverting to a more stable threshold for recognition
+        private const val SIMILARITY_THRESHOLD = 0.78f
     }
 
     // Registry: person name → their face embedding

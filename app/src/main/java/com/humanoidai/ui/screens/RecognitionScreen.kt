@@ -8,8 +8,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,73 +19,189 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.humanoidai.ml.EnrolledPerson
+import com.humanoidai.ml.FaceEnrollmentManager
+import com.humanoidai.ml.FaceRecognitionManager
+import com.humanoidai.ui.components.SidePanelDrawer
 import com.humanoidai.ui.theme.*
+import kotlinx.coroutines.launch
 
-// -----------------------------------------------------------------
-// Data model
-// -----------------------------------------------------------------
-data class RecognizedPerson(
-    val id: Int,
-    val name: String,
-    val label: String,           // e.g. "Family", "Colleague", "Unknown"
-    val lastSeen: String,
-    val confidence: Float,       // 0f–1f, filled in by ML in Phase 2
-    val isKnown: Boolean
-)
-
-// -----------------------------------------------------------------
-// RecognitionScreen
-// -----------------------------------------------------------------
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RecognitionScreen(navController: NavController) {
+fun RecognitionScreen(
+    navController: NavController,
+    enrollmentManager: FaceEnrollmentManager,
+    recognitionManager: FaceRecognitionManager
+) {
+    var people by remember { mutableStateOf(enrollmentManager.getAllPersons()) }
+    var showDeleteDialog by remember { mutableStateOf<EnrolledPerson?>(null) }
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
 
-    // Placeholder data — real faces injected by ML Kit in Phase 2
-    val people = remember {
-        listOf(
-            RecognizedPerson(1, "Person A", "Family", "Just now", 0.97f, true),
-            RecognizedPerson(2, "Person B", "Colleague", "5 min ago", 0.89f, true),
-            RecognizedPerson(3, "Unknown #1", "Unknown", "12 min ago", 0.0f, false),
-            RecognizedPerson(4, "Person C", "Neighbor", "1 hr ago", 0.93f, true),
-        )
+    SidePanelDrawer(
+        navController = navController,
+        drawerState = drawerState
+    ) {
+        Scaffold(
+            containerColor = BackgroundDark,
+            topBar = {
+                CenterAlignedTopAppBar(
+                    title = {
+                        Text("RECOGNITION", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AccentCyan)
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                            Icon(Icons.Default.Menu, "Menu", tint = Color.White)
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = { navController.navigate("enrollment") }) {
+                            Icon(Icons.Default.PersonAdd, "Add Person", tint = Color.White)
+                        }
+                    },
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
+                )
+            }
+        ) { padding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(horizontal = 16.dp)
+            ) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    StatChip("Enrolled", people.size.toString(), AccentCyan, Modifier.weight(1f))
+                    StatChip(
+                        "Family",
+                        people.count { it.label == "Family" }.toString(),
+                        Color(0xFF66BB6A),
+                        Modifier.weight(1f)
+                    )
+                    StatChip(
+                        "Others",
+                        people.count { it.label != "Family" }.toString(),
+                        Color(0xFF42A5F5),
+                        Modifier.weight(1f)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                if (people.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                Icons.Default.Person,
+                                contentDescription = null,
+                                tint = TextSecondary.copy(alpha = 0.4f),
+                                modifier = Modifier.size(56.dp)
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                "No persons enrolled yet",
+                                fontSize = 15.sp,
+                                color = TextSecondary
+                            )
+                            Spacer(modifier = Modifier.height(20.dp))
+                            Button(
+                                onClick = { navController.navigate("enrollment") },
+                                colors = ButtonDefaults.buttonColors(containerColor = AccentCyan),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text("Enroll First Person", color = Color.Black, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                    }
+                } else {
+                    LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        items(people) { person ->
+                            EnrolledPersonCard(
+                                person = person,
+                                onDelete = { showDeleteDialog = person }
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 
-    Column(
+    showDeleteDialog?.let { person ->
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = null },
+            containerColor = SurfaceDark,
+            title = { Text("Remove ${person.name}?", color = TextPrimary) },
+            text = { Text("This person will no longer be recognized by the camera.", color = TextSecondary) },
+            confirmButton = {
+                TextButton(onClick = {
+                    enrollmentManager.removePerson(person.name)
+                    recognitionManager.removeFace(person.name)
+                    people = enrollmentManager.getAllPersons()
+                    showDeleteDialog = null
+                }) {
+                    Text("Remove", color = Color(0xFFFF5C5C))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = null }) {
+                    Text("Cancel", color = TextSecondary)
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun EnrolledPersonCard(person: EnrolledPerson, onDelete: () -> Unit) {
+    val labelColor = when (person.label) {
+        "Family"    -> Color(0xFF66BB6A)
+        "Colleague" -> Color(0xFF42A5F5)
+        "Neighbor"  -> Color(0xFFFFA726)
+        "Friend"    -> Color(0xFFAB47BC)
+        else        -> TextSecondary
+    }
+
+    Row(
         modifier = Modifier
-            .fillMaxSize()
-            .background(BackgroundDark)
-            .padding(horizontal = 16.dp)
+            .fillMaxWidth()
+            .background(SurfaceDark, RoundedCornerShape(12.dp))
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Header
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(AccentCyan.copy(alpha = 0.15f))
+                .border(1.5.dp, AccentCyan, CircleShape),
+            contentAlignment = Alignment.Center
         ) {
-            Text("Recognition", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-            IconButton(onClick = { /* TODO: Add person flow in Phase 2 */ }) {
-                Icon(Icons.Default.Add, contentDescription = "Add Person", tint = AccentCyan)
+            Icon(Icons.Default.Person, null, tint = AccentCyan, modifier = Modifier.size(24.dp))
+        }
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(person.name, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+            Spacer(modifier = Modifier.height(3.dp))
+            Box(
+                modifier = Modifier
+                    .background(labelColor.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
+                    .padding(horizontal = 6.dp, vertical = 2.dp)
+            ) {
+                Text(person.label, fontSize = 10.sp, color = labelColor, fontWeight = FontWeight.SemiBold)
             }
         }
 
-        // Stats row
-        Spacer(modifier = Modifier.height(12.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            StatChip("Known", people.count { it.isKnown }.toString(), AccentCyan, Modifier.weight(1f))
-            StatChip("Unknown", people.count { !it.isKnown }.toString(), Color(0xFFFF5C5C), Modifier.weight(1f))
-            StatChip("Total", people.size.toString(), TextSecondary, Modifier.weight(1f))
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            items(people) { person ->
-                PersonCard(person)
-            }
+        IconButton(onClick = onDelete) {
+            Icon(Icons.Default.Delete, "Remove", tint = Color(0xFFFF5C5C).copy(alpha = 0.7f), modifier = Modifier.size(20.dp))
         }
     }
 }
@@ -101,67 +216,5 @@ private fun StatChip(label: String, value: String, color: Color, modifier: Modif
     ) {
         Text(value, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = color)
         Text(label, fontSize = 11.sp, color = TextSecondary)
-    }
-}
-
-@Composable
-private fun PersonCard(person: RecognizedPerson) {
-    val avatarColor = if (person.isKnown) AccentCyan else Color(0xFFFF5C5C)
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(SurfaceDark, RoundedCornerShape(12.dp))
-            .padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // Avatar
-        Box(
-            modifier = Modifier
-                .size(44.dp)
-                .clip(CircleShape)
-                .background(avatarColor.copy(alpha = 0.15f))
-                .border(1.5.dp, avatarColor, CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(Icons.Default.Person, contentDescription = null, tint = avatarColor, modifier = Modifier.size(24.dp))
-        }
-
-        Spacer(modifier = Modifier.width(12.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
-            Text(person.name, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
-            Spacer(modifier = Modifier.height(2.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                LabelBadge(person.label)
-                Text("Last seen: ${person.lastSeen}", fontSize = 11.sp, color = TextSecondary)
-            }
-        }
-
-        if (person.isKnown) {
-            Text(
-                "${(person.confidence * 100).toInt()}%",
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold,
-                color = AccentCyan
-            )
-        }
-    }
-}
-
-@Composable
-private fun LabelBadge(label: String) {
-    val color = when (label) {
-        "Family"    -> Color(0xFF66BB6A)
-        "Colleague" -> Color(0xFF42A5F5)
-        "Neighbor"  -> Color(0xFFFFA726)
-        else        -> Color(0xFFFF5C5C)
-    }
-    Box(
-        modifier = Modifier
-            .background(color.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
-            .padding(horizontal = 6.dp, vertical = 2.dp)
-    ) {
-        Text(label, fontSize = 10.sp, color = color, fontWeight = FontWeight.SemiBold)
     }
 }

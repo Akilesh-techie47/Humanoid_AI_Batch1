@@ -1,5 +1,8 @@
 package com.humanoidai.ui.screens
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -11,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -31,9 +35,16 @@ enum class LoginTab { PHONE, EMAIL }
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
-    authViewModel: AuthViewModel = AuthViewModel()
+    authViewModel: AuthViewModel = AuthViewModel(),
+    microphoneManager: com.humanoidai.hearing.MicrophoneManager,
+    voiceEngine: com.humanoidai.voice.VoiceEngine
 ) {
     var selectedTab by remember { mutableStateOf(LoginTab.PHONE) }
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(Unit) {
+        voiceEngine.speak("Welcome to Humanoid AI. Please sign in using your phone or email.")
+    }
 
     Box(
         modifier = Modifier
@@ -89,8 +100,8 @@ fun LoginScreen(
 
             // ---- Tab Content ----
             when (selectedTab) {
-                LoginTab.PHONE -> PhoneOtpForm(authViewModel, onLoginSuccess)
-                LoginTab.EMAIL -> EmailPasswordForm(authViewModel, onLoginSuccess)
+                LoginTab.PHONE -> PhoneOtpForm(authViewModel, onLoginSuccess, microphoneManager)
+                LoginTab.EMAIL -> EmailPasswordForm(authViewModel, onLoginSuccess, microphoneManager)
             }
         }
     }
@@ -127,12 +138,15 @@ private fun TabButton(
 @Composable
 private fun PhoneOtpForm(
     authViewModel: AuthViewModel,
-    onLoginSuccess: () -> Unit
+    onLoginSuccess: () -> Unit,
+    microphoneManager: com.humanoidai.hearing.MicrophoneManager
 ) {
     var phone by remember { mutableStateOf("") }
     var otp by remember { mutableStateOf("") }
     var otpSent by remember { mutableStateOf(false) }
     val authState by authViewModel.authState.collectAsState()
+    val context = LocalContext.current
+    val isListening by microphoneManager.isListening.collectAsState()
 
     Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
 
@@ -141,7 +155,9 @@ private fun PhoneOtpForm(
             onValueChange = { phone = it },
             label = "Phone number (+91...)",
             keyboardType = KeyboardType.Phone,
-            enabled = !otpSent
+            enabled = !otpSent,
+            microphoneManager = microphoneManager,
+            isListening = isListening
         )
 
         if (otpSent) {
@@ -150,7 +166,9 @@ private fun PhoneOtpForm(
                 value = otp,
                 onValueChange = { otp = it },
                 label = "Enter OTP",
-                keyboardType = KeyboardType.Number
+                keyboardType = KeyboardType.Number,
+                microphoneManager = microphoneManager,
+                isListening = isListening
             )
         }
 
@@ -161,7 +179,12 @@ private fun PhoneOtpForm(
             enabled = authState !is AuthState.Loading
         ) {
             if (!otpSent) {
-                authViewModel.sendOtp(phone) { otpSent = true }
+                authViewModel.sendOtp(
+                    phoneNumber = phone,
+                    activity = context as? android.app.Activity,
+                    onCodeSent = { otpSent = true },
+                    onAutoSignIn = onLoginSuccess
+                )
             } else {
                 authViewModel.verifyOtp(otp, onLoginSuccess)
             }
@@ -177,12 +200,14 @@ private fun PhoneOtpForm(
 @Composable
 private fun EmailPasswordForm(
     authViewModel: AuthViewModel,
-    onLoginSuccess: () -> Unit
+    onLoginSuccess: () -> Unit,
+    microphoneManager: com.humanoidai.hearing.MicrophoneManager
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var isSignUp by remember { mutableStateOf(false) }
     val authState by authViewModel.authState.collectAsState()
+    val isListening by microphoneManager.isListening.collectAsState()
 
     Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
 
@@ -190,7 +215,9 @@ private fun EmailPasswordForm(
             value = email,
             onValueChange = { email = it },
             label = "Email",
-            keyboardType = KeyboardType.Email
+            keyboardType = KeyboardType.Email,
+            microphoneManager = microphoneManager,
+            isListening = isListening
         )
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -200,7 +227,9 @@ private fun EmailPasswordForm(
             onValueChange = { password = it },
             label = "Password",
             keyboardType = KeyboardType.Password,
-            visualTransformation = PasswordVisualTransformation()
+            visualTransformation = PasswordVisualTransformation(),
+            microphoneManager = microphoneManager,
+            isListening = isListening
         )
 
         Spacer(modifier = Modifier.height(20.dp))
@@ -240,7 +269,9 @@ private fun StyledTextField(
     keyboardType: KeyboardType = KeyboardType.Text,
     enabled: Boolean = true,
     visualTransformation: androidx.compose.ui.text.input.VisualTransformation =
-        androidx.compose.ui.text.input.VisualTransformation.None
+        androidx.compose.ui.text.input.VisualTransformation.None,
+    microphoneManager: com.humanoidai.hearing.MicrophoneManager? = null,
+    isListening: Boolean = false
 ) {
     OutlinedTextField(
         value = value,
@@ -263,7 +294,24 @@ private fun StyledTextField(
             disabledTextColor = TextSecondary,
             disabledBorderColor = TextSecondary
         ),
-        shape = RoundedCornerShape(12.dp)
+        shape = RoundedCornerShape(12.dp),
+        trailingIcon = {
+            if (microphoneManager != null) {
+                IconButton(onClick = {
+                    if (isListening) {
+                        microphoneManager.stopListening()
+                    } else {
+                        microphoneManager.startListening(onFinalResult = { onValueChange(it) })
+                    }
+                }) {
+                    Icon(
+                        if (isListening) Icons.Default.MicOff else Icons.Default.Mic,
+                        null,
+                        tint = if (isListening) Color.Red else AccentCyan
+                    )
+                }
+            }
+        }
     )
 }
 

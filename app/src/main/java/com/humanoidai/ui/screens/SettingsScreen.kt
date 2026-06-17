@@ -19,15 +19,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.google.firebase.auth.FirebaseAuth
+import com.humanoidai.ml.OwnerEnrollmentManager
+import com.humanoidai.ui.components.SidePanelDrawer
 import com.humanoidai.ui.theme.*
+import kotlinx.coroutines.launch
 
-// -----------------------------------------------------------------
-// SettingsScreen
-// -----------------------------------------------------------------
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(navController: NavController) {
-
-    // Toggleable settings state
+fun SettingsScreen(navController: NavController, ownerManager: OwnerEnrollmentManager) {
     var notificationsEnabled by remember { mutableStateOf(true) }
     var roiOverlayEnabled by remember { mutableStateOf(true) }
     var unknownAlertEnabled by remember { mutableStateOf(true) }
@@ -35,55 +34,74 @@ fun SettingsScreen(navController: NavController) {
     var proactiveAssistEnabled by remember { mutableStateOf(true) }
 
     val currentUser = FirebaseAuth.getInstance().currentUser
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(BackgroundDark)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp)
+    SidePanelDrawer(
+        navController = navController,
+        drawerState = drawerState
     ) {
-        Spacer(modifier = Modifier.height(16.dp))
-        Text("Settings", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+        Scaffold(
+            containerColor = BackgroundDark,
+            topBar = {
+                CenterAlignedTopAppBar(
+                    title = {
+                        Text("SETTINGS", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AccentCyan)
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                            Icon(Icons.Default.Menu, "Menu", tint = Color.White)
+                        }
+                    },
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
+                )
+            }
+        ) { padding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp)
+            ) {
+                // ---- Account ----
+                Spacer(modifier = Modifier.height(8.dp))
+                SectionHeader("Account")
+                InfoRow(Icons.Default.Person, "Signed in as", currentUser?.email ?: currentUser?.phoneNumber ?: "Unknown")
+                Spacer(modifier = Modifier.height(8.dp))
+                ActionRow(Icons.Default.ExitToApp, "Sign Out", Color(0xFFFF5C5C)) {
+                    FirebaseAuth.getInstance().signOut()
+                    ownerManager.clearOwner()
+                    navController.navigate("login") {
+                        popUpTo(0) { inclusive = true }
+                    }
+                }
 
-        // ---- Account ----
-        Spacer(modifier = Modifier.height(20.dp))
-        SectionHeader("Account")
-        InfoRow(Icons.Default.Person, "Signed in as", currentUser?.email ?: currentUser?.phoneNumber ?: "Unknown")
-        Spacer(modifier = Modifier.height(8.dp))
-        ActionRow(Icons.Default.ExitToApp, "Sign Out", Color(0xFFFF5C5C)) {
-            FirebaseAuth.getInstance().signOut()
-            navController.navigate("login") {
-                popUpTo(0) { inclusive = true }
+                // ---- Detection ----
+                Spacer(modifier = Modifier.height(20.dp))
+                SectionHeader("Detection")
+                ToggleRow(Icons.Default.Visibility, "ROI Overlay", roiOverlayEnabled) { roiOverlayEnabled = it }
+                ToggleRow(Icons.Default.Warning, "Unknown Person Alerts", unknownAlertEnabled) { unknownAlertEnabled = it }
+                ToggleRow(Icons.Default.Thermostat, "Heatmap Overlay", heatmapEnabled) { heatmapEnabled = it }
+
+                // ---- Assistant ----
+                Spacer(modifier = Modifier.height(20.dp))
+                SectionHeader("Assistant")
+                ToggleRow(Icons.Default.Notifications, "Notifications", notificationsEnabled) { notificationsEnabled = it }
+                ToggleRow(Icons.Default.AutoAwesome, "Proactive Assistance", proactiveAssistEnabled) { proactiveAssistEnabled = it }
+
+                // ---- About ----
+                Spacer(modifier = Modifier.height(20.dp))
+                SectionHeader("About")
+                InfoRow(Icons.Default.Info, "App Version", "1.0.0 (Phase 5)")
+                InfoRow(Icons.Default.Build, "Build", "Release-Candidate")
+
+                Spacer(modifier = Modifier.height(32.dp))
             }
         }
-
-        // ---- Detection ----
-        Spacer(modifier = Modifier.height(20.dp))
-        SectionHeader("Detection")
-        ToggleRow(Icons.Default.Visibility, "ROI Overlay", roiOverlayEnabled) { roiOverlayEnabled = it }
-        ToggleRow(Icons.Default.Warning, "Unknown Person Alerts", unknownAlertEnabled) { unknownAlertEnabled = it }
-        ToggleRow(Icons.Default.Thermostat, "Heatmap Overlay", heatmapEnabled) { heatmapEnabled = it }
-
-        // ---- Assistant ----
-        Spacer(modifier = Modifier.height(20.dp))
-        SectionHeader("Assistant")
-        ToggleRow(Icons.Default.Notifications, "Notifications", notificationsEnabled) { notificationsEnabled = it }
-        ToggleRow(Icons.Default.AutoAwesome, "Proactive Assistance", proactiveAssistEnabled) { proactiveAssistEnabled = it }
-
-        // ---- About ----
-        Spacer(modifier = Modifier.height(20.dp))
-        SectionHeader("About")
-        InfoRow(Icons.Default.Info, "App Version", "1.0.0 (Phase 1)")
-        InfoRow(Icons.Default.Build, "Build", "Debug")
-
-        Spacer(modifier = Modifier.height(32.dp))
     }
 }
 
-// -----------------------------------------------------------------
-// Section header
-// -----------------------------------------------------------------
 @Composable
 private fun SectionHeader(title: String) {
     Text(
@@ -95,25 +113,16 @@ private fun SectionHeader(title: String) {
     )
 }
 
-// -----------------------------------------------------------------
-// Toggle row
-// -----------------------------------------------------------------
 @Composable
-private fun ToggleRow(
-    icon: ImageVector,
-    label: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit
-) {
+private fun ToggleRow(icon: ImageVector, label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .background(SurfaceDark, RoundedCornerShape(10.dp))
-            .padding(horizontal = 14.dp, vertical = 12.dp)
-            .padding(bottom = 6.dp),
+            .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(20.dp))
+        Icon(icon, null, tint = TextSecondary, modifier = Modifier.size(20.dp))
         Spacer(modifier = Modifier.width(12.dp))
         Text(label, fontSize = 14.sp, color = TextPrimary, modifier = Modifier.weight(1f))
         Switch(
@@ -130,9 +139,6 @@ private fun ToggleRow(
     Spacer(modifier = Modifier.height(6.dp))
 }
 
-// -----------------------------------------------------------------
-// Info row (read-only)
-// -----------------------------------------------------------------
 @Composable
 private fun InfoRow(icon: ImageVector, label: String, value: String) {
     Row(
@@ -142,7 +148,7 @@ private fun InfoRow(icon: ImageVector, label: String, value: String) {
             .padding(horizontal = 14.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(20.dp))
+        Icon(icon, null, tint = TextSecondary, modifier = Modifier.size(20.dp))
         Spacer(modifier = Modifier.width(12.dp))
         Text(label, fontSize = 14.sp, color = TextPrimary, modifier = Modifier.weight(1f))
         Text(value, fontSize = 13.sp, color = TextSecondary)
@@ -150,9 +156,6 @@ private fun InfoRow(icon: ImageVector, label: String, value: String) {
     Spacer(modifier = Modifier.height(6.dp))
 }
 
-// -----------------------------------------------------------------
-// Action row (tappable)
-// -----------------------------------------------------------------
 @Composable
 private fun ActionRow(icon: ImageVector, label: String, color: Color, onClick: () -> Unit) {
     Row(
@@ -163,7 +166,7 @@ private fun ActionRow(icon: ImageVector, label: String, color: Color, onClick: (
             .padding(horizontal = 14.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(20.dp))
+        Icon(icon, null, tint = color, modifier = Modifier.size(20.dp))
         Spacer(modifier = Modifier.width(12.dp))
         Text(label, fontSize = 14.sp, color = color, fontWeight = FontWeight.SemiBold)
     }

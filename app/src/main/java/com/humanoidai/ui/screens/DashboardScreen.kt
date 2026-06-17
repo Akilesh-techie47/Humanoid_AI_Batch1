@@ -7,6 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -16,76 +17,98 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.humanoidai.navigation.NavRoutes
-import com.humanoidai.ui.components.BottomNavBar
+import com.humanoidai.ui.components.SidePanelDrawer
 import com.humanoidai.ui.theme.*
+import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(navController: NavController) {
-    Scaffold(
-        bottomBar = { BottomNavBar(navController) },
-        containerColor = BackgroundDark
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp)
-        ) {
-            // Header
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
+
+    SidePanelDrawer(
+        navController = navController,
+        drawerState = drawerState
+    ) {
+        Scaffold(
+            containerColor = BackgroundDark,
+            topBar = {
+                CenterAlignedTopAppBar(
+                    title = {
+                        Text("DASHBOARD", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AccentCyan)
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                            Icon(Icons.Default.Menu, "Menu", tint = Color.White)
+                        }
+                    },
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
+                )
+            }
+        ) { padding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .verticalScroll(rememberScrollState())
+                    .padding(16.dp)
             ) {
-                Column {
-                    Text("Humanoid AI", fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold, color = TextPrimary)
-                    Text("System Active", fontSize = 13.sp, color = AlertGreen)
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("Welcome Back", fontSize = 24.sp,
+                            fontWeight = FontWeight.Bold, color = TextPrimary)
+                        Text("System Active", fontSize = 13.sp, color = AlertGreen)
+                    }
+                    Icon(Icons.Default.AccountCircle, contentDescription = null,
+                        tint = AccentCyan, modifier = Modifier.size(40.dp))
                 }
-                Icon(Icons.Default.AccountCircle, contentDescription = null,
-                    tint = AccentCyan, modifier = Modifier.size(40.dp))
-            }
 
-            Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(20.dp))
 
-            // Status Cards Row
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                StatusCard("Users", "2", Icons.Default.People, AlertGreen, Modifier.weight(1f))
-                StatusCard("Alerts", "3", Icons.Default.Warning, AlertOrange, Modifier.weight(1f))
-                StatusCard("AI", "ON", Icons.Default.SmartToy, PrimaryBlue, Modifier.weight(1f))
-            }
+                // Status Cards Row
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    StatusCard("Users", "2", Icons.Default.People, AlertGreen, Modifier.weight(1f))
+                    StatusCard("Alerts", "3", Icons.Default.Warning, AlertOrange, Modifier.weight(1f))
+                    StatusCard("AI", "ON", Icons.Default.SmartToy, PrimaryBlue, Modifier.weight(1f))
+                }
 
-            Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(20.dp))
 
-            // Quick Actions
-            Text("Quick Actions", fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold, color = TextPrimary)
-            Spacer(Modifier.height(10.dp))
+                // Quick Actions
+                Text("Quick Actions", fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                Spacer(Modifier.height(10.dp))
 
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                QuickActionCard("Camera", Icons.Default.Videocam,
-                    Modifier.weight(1f)) { navController.navigate(NavRoutes.ENVIRONMENT) }
-                QuickActionCard("Recognize", Icons.Default.Face,
-                    Modifier.weight(1f)) { navController.navigate(NavRoutes.RECOGNITION) }
-                QuickActionCard("Analytics", Icons.Default.Analytics,
-                    Modifier.weight(1f)) { navController.navigate(NavRoutes.ANALYTICS) }
-            }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    QuickActionCard("Camera", Icons.Default.Videocam,
+                        Modifier.weight(1f)) { navController.navigate(NavRoutes.ENVIRONMENT) }
+                    QuickActionCard("Recognize", Icons.Default.Face,
+                        Modifier.weight(1f)) { navController.navigate(NavRoutes.RECOGNITION) }
+                    QuickActionCard("Analytics", Icons.Default.Analytics,
+                        Modifier.weight(1f)) { navController.navigate(NavRoutes.ANALYTICS) }
+                }
 
-            Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(20.dp))
 
-            // Recent Events
-            Text("Recent Events", fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold, color = TextPrimary)
-            Spacer(Modifier.height(10.dp))
+                // Recent Events
+                Text("Recent Events", fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                Spacer(Modifier.height(10.dp))
 
-            listOf(
-                Triple("User Detected", "2 min ago", AlertGreen),
-                Triple("Meeting Reminder", "15 min ago", AlertOrange),
-                Triple("Motion Alert", "1 hr ago", AlertRed),
-            ).forEach { (title, time, color) ->
-                EventRow(title, time, color)
-                Spacer(Modifier.height(8.dp))
+                listOf(
+                    Triple("User Detected", "2 min ago", AlertGreen),
+                    Triple("Meeting Reminder", "15 min ago", AlertOrange),
+                    Triple("Motion Alert", "1 hr ago", AlertRed),
+                ).forEach { (title, time, color) ->
+                    EventRow(title, time, color)
+                    Spacer(Modifier.height(8.dp))
+                }
             }
         }
     }

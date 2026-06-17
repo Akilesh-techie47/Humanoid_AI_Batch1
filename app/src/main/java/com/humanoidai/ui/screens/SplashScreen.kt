@@ -12,15 +12,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.humanoidai.ml.OwnerEnrollmentManager
 import com.humanoidai.navigation.NavRoutes
 import com.humanoidai.ui.theme.*
 import kotlinx.coroutines.delay
 
 @Composable
-fun SplashScreen(navController: NavController) {
+fun SplashScreen(navController: NavController, ownerManager: OwnerEnrollmentManager) {
     LaunchedEffect(Unit) {
         delay(2000) // Show for 2 seconds
-        navController.navigate(NavRoutes.DASHBOARD) {
+        val target = if (ownerManager.isOwnerEnrolled()) NavRoutes.ENVIRONMENT else NavRoutes.OWNER_ENROLLMENT
+        navController.navigate(target) {
             popUpTo(NavRoutes.SPLASH) { inclusive = true }
         }
     }
