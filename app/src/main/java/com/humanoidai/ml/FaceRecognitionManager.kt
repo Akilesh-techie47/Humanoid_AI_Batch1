@@ -20,7 +20,7 @@ class FaceRecognitionManager {
         // Cosine similarity threshold — tune this after testing:
         // Higher = stricter matching (fewer false positives)
         // Lower  = more lenient (more false positives)
-        private const val SIMILARITY_THRESHOLD = 0.75f
+        private const val SIMILARITY_THRESHOLD = 0.87f
     }
 
     // Registry: person name → their face embedding

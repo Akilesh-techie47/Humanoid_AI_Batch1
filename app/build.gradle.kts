@@ -97,6 +97,8 @@ dependencies {
     implementation(libs.mlkit.face.detection)
     implementation(libs.tensorflow.lite)
 
+    implementation(libs.gson)
+
     // Testing
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

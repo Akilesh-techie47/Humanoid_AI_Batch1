@@ -73,14 +73,34 @@ class RoiOverlayView @JvmOverloads constructor(
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
 
+        val viewWidth  = width.toFloat()
+        val viewHeight = height.toFloat()
+
+        if (viewWidth == 0f || viewHeight == 0f) return
+
         persons.forEach { person ->
-            val box = person.boundingBox
+            val raw = person.boundingBox
+
+            // Scale normalized (0..1) coordinates to view pixels
+            val box = RectF(
+                raw.left   * viewWidth,
+                raw.top    * viewHeight,
+                raw.right  * viewWidth,
+                raw.bottom * viewHeight
+            )
+
+            // Skip boxes that are too small (noise/artifacts)
+            if (box.width() < 20f || box.height() < 20f) return@forEach
 
             if (person.isPrimary) {
-                drawHeatmap(canvas, person)
+                drawHeatmap(canvas, person, box)
                 drawCornerBrackets(canvas, box, roiPaint)
                 drawDashedBox(canvas, box)
-                drawLabel(canvas, box, "${person.name} · ${(person.confidence * 100).toInt()}%", labelTextPaint)
+                drawLabel(
+                    canvas, box,
+                    "${person.name} · ${(person.confidence * 100).toInt()}%",
+                    labelTextPaint
+                )
             } else {
                 drawCornerBrackets(canvas, box, unknownPaint)
                 drawUnknownFill(canvas, box)
@@ -115,16 +135,15 @@ class RoiOverlayView @JvmOverloads constructor(
         canvas.drawRect(box, dashedPaint)
     }
 
-    private fun drawHeatmap(canvas: Canvas, person: DetectedPerson) {
-        // Generate heatmap zones around detected face center
-        val cx = person.boundingBox.centerX()
-        val cy = person.boundingBox.top + person.boundingBox.height() * 0.25f
+    private fun drawHeatmap(canvas: Canvas, person: DetectedPerson, box: RectF) {
+        val cx = box.centerX()
+        val cy = box.top + box.height() * 0.25f
 
         val zones = listOf(
-            Triple(cx, cy, 60f) to 0.35f,
-            Triple(cx, cy + 40f, 100f) to 0.20f,
-            Triple(cx - 20f, cy + 80f, 140f) to 0.12f,
-            Triple(cx + 10f, cy + 120f, 180f) to 0.07f,
+            Triple(cx, cy, box.height() * 0.3f) to 0.35f,
+            Triple(cx, cy + box.height() * 0.1f, box.height() * 0.5f) to 0.20f,
+            Triple(cx - 20f, cy + box.height() * 0.2f, box.height() * 0.7f) to 0.12f,
+            Triple(cx + 10f, cy + box.height() * 0.3f, box.height() * 0.9f) to 0.07f,
         )
 
         zones.forEach { (zone, alpha) ->
@@ -139,7 +158,10 @@ class RoiOverlayView @JvmOverloads constructor(
             canvas.drawCircle(x, y, r, heatPaint)
         }
     }
-
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        invalidate()
+    }
     private fun drawUnknownFill(canvas: Canvas, box: RectF) {
         val fillPaint = Paint().apply {
             color = Color.argb(30, 239, 68, 68)
