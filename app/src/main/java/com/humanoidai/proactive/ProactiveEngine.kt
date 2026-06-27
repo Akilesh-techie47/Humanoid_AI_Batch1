@@ -19,15 +19,15 @@ class ProactiveEngine(
         if (now - lastProactiveTime < PROACTIVE_COOLDOWN) return
 
         // 1. Alert Proactivity
-        if (context.currentAlerts > 0) {
+        if (context.recentAlerts.isNotEmpty()) {
             onActionRequired("Security alert active. I am monitoring the unknown subject.")
             lastProactiveTime = now
             return
         }
 
         // 2. Battery Proactivity
-        if (context.batteryLevel in 1..15) {
-            onActionRequired("Battery is low at ${context.batteryLevel}%. Please connect to power.")
+        if (context.batteryPercent in 1..15) {
+            onActionRequired("Battery is low at ${context.batteryPercent}%. Please connect to power.")
             lastProactiveTime = now
             return
         }

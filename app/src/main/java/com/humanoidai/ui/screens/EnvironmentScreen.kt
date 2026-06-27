@@ -1,9 +1,5 @@
 package com.humanoidai.ui.screens
 
-import kotlinx.coroutines.delay
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import android.view.OrientationEventListener
 import android.view.Surface
 import android.view.WindowManager
@@ -14,14 +10,16 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -44,6 +42,7 @@ import com.humanoidai.vision.*
 import com.humanoidai.ml.*
 import com.humanoidai.ui.components.*
 import com.humanoidai.ui.theme.*
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.concurrent.Executors
 
@@ -59,7 +58,7 @@ fun EnvironmentScreen(
     companionEngine: com.humanoidai.companion.CompanionEngine,
     contextEngine: com.humanoidai.context.ContextEngine,
     voiceEngine: com.humanoidai.voice.VoiceEngine,
-    microphoneManager: com.humanoidai.hearing.MicrophoneManager,
+    microphoneManager: com.humanoidai.hearing.SpeechRecognizerManager,
     attentionManager: com.humanoidai.attention.AttentionManager
 ) {
     val context = LocalContext.current
@@ -68,7 +67,19 @@ fun EnvironmentScreen(
     val scope = rememberCoroutineScope()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
 
+    // Permission Launcher
+    val recordAudioPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            // Permission granted, can start listening
+        } else {
+            // Handle permission denied
+        }
+    }
+
     // AI & Conversation State
+    val currentContext by contextEngine.currentContext.collectAsState()
     val messages by aiManager.getMessages().collectAsState()
     val aiState by aiManager.aiState.collectAsState()
     val isListening by microphoneManager.isListening.collectAsState()
@@ -239,204 +250,189 @@ fun EnvironmentScreen(
         Scaffold(
             containerColor = Color(0xFF020408),
             topBar = {
-                CenterAlignedTopAppBar(
-                    title = {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
-                        ) {
-                            Text("HUMANOID AI", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AccentCyan)
-                            Spacer(Modifier.width(8.dp))
-                            Box(Modifier.size(6.dp).background(if(isAlerting) Color.Red else AlertGreen, CircleShape))
-                            
-                            Spacer(Modifier.weight(1f))
-                            
-                            Column(horizontalAlignment = Alignment.End) {
-                                Text("FOCUS", fontSize = 9.sp, color = TextSecondary)
-                                Text(attentionFocus.name, fontSize = 10.sp, color = AccentCyan, fontWeight = FontWeight.Bold)
-                            }
-                            
-                            Spacer(Modifier.width(12.dp))
-                            
-                            Column(horizontalAlignment = Alignment.End) {
-                                Text("STATUS", fontSize = 9.sp, color = TextSecondary)
-                                Text(aiStatusText, fontSize = 10.sp, color = Color.White.copy(alpha = 0.6f))
-                            }
-                        }
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                Surface(color = Color.Black.copy(alpha = 0.8f), border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.05f))) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(onClick = { scope.launch { drawerState.open() } }, modifier = Modifier.size(24.dp)) {
                             Icon(Icons.Default.Menu, "Menu", tint = Color.White)
                         }
-                    },
-                    actions = {
+                        Spacer(Modifier.width(16.dp))
+                        Text("HUMANOID AI", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = AccentCyan)
+                        Spacer(Modifier.width(8.dp))
+                        Box(Modifier.size(6.dp).background(if(isAlerting) Color.Red else AlertGreen, CircleShape))
+                        
+                        Spacer(Modifier.weight(1f))
+                        
+                        Text(
+                            text = attentionFocus.name,
+                            fontSize = 10.sp,
+                            color = AccentCyan,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        
+                        Spacer(Modifier.width(16.dp))
+                        
                         IconButton(onClick = {
                             lensFacing = if (lensFacing == CameraSelector.LENS_FACING_BACK)
                                 CameraSelector.LENS_FACING_FRONT else CameraSelector.LENS_FACING_BACK
-                        }) {
+                        }, modifier = Modifier.size(24.dp)) {
                             Icon(Icons.Default.Cameraswitch, "Switch", tint = Color.White)
-                        }
-                    },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
-                )
-            },
-        bottomBar = {
-            Column(modifier = Modifier.background(Color.Black.copy(alpha = 0.5f))) {
-                // Message List (Condensed)
-                if (messages.isNotEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 160.dp)
-                            .padding(horizontal = 16.dp)
-                            .background(Color.Black.copy(alpha = 0.2f))
-                    ) {
-                        LazyColumn(
-                            state = listState,
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
-                            contentPadding = PaddingValues(vertical = 8.dp)
-                        ) {
-                            items(messages) { msg ->
-                                UnifiedChatBubble(msg.text, msg.isUser)
-                            }
                         }
                     }
                 }
-
-                Box(modifier = Modifier.fillMaxWidth().padding(8.dp)) {
-                    Text(
-                        text = "AI VISION: $roomDescription",
-                        color = AccentCyan,
-                        fontSize = 10.sp,
-                        fontFamily = FontFamily.Monospace,
-                        modifier = Modifier.align(Alignment.Center)
-                    )
-                }
-                
-                UnifiedChatInputBar(
-                    value = inputText,
-                    onValueChange = { inputText = it },
+            },
+            bottomBar = {
+                UnifiedChatSection(
+                    messages = messages,
+                    listState = listState,
+                    inputText = inputText,
+                    onInputChanged = { inputText = it },
+                    isListening = isListening,
+                    roomDescription = roomDescription,
                     onSend = {
                         val q = inputText
                         inputText = ""
-                        scope.launch {
-                            aiManager.ask(q, ownerName, "Home")
-                        }
+                        scope.launch { aiManager.ask(q, ownerName, "Home") }
                     },
-                    isListening = isListening,
                     onMicClick = {
-                        if (isListening) {
-                            microphoneManager.stopListening()
-                        } else {
-                            microphoneManager.startListening(
-                                onPartialResult = { inputText = it },
-                                onFinalResult = { final ->
-                                    inputText = ""
-                                    scope.launch {
-                                        aiManager.ask(final, ownerName, "Home")
-                                        
-                                        // Auto-restart passive listening after a short delay to allow TTS to finish
-                                        delay(3000)
-                                        microphoneManager.startPassiveListening {
-                                            voiceEngine.speak("I'm listening.")
+                        if (com.humanoidai.permission.PermissionManager.hasRecordAudioPermission(context)) {
+                            if (isListening) {
+                                microphoneManager.stopListening()
+                            } else {
+                                microphoneManager.startListening(
+                                    onPartialResult = { inputText = it },
+                                    onFinalResult = { final ->
+                                        inputText = ""
+                                        scope.launch {
+                                            aiManager.ask(final, ownerName, "Home")
+                                            delay(2500)
+                                            microphoneManager.startPassiveListening { voiceEngine.speak("I'm listening.") }
                                         }
                                     }
-                                }
-                            )
+                                )
+                            }
+                        } else {
+                            recordAudioPermissionLauncher.launch(com.humanoidai.permission.PermissionManager.RECORD_AUDIO_PERMISSION)
                         }
                     }
                 )
             }
-        }
         ) { padding ->
             Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-                Column(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    // ---- The Central Hub ----
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                        contentAlignment = Alignment.TopCenter
-                    ) {
-                        // 1. Circular Camera Feed
+                // Background Hub Elements
+                Column(modifier = Modifier.fillMaxSize()) {
+                    Spacer(Modifier.height(40.dp))
+                    
+                    // Central Camera Hub
+                    Box(modifier = Modifier.fillMaxWidth().weight(1.2f), contentAlignment = Alignment.Center) {
                         Box(
                             modifier = Modifier
-                                .padding(top = 20.dp)
                                 .size(240.dp)
                                 .clip(CircleShape)
                                 .background(Color.Black)
-                                .border(1.5.dp, if (isAlerting) Color.Red else AccentCyan.copy(alpha = 0.4f), CircleShape)
+                                .border(2.dp, if (isAlerting) Color.Red else AccentCyan.copy(alpha = 0.3f), CircleShape)
                         ) {
                             AndroidView(
                                 factory = { ctx -> PreviewView(ctx).also { previewView = it } },
                                 modifier = Modifier.fillMaxSize()
                             )
                         }
-
-                        // ROI Data extraction
-                        val ownerName = ownerManager.getOwnerName()
-                        val primaryPerson = detectedPersons.find { it.isPrimary }
-                        val others = detectedPersons.filter { !it.isPrimary }.take(2)
-
-                        // 2. Main Person ROI (Straight Down)
-                        primaryPerson?.let {
-                            Box(
-                                modifier = Modifier
-                                    .padding(top = 260.dp)
-                                    .align(Alignment.TopCenter)
-                            ) {
-                                PersonRoiCard(
-                                    person = it,
-                                    priority = 1.0f,
-                                    totalCount = detectedPersons.size,
-                                    isOwner = it.name == ownerName,
-                                    shape = TrapezoidShape(percent = 15f)
-                                )
-                            }
-                        }
-
-                        // 3. Secondary Person (Left Wing)
-                        if (others.isNotEmpty()) {
-                            Box(
-                                modifier = Modifier
-                                    .padding(top = 70.dp, end = 210.dp)
-                                    .align(Alignment.TopCenter)
-                                    .graphicsLayer { rotationZ = -15f }
-                            ) {
-                                PersonRoiCard(
-                                    person = others[0],
-                                    priority = 0.65f,
-                                    totalCount = detectedPersons.size,
-                                    isOwner = others[0].name == ownerName,
-                                    shape = SlantedTrapezoidShape(slantPercent = 20f, isLeft = true)
-                                )
-                            }
-                        }
-
-                        // 4. Secondary Person (Right Wing)
-                        if (others.size > 1) {
-                            Box(
-                                modifier = Modifier
-                                    .padding(top = 70.dp, start = 210.dp)
-                                    .align(Alignment.TopCenter)
-                                    .graphicsLayer { rotationZ = 15f }
-                            ) {
-                                PersonRoiCard(
-                                    person = others[1],
-                                    priority = 0.65f,
-                                    totalCount = detectedPersons.size,
-                                    isOwner = others[1].name == ownerName,
-                                    shape = SlantedTrapezoidShape(slantPercent = 20f, isLeft = false)
-                                )
+                        
+                        // ROI Cards
+                        val primary = detectedPersons.find { it.isPrimary }
+                        
+                        primary?.let {
+                            Box(modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 0.dp)) {
+                                PersonRoiCard(it, 1.0f, detectedPersons.size, it.name == ownerName, TrapezoidShape(15f))
                             }
                         }
                     }
+
+                    // Side Panels & Stats
+                    Row(
+                        modifier = Modifier.fillMaxWidth().weight(1f).padding(horizontal = 24.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Left Panel: Person Count & State
+                        Column(horizontalAlignment = Alignment.Start) {
+                            Text("PERSONS", fontSize = 9.sp, color = TextSecondary)
+                            Text("${detectedPersons.size}", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            Spacer(Modifier.height(8.dp))
+                            Text(aiStatusText, fontSize = 10.sp, color = AccentCyan.copy(alpha = 0.8f))
+                        }
+
+                        // Right Panel: Environment Stats
+                        Column(horizontalAlignment = Alignment.End) {
+                            StatMiniItem("BATTERY", "${currentContext.batteryPercent}%", Icons.Default.BatteryChargingFull)
+                            Spacer(Modifier.height(12.dp))
+                            StatMiniItem("NOISE", "${currentContext.noiseLevel.toInt()} dB", Icons.Default.GraphicEq)
+                            Spacer(Modifier.height(12.dp))
+                            StatMiniItem("LIGHT", "NORMAL", Icons.Default.LightMode)
+                        }
+                    }
+                    
+                    Spacer(Modifier.height(80.dp)) // Leave room for chat
                 }
             }
         }
+    }
+}
+
+@Composable
+fun StatMiniItem(label: String, value: String, icon: ImageVector) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(horizontalAlignment = Alignment.End) {
+            Text(label, fontSize = 8.sp, color = TextSecondary)
+            Text(value, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+        }
+        Spacer(Modifier.width(8.dp))
+        Icon(icon, null, tint = AccentCyan, modifier = Modifier.size(14.dp))
+    }
+}
+
+@Composable
+fun UnifiedChatSection(
+    messages: List<com.humanoidai.ai.ChatMessage>,
+    listState: LazyListState,
+    inputText: String,
+    onInputChanged: (String) -> Unit,
+    isListening: Boolean,
+    roomDescription: String,
+    onSend: () -> Unit,
+    onMicClick: () -> Unit
+) {
+    Column(modifier = Modifier.background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black)))) {
+        // Message Scroll
+        if (messages.isNotEmpty()) {
+            Box(modifier = Modifier.heightIn(max = 140.dp).fillMaxWidth().padding(horizontal = 16.dp)) {
+                LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    items(messages) { msg -> UnifiedChatBubble(msg.text, msg.isUser) }
+                }
+            }
+        }
+
+        // Context Bar
+        Box(modifier = Modifier.fillMaxWidth().background(Color.Black.copy(alpha = 0.6f)).padding(vertical = 4.dp)) {
+            Text(
+                "AI VISION: $roomDescription",
+                color = AccentCyan, fontSize = 9.sp,
+                fontFamily = FontFamily.Monospace,
+                modifier = Modifier.align(Alignment.Center)
+            )
+        }
+
+        // Input Bar
+        UnifiedChatInputBar(
+            value = inputText,
+            onValueChange = onInputChanged,
+            onSend = onSend,
+            isListening = isListening,
+            onMicClick = onMicClick
+        )
     }
 }
 
@@ -493,60 +489,6 @@ fun PersonRoiCard(
             color = TextSecondary,
             fontFamily = FontFamily.Monospace
         )
-    }
-}
-
-@Composable
-fun HudChatBottomSection(persons: List<DetectedPerson>) {
-    Column(modifier = Modifier.background(Color(0xFF05070A))) {
-        // Suggestion Chips
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            ContextChip(text = "${persons.size} People", icon = Icons.Default.Groups, color = AccentCyan)
-            ContextChip(text = "Ask about this person", icon = Icons.Default.ChatBubbleOutline, color = Color.White.copy(alpha = 0.6f))
-            ContextChip(text = "Summarize room", icon = Icons.Default.AutoAwesome, color = Color.White.copy(alpha = 0.6f))
-        }
-
-        // Chat Box
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 16.dp, end = 16.dp, bottom = 12.dp)
-                .background(Color(0xFF0D141F).copy(alpha = 0.8f), RoundedCornerShape(28.dp))
-                .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(28.dp))
-                .padding(horizontal = 16.dp, vertical = 8.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                IconButton(onClick = {}, modifier = Modifier.size(32.dp)) {
-                    Icon(Icons.Default.Add, null, tint = Color.White.copy(alpha = 0.6f))
-                }
-                
-                Text(
-                    "Ask me anything...", 
-                    color = TextSecondary, 
-                    fontSize = 14.sp,
-                    modifier = Modifier.weight(1f)
-                )
-                
-                IconButton(
-                    onClick = {}, 
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(AccentCyan)
-                ) {
-                    Icon(Icons.Default.Mic, null, tint = Color.Black, modifier = Modifier.size(20.dp))
-                }
-            }
-        }
     }
 }
 

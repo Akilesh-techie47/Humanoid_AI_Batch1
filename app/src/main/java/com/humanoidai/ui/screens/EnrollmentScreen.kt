@@ -44,7 +44,7 @@ fun EnrollmentScreen(
     navController: NavController,
     enrollmentManager: FaceEnrollmentManager,
     recognitionManager: FaceRecognitionManager,
-    microphoneManager: com.humanoidai.hearing.MicrophoneManager,
+    microphoneManager: com.humanoidai.hearing.SpeechRecognizerManager,
     voiceEngine: com.humanoidai.voice.VoiceEngine
 ) {
     val context        = LocalContext.current

@@ -1,110 +1,97 @@
 package com.humanoidai.companion
 
 import android.content.Context
-import com.humanoidai.ai.AIManager
-import com.humanoidai.alerts.AlertEngine
-import com.humanoidai.ml.FaceEnrollmentManager
-import com.humanoidai.ml.FaceRecognitionManager
-import com.humanoidai.ml.OwnerEnrollmentManager
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.humanoidai.context.CurrentContext
+import com.humanoidai.voice.TTSManager
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.*
 
 /**
- * The central hub for the Humanoid AI Companion.
- * Coordinates vision, hearing, context, and proactive behavior.
+ * Master lifecycle controller. Owns the observe -> listen -> understand -> decide -> speak loop.
  */
 class CompanionEngine(
     private val context: Context,
-    private val aiManager: AIManager,
-    private val ownerManager: OwnerEnrollmentManager,
-    private val enrollmentManager: FaceEnrollmentManager,
-    private val recognitionManager: FaceRecognitionManager,
-    private val alertEngine: AlertEngine,
+    private val ttsManager: TTSManager,
     private val contextEngine: com.humanoidai.context.ContextEngine,
-    private val attentionManager: com.humanoidai.attention.AttentionManager,
-    private val microphoneManager: com.humanoidai.hearing.MicrophoneManager,
-    private val voiceEngine: com.humanoidai.voice.VoiceEngine
-) {
-    private val _state = MutableStateFlow(CompanionState.SLEEPING)
+    private val microphoneManager: com.humanoidai.hearing.SpeechRecognizerManager
+) : ViewModel() {
+
+    private val _state = MutableStateFlow<CompanionState>(CompanionState.SLEEPING)
     val state: StateFlow<CompanionState> = _state.asStateFlow()
 
-    private val greetingSystem = GreetingSystem(ownerManager)
-    
-    // New Architectural Engines (Phase 12 Integration)
-    private val conversationEngine = com.humanoidai.conversation.ConversationEngine(kotlinx.coroutines.MainScope())
-    private val longTermMemory = com.humanoidai.memory.LongTermMemory(context)
-    private val proactiveEngine = com.humanoidai.proactive.ProactiveEngine(longTermMemory) { message ->
-        voiceEngine.speak(message)
-    }
+    private val _contextFlow = contextEngine.currentContext
+    val contextFlow: StateFlow<com.humanoidai.context.CurrentContext> = _contextFlow
 
-    // BDI Engine Components
+    // BDI Engine (Milestone C10)
     private val beliefEngine = com.humanoidai.bdi.BeliefEngine()
     private val desireEngine = com.humanoidai.bdi.DesireEngine()
     private val intentionEngine = com.humanoidai.bdi.IntentionEngine()
 
-    suspend fun initialize() {
-        _state.value = CompanionState.WAKING_UP
-        
-        // Initial context update
-        contextEngine.updateOwner(ownerManager.getOwnerName())
-        contextEngine.updateAlerts(alertEngine.unreadCount.value)
+    private var loopJob: Job? = null
 
-        val greeting = greetingSystem.generateGreeting()
-        voiceEngine.speak(greeting)
-
-        _state.value = CompanionState.IDLE
+    fun wake() {
+        if (_state.value != CompanionState.SLEEPING) return
         
-        startCompanionLoop()
-        
-        // Start Passive Listening for wake word
-        startPassiveListening()
-    }
-
-    private fun startPassiveListening() {
-        microphoneManager.startPassiveListening {
-            // Wake word detected!
-            _state.value = CompanionState.LISTENING
-            voiceEngine.speak("I'm listening.")
+        viewModelScope.launch {
+            _state.value = CompanionState.WAKING
             
-            // In a real flow, we'd then trigger startListening with prompt callbacks.
-            // For now, we transition state and the UI/Companion loop handles the rest.
+            // Initialise TTS
+            ttsManager.initialize()
+            
+            _state.value = CompanionState.OBSERVING
+            
+            // Start Master Loop
+            startCompanionLoop()
+            
+            // Start Passive Listening (Hotword Detection)
+            microphoneManager.startPassiveListening {
+                _state.value = CompanionState.LISTENING
+                ttsManager.speak("I'm listening.")
+            }
+            
+            // Initial Greeting
+            ttsManager.speak("Systems initialized. Humanoid AI is online.")
         }
     }
 
     private fun startCompanionLoop() {
-        kotlinx.coroutines.MainScope().launch {
-            while (true) {
-                val context = contextEngine.currentContext.value
+        loopJob?.cancel()
+        loopJob = viewModelScope.launch(Dispatchers.Default) {
+            while (isActive) {
+                val context = contextFlow.value
                 
-                // 1. Attention Manager
-                attentionManager.evaluate(context)
+                // 1. OBSERVE (Updated via contextEngine)
                 
-                // 2. BDI Decision Cycle
+                // 2. LISTEN (Updated via contextEngine/microphoneManager)
+                
+                // 3. UNDERSTAND (BDI Step 1: Update Beliefs)
                 val beliefs = beliefEngine.updateBeliefs(context)
+                
+                // 4. DECIDE (BDI Step 2 & 3: Generate Desires & Intentions)
                 val desires = desireEngine.generateDesires(beliefs)
                 val intention = intentionEngine.determineIntention(desires, beliefs)
                 
-                // 3. Proactive Execution
+                // 5. SPEAK IF NEEDED
                 if (intention != null) {
-                    proactiveEngine.evaluate(context)
+                    // Logic to fulfill intention
                 }
                 
-                delay(2000) // Heartbeat every 2 seconds
+                delay(1500) // Reduced frequency to 1.5s to prevent UI stutter
             }
         }
     }
 
-    fun wakeUp() {
-        _state.value = CompanionState.IDLE
-    }
-
     fun sleep() {
+        loopJob?.cancel()
         _state.value = CompanionState.SLEEPING
     }
 
-    fun updateState(newState: CompanionState) {
-        _state.value = newState
+    override fun onCleared() {
+        super.onCleared()
+        ttsManager.shutdown()
     }
 }

@@ -39,8 +39,8 @@ class FaceAnalyzer(
     @SuppressLint("UnsafeOptInUsageError")
     override fun analyze(imageProxy: ImageProxy) {
         frameCount++
-        // Throttle for stability on table
-        if (frameCount % 3 != 0) {
+        // Throttle significantly to 1 frame per 5 to save CPU for AI/Hearing
+        if (frameCount % 5 != 0) {
             imageProxy.close()
             return
         }

@@ -1,24 +1,30 @@
 package com.humanoidai.context
 
+import com.humanoidai.companion.CompanionState
+import com.humanoidai.ai.ChatMessage
+
 /**
- * Snapshot of the application and environment state for the Humanoid AI Companion.
- * Everything in the app updates this shared state.
+ * The single source of truth for the entire Companion Engine.
+ * Every sensor writes to it. Gemini reads from it.
  */
 data class CurrentContext(
     val ownerName: String = "Unknown",
-    val visiblePeople: List<String> = emptyList(),
-    val primaryPerson: String? = null,
+    val ownerPresent: Boolean = false,
+    val ownerLastSeenAt: Long = 0L,
+    val visiblePeople: List<PersonContext> = emptyList(),
+    val primarySubject: PersonContext? = null,
     val unknownCount: Int = 0,
-    val time: String = "",
-    val date: String = "",
-    val batteryLevel: Int = -1,
-    val cameraState: String = "Inactive",
-    val currentAlerts: Int = 0,
-    val environment: String = "Indoor",
-    val activity: String = "Idle",
-    val currentScreen: String = "None",
-    val noiseLevel: String = "Quiet",
-    val brightness: String = "Normal",
-    val weather: String = "Unknown",
-    val lastConversationSnippet: String? = null
+    val conversationHistory: List<ChatMessage> = emptyList(),
+    val lastSpokenAt: Long = 0L,
+    val batteryPercent: Int = -1,
+    val isCharging: Boolean = false,
+    val ambientLight: Float = -1f,
+    val noiseLevel: Float = -1f,
+    val currentTime: String = "",
+    val currentDate: String = "",
+    val upcomingEvents: List<String> = emptyList(), // Placeholder for Calendar Events
+    val recentAlerts: List<String> = emptyList(),   // Placeholder for Alert Items
+    val companionState: CompanionState = CompanionState.SLEEPING,
+    val lastWakeWordAt: Long = 0L,
+    val activeConversation: Boolean = false
 )

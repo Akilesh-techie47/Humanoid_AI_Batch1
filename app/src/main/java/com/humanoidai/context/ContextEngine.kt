@@ -20,31 +20,37 @@ class ContextEngine(private val context: Context) {
     private val _currentContext = MutableStateFlow(CurrentContext())
     val currentContext: StateFlow<CurrentContext> = _currentContext.asStateFlow()
 
-    fun updateFromVision(visiblePeople: List<DetectedPerson>) {
+    fun updateFromVision(visiblePeople: List<com.humanoidai.vision.DetectedPerson>) {
         val now = Date()
         val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
         val dateFormat = SimpleDateFormat("EEEE, MMMM d, yyyy", Locale.getDefault())
 
+        val personContexts = visiblePeople.map { person ->
+            PersonContext(
+                name = person.name,
+                label = person.label,
+                confidence = person.confidence,
+                isPrimary = person.isPrimary
+            )
+        }
+
         _currentContext.value = _currentContext.value.copy(
-            visiblePeople = visiblePeople.map { it.name },
-            primaryPerson = visiblePeople.find { it.isPrimary }?.name,
+            visiblePeople = personContexts,
+            primarySubject = personContexts.find { it.isPrimary },
             unknownCount = visiblePeople.count { it.name == "UNKNOWN" },
-            time = timeFormat.format(now),
-            date = dateFormat.format(now),
-            cameraState = if (visiblePeople.isNotEmpty()) "Active - Subjects Detected" else "Active - Scanning",
-            batteryLevel = getBatteryLevel(),
-            // Mocking for now, could be linked to actual sensors
-            noiseLevel = if (visiblePeople.size > 2) "Loud" else "Quiet",
-            brightness = "Normal"
+            currentTime = timeFormat.format(now),
+            currentDate = dateFormat.format(now),
+            batteryPercent = getBatteryLevel(),
+            noiseLevel = if (visiblePeople.size > 2) 75f else 30f // Simulating noise in dB
         )
     }
 
     fun updateScreen(screenName: String) {
-        _currentContext.value = _currentContext.value.copy(currentScreen = screenName)
+        // Placeholder for screen tracking in CEA context
     }
 
     fun updateAlerts(alertCount: Int) {
-        _currentContext.value = _currentContext.value.copy(currentAlerts = alertCount)
+        // Placeholder for recent alerts list
     }
 
     fun updateOwner(name: String) {

@@ -8,6 +8,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.humanoidai.ai.AIManager
+import com.humanoidai.BuildConfig
 import com.humanoidai.alerts.AlertEngine
 import com.humanoidai.alerts.NotificationHelper
 import com.humanoidai.ml.FaceEnrollmentManager
@@ -28,9 +29,9 @@ fun NavGraph(navController: NavHostController, startDestination: String = NavRou
     val contextEngine = remember { com.humanoidai.context.ContextEngine(context) }
     val conversationMemory = remember { com.humanoidai.memory.ConversationMemory() }
     val voiceEngine = remember { com.humanoidai.voice.VoiceEngine(context) }
-    val aiManager = remember { AIManager(context, com.humanoidai.BuildConfig.GEMINI_API_KEY, contextEngine, conversationMemory, voiceEngine) }
+    val aiManager = remember { AIManager(context, BuildConfig.GEMINI_API_KEY, contextEngine, conversationMemory, voiceEngine) }
     val attentionManager = remember { com.humanoidai.attention.AttentionManager() }
-    val microphoneManager = remember { com.humanoidai.hearing.MicrophoneManager(context) }
+    val microphoneManager = remember { com.humanoidai.hearing.SpeechRecognizerManager(context) }
 
     // Alert engine — shared across EnvironmentScreen and AlertsScreen
     val alertEngine = remember {
@@ -42,21 +43,9 @@ fun NavGraph(navController: NavHostController, startDestination: String = NavRou
         )
     }
 
-    // Companion Core (Phase 1)
-    val companionEngine = remember {
-        com.humanoidai.companion.CompanionEngine(
-            context = context,
-            aiManager = aiManager,
-            ownerManager = ownerManager,
-            enrollmentManager = enrollmentManager,
-            recognitionManager = recognitionManager,
-            alertEngine = alertEngine,
-            contextEngine = contextEngine,
-            attentionManager = attentionManager,
-            microphoneManager = microphoneManager,
-            voiceEngine = voiceEngine
-        )
-    }
+    // Companion Engine Infrastructure (Milestone C1)
+    val ttsManager = remember { com.humanoidai.voice.TTSManager(context) }
+    val companionEngine = remember { com.humanoidai.companion.CompanionEngine(context, ttsManager, contextEngine, microphoneManager) }
 
     // Load saved faces on startup
     LaunchedEffect(Unit) {
@@ -65,7 +54,7 @@ fun NavGraph(navController: NavHostController, startDestination: String = NavRou
         ownerManager.getMasterEmbedding()?.let {
             recognitionManager.registerFace(ownerManager.getOwnerName(), it)
         }
-        companionEngine.initialize()
+        companionEngine.wake()
     }
 
     NavHost(navController = navController, startDestination = startDestination) {

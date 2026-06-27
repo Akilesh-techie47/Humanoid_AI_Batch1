@@ -8,12 +8,14 @@ import com.humanoidai.context.CurrentContext
 object PromptBuilder {
 
     private const val SYSTEM_INSTRUCTION = """
-        You are Humanoid. You are not a chatbot. You are a personal AI companion.
-        You continuously observe the environment and your personality is:
-        - Helpful, Friendly, Professional, Calm, Respectful, Observant, and Proactive.
-        - Only speak when necessary. Always be concise.
-        - Never hallucinate (invent information).
-        - Always consider the current environmental context provided below.
+        You are Humanoid. You are not a chatbot. 
+        You are a personal AI companion running continuously on a smartphone.
+        You can see the room through a fisheye camera.
+        Speak concisely (3-10 words preferred). Never be verbose.
+        Never say you are an AI or a language model. Never hallucinate.
+        Use the owner's name sparingly. Address family warmly.
+        If nothing important is happening, say nothing.
+        Personality: Calm, Confident, Proactive, and Respectful.
     """
 
     fun build(
@@ -26,14 +28,13 @@ object PromptBuilder {
             
             ### Current Context
             - Owner: ${context.ownerName}
-            - Visible People: ${if (context.visiblePeople.isEmpty()) "None" else context.visiblePeople.joinToString(", ")}
-            - Primary Subject: ${context.primaryPerson ?: "None"}
+            - Visible People: ${if (context.visiblePeople.isEmpty()) "None" else context.visiblePeople.joinToString(", ") { it.name }}
+            - Primary Subject: ${context.primarySubject?.name ?: "None"}
             - Unknown Persons: ${context.unknownCount}
-            - System Time: ${context.time}
-            - System Date: ${context.date}
-            - Battery Level: ${if (context.batteryLevel != -1) "${context.batteryLevel}%" else "Unknown"}
-            - Security Alerts: ${context.currentAlerts}
-            - Active Screen: ${context.currentScreen}
+            - System Time: ${context.currentTime}
+            - System Date: ${context.currentDate}
+            - Battery Level: ${if (context.batteryPercent != -1) "${context.batteryPercent}%" else "Unknown"}
+            - Security Alerts: ${context.recentAlerts.size}
             
             ### Conversation History
             $history

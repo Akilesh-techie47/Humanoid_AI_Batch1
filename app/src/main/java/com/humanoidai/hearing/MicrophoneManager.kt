@@ -10,13 +10,17 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
+import android.os.Handler
+import android.os.Looper
+
 /**
  * Manages continuous listening and wake word detection (simulated via voice activity).
  */
 class MicrophoneManager(private val context: Context) {
 
-    private val speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
+    private var speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
     private val wakeWordManager = WakeWordManager()
+    private val mainHandler = Handler(Looper.getMainLooper())
     
     private val _isListening = MutableStateFlow(false)
     val isListening: StateFlow<Boolean> = _isListening.asStateFlow()
@@ -35,9 +39,13 @@ class MicrophoneManager(private val context: Context) {
         override fun onEndOfSpeech() { _isListening.value = false }
         override fun onError(error: Int) { 
             _isListening.value = false
-            // Restart passive listening if it fails (e.g. noise or timeout)
             if (isPassiveMode) {
-                startPassiveListening(onWakeWordDetected)
+                // Schedule restart on main thread to avoid loops
+                mainHandler.postDelayed({
+                    if (isPassiveMode) {
+                        restartPassiveListening()
+                    }
+                }, 1000)
             }
         }
         override fun onResults(results: Bundle?) {
@@ -51,12 +59,11 @@ class MicrophoneManager(private val context: Context) {
                         isPassiveMode = false
                         onWakeWordDetected?.invoke()
                     } else {
-                        // Keep listening passively
-                        startPassiveListening(onWakeWordDetected)
+                        restartPassiveListening()
                     }
                 }
             } else if (isPassiveMode) {
-                startPassiveListening(onWakeWordDetected)
+                restartPassiveListening()
             }
         }
         override fun onPartialResults(partialResults: Bundle?) {}
@@ -67,60 +74,96 @@ class MicrophoneManager(private val context: Context) {
         speechRecognizer.setRecognitionListener(recognitionListener)
     }
 
+    private fun restartPassiveListening() {
+        if (!isPassiveMode) return
+        
+        mainHandler.removeCallbacksAndMessages(null)
+        mainHandler.postDelayed({
+            if (isPassiveMode) {
+                try {
+                    speechRecognizer.cancel()
+                    val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                        putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                        putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
+                        putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+                    }
+                    speechRecognizer.startListening(intent)
+                } catch (e: Exception) {
+                    recreateRecognizer()
+                }
+            }
+        }, 2000)
+    }
+
+    private fun recreateRecognizer() {
+        try {
+            speechRecognizer.destroy()
+        } catch (e: Exception) {}
+        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
+        speechRecognizer.setRecognitionListener(recognitionListener)
+        startPassiveListening(onWakeWordDetected)
+    }
+
     /**
      * Starts continuous listening for the wake word.
      */
     fun startPassiveListening(onDetected: (() -> Unit)?) {
         isPassiveMode = true
         onWakeWordDetected = onDetected
-        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
-            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+        mainHandler.post {
+            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
+                putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+            }
+            speechRecognizer.startListening(intent)
         }
-        speechRecognizer.startListening(intent)
     }
 
     fun startListening(onPartialResult: (String) -> Unit = {}, onFinalResult: (String) -> Unit = {}) {
         isPassiveMode = false
-        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
-        }
-        
-        speechRecognizer.setRecognitionListener(object : RecognitionListener {
-            override fun onReadyForSpeech(params: Bundle?) { _isListening.value = true }
-            override fun onBeginningOfSpeech() {}
-            override fun onRmsChanged(rmsdB: Float) {}
-            override fun onBufferReceived(buffer: ByteArray?) {}
-            override fun onEndOfSpeech() { _isListening.value = false }
-            override fun onError(error: Int) { _isListening.value = false }
-            override fun onResults(results: Bundle?) {
-                val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                if (!matches.isNullOrEmpty()) {
-                    val text = matches[0]
-                    _lastRecognizedText.value = text
-                    onFinalResult(text)
-                }
+        mainHandler.post {
+            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+                putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
             }
-            override fun onPartialResults(partialResults: Bundle?) {
-                val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                if (!matches.isNullOrEmpty()) {
-                    onPartialResult(matches[0])
+            
+            speechRecognizer.setRecognitionListener(object : RecognitionListener {
+                override fun onReadyForSpeech(params: Bundle?) { _isListening.value = true }
+                override fun onBeginningOfSpeech() {}
+                override fun onRmsChanged(rmsdB: Float) {}
+                override fun onBufferReceived(buffer: ByteArray?) {}
+                override fun onEndOfSpeech() { _isListening.value = false }
+                override fun onError(error: Int) { _isListening.value = false }
+                override fun onResults(results: Bundle?) {
+                    val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                    if (!matches.isNullOrEmpty()) {
+                        val text = matches[0]
+                        _lastRecognizedText.value = text
+                        onFinalResult(text)
+                    }
                 }
-            }
-            override fun onEvent(eventType: Int, params: Bundle?) {}
-        })
+                override fun onPartialResults(partialResults: Bundle?) {
+                    val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                    if (!matches.isNullOrEmpty()) {
+                        onPartialResult(matches[0])
+                    }
+                }
+                override fun onEvent(eventType: Int, params: Bundle?) {}
+            })
 
-        speechRecognizer.startListening(intent)
+            speechRecognizer.startListening(intent)
+        }
     }
 
     fun stopListening() {
         isPassiveMode = false
-        speechRecognizer.stopListening()
-        // Reset listener to default
-        speechRecognizer.setRecognitionListener(recognitionListener)
+        mainHandler.post {
+            speechRecognizer.stopListening()
+            // Reset listener to default
+            speechRecognizer.setRecognitionListener(recognitionListener)
+        }
     }
 
     fun destroy() {

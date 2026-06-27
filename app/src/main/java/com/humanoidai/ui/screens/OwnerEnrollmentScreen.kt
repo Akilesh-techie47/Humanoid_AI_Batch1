@@ -48,7 +48,7 @@ fun OwnerEnrollmentScreen(
     navController: NavController,
     ownerManager: OwnerEnrollmentManager,
     recognitionManager: FaceRecognitionManager,
-    microphoneManager: com.humanoidai.hearing.MicrophoneManager,
+    microphoneManager: com.humanoidai.hearing.SpeechRecognizerManager,
     voiceEngine: com.humanoidai.voice.VoiceEngine
 ) {
     var step by remember { mutableStateOf(OwnerEnrollStep.WELCOME) }

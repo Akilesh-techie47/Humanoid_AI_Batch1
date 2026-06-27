@@ -16,7 +16,7 @@ class AttentionManager {
 
     fun evaluate(context: CurrentContext) {
         val newFocus = when {
-            context.currentAlerts > 0 -> AttentionFocus.ALERT
+            context.recentAlerts.isNotEmpty() -> AttentionFocus.ALERT
             context.unknownCount > 0 -> AttentionFocus.UNKNOWN_PERSON
             context.visiblePeople.isNotEmpty() -> AttentionFocus.SOCIAL
             else -> AttentionFocus.ENVIRONMENT
