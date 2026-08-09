@@ -101,11 +101,12 @@ fun DashboardScreen(navController: NavController) {
                     fontWeight = FontWeight.SemiBold, color = TextPrimary)
                 Spacer(Modifier.height(10.dp))
 
-                listOf(
+                listOf<Triple<String, String, Color>>(
                     Triple("User Detected", "2 min ago", AlertGreen),
                     Triple("Meeting Reminder", "15 min ago", AlertOrange),
                     Triple("Motion Alert", "1 hr ago", AlertRed),
-                ).forEach { (title, time, color) ->
+                ).forEach { event ->
+                    val (title, time, color) = event
                     EventRow(title, time, color)
                     Spacer(Modifier.height(8.dp))
                 }

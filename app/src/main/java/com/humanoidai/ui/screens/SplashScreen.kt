@@ -18,12 +18,39 @@ import com.humanoidai.ui.theme.*
 import kotlinx.coroutines.delay
 
 @Composable
-fun SplashScreen(navController: NavController, ownerManager: OwnerEnrollmentManager) {
+fun SplashScreen(
+    navController: NavController, 
+    ownerManager: OwnerEnrollmentManager,
+    authViewModel: AuthViewModel
+) {
     LaunchedEffect(Unit) {
-        delay(2000) // Show for 2 seconds
-        val target = if (ownerManager.isOwnerEnrolled()) NavRoutes.ENVIRONMENT else NavRoutes.OWNER_ENROLLMENT
-        navController.navigate(target) {
-            popUpTo(NavRoutes.SPLASH) { inclusive = true }
+        android.util.Log.d("HumanoidNav", "SplashScreen: Starting delay")
+        delay(2000) 
+        
+        try {
+            val enrolled = ownerManager.isOwnerEnrolled()
+            val voiceEnrolled = ownerManager.isVoiceEnrolled()
+            val justLoggedIn = authViewModel.consumeAuthFlag()
+            
+            android.util.Log.d("HumanoidNav", "Session Check - Enrolled: $enrolled, Voice: $voiceEnrolled, JustLoggedIn: $justLoggedIn")
+            
+            val target = when {
+                // Scenario 1: New User or No Biometrics -> Must enroll
+                !enrolled || !voiceEnrolled -> NavRoutes.OWNER_ENROLLMENT
+                
+                // Scenario 2: Manual Login just happened -> Bypass Gateway
+                justLoggedIn -> NavRoutes.ENVIRONMENT
+                
+                // Scenario 3: Normal cold start while already logged in -> Biometric Gateway
+                else -> NavRoutes.BIOMETRIC_VERIFICATION
+            }
+            
+            android.util.Log.i("HumanoidNav", "Navigating to: $target")
+            navController.navigate(target) {
+                popUpTo(NavRoutes.SPLASH) { inclusive = true }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("HumanoidNav", "Navigation failure from Splash: ${e.message}")
         }
     }
 

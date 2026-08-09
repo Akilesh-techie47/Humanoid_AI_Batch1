@@ -8,16 +8,20 @@ import kotlinx.coroutines.flow.emptyFlow
  * AI Provider implementation for Google Gemini
  */
 class GeminiProvider(private val apiKey: String) : AIProvider {
-    override val id: String = "Gemini 2.5 Flash"
+    override val id: String = "Gemini 1.5 Flash"
     
     private var model: GenerativeModel? = null
 
     override suspend fun initialize() {
-        if (model == null) {
-            model = GenerativeModel(
-                modelName = "gemini-2.5-flash",
-                apiKey = apiKey
-            )
+        try {
+            if (model == null) {
+                model = GenerativeModel(
+                    modelName = "gemini-1.5-flash",
+                    apiKey = apiKey
+                )
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("GeminiProvider", "Failed to init GenerativeModel: ${e.message}")
         }
     }
 

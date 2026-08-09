@@ -1,45 +1,58 @@
 package com.humanoidai.voice
 
 import android.content.Context
-import android.speech.tts.TextToSpeech
-import java.util.*
+import android.util.Log
 
+/**
+ * Coordinates speech generation with the BDI state and persona.
+ * Main entry point for AI vocalization.
+ */
 class VoiceEngine(context: Context) {
-    private var tts: TextToSpeech? = null
-    private var isReady = false
+
+    private val formatter = SpeechFormatter()
+    private val outputRouter: SpeechOutputEngine = SpeechOutputRouter(AndroidSpeechEngine(context))
+    
     private var lastSpokenText = ""
     private var lastSpokenTime = 0L
 
-    init {
-        tts = TextToSpeech(context) { status ->
-            if (status == TextToSpeech.SUCCESS) {
-                // Use a more natural, higher-quality voice if available
-                val voice = tts?.voices?.find { 
-                    it.locale == Locale.US && !it.isNetworkConnectionRequired 
-                } ?: tts?.defaultVoice
-                
-                tts?.voice = voice
-                tts?.setPitch(1.05f) // Slightly more energetic, less robotic
-                tts?.setSpeechRate(0.95f) // More natural pacing
-                isReady = true
-            }
+    fun speak(text: String, tone: SpeechTone = SpeechTone.NEUTRAL, priority: Boolean = false, onComplete: () -> Unit = {}) {
+        val now = System.currentTimeMillis()
+        
+        // Cooldown for repeated phrases (unless priority like alert)
+        if (!priority && text == lastSpokenText && (now - lastSpokenTime) < 15_000) {
+            onComplete()
+            return
+        }
+
+        val chunks = formatter.splitIntoChunks(text)
+        speakSequential(chunks, tone, onComplete)
+
+        lastSpokenText = text
+        lastSpokenTime = now
+    }
+
+    private fun speakSequential(chunks: List<String>, tone: SpeechTone, onAllComplete: () -> Unit) {
+        if (chunks.isEmpty()) {
+            onAllComplete()
+            return
+        }
+
+        val head = chunks.first()
+        val tail = chunks.drop(1)
+
+        val ssml = formatter.format(head, tone)
+        Log.d("VoiceEngine", "Speaking chunk: $head")
+        
+        outputRouter.speak(ssml, tone) {
+            speakSequential(tail, tone, onAllComplete)
         }
     }
 
-    fun speak(text: String, priority: Boolean = false) {
-        val now = System.currentTimeMillis()
-        // Prevent repeating the same greeting too often (30s cooldown)
-        if (!priority && text == lastSpokenText && (now - lastSpokenTime) < 30_000) return
-
-        if (isReady) {
-            tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
-            lastSpokenText = text
-            lastSpokenTime = now
-        }
+    fun stop() {
+        outputRouter.stop()
     }
 
     fun shutdown() {
-        tts?.stop()
-        tts?.shutdown()
+        outputRouter.shutdown()
     }
 }

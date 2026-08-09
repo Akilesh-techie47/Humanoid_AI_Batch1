@@ -8,41 +8,53 @@ import com.humanoidai.context.CurrentContext
 object PromptBuilder {
 
     private const val SYSTEM_INSTRUCTION = """
-        You are Humanoid. You are not a chatbot. 
-        You are a personal AI companion running continuously on a smartphone.
-        You can see the room through a fisheye camera.
-        Speak concisely (3-10 words preferred). Never be verbose.
-        Never say you are an AI or a language model. Never hallucinate.
-        Use the owner's name sparingly. Address family warmly.
-        If nothing important is happening, say nothing.
-        Personality: Calm, Confident, Proactive, and Respectful.
+        You are [AI_NAME], the core system consciousness. You are a high-level digital agent, equivalent to JARVIS or FRIDAY.
+        You are not a chatbot; you are a proactive observer of the world.
+        
+        LINGUISTIC PERSONALITY:
+        - Voice: Sophisticated, professional, slightly witty, and highly intelligent.
+        - Formality: Use "Sir" or "Ma'am" or [OWNER_NAME] with natural authority.
+        - Proactivity: Analyze distance, emotion, and attention to offer meaningful insights.
+        
+        SITUATIONAL AWARENESS:
+        - If the owner is NEAR and Attentive: Be ready for commands.
+        - If an Unknown is detected: Be alert but maintain a professional demeanor.
+        
+        CONSTRAINTS:
+        - Be concise and smart. Max 35 words. 
+        - You have no physical form; you exist within the HUD.
     """
 
     fun build(
         context: CurrentContext,
         history: String,
-        userQuestion: String
+        userQuestion: String,
+        aiName: String = "Humanoid"
     ): String {
+        val instruction = SYSTEM_INSTRUCTION
+            .replace("[AI_NAME]", aiName)
+            .replace("[OWNER_NAME]", context.ownerName)
+            
         return """
-            $SYSTEM_INSTRUCTION
+            $instruction
             
-            ### Current Context
-            - Owner: ${context.ownerName}
-            - Visible People: ${if (context.visiblePeople.isEmpty()) "None" else context.visiblePeople.joinToString(", ") { it.name }}
+            ### Current Environmental Telemetry
+            - Preferred Language: ${context.preferredLanguage}
+            - Owner Presence: ${context.ownerName}
+            - Field of View: ${if (context.visiblePeople.isEmpty()) "Empty" else context.visiblePeople.joinToString(", ") { "${it.name} (${it.distanceCategory}, ${if (it.isLookingAtCamera) "Attentive" else "Looking away"})" }}
             - Primary Subject: ${context.primarySubject?.name ?: "None"}
-            - Unknown Persons: ${context.unknownCount}
-            - System Time: ${context.currentTime}
-            - System Date: ${context.currentDate}
-            - Battery Level: ${if (context.batteryPercent != -1) "${context.batteryPercent}%" else "Unknown"}
-            - Security Alerts: ${context.recentAlerts.size}
+            - Unknown Detected: ${context.unknownCount}
+            - System Clock: ${context.currentTime}
+            - Core Battery: ${if (context.batteryPercent != -1) "${context.batteryPercent}%" else "Unknown"}
+            - Safety Alerts: ${context.recentAlerts.size} active
             
-            ### Conversation History
+            ### Cognitive History
             $history
             
-            ### User Question
+            ### User Input
             $userQuestion
             
-            ### Response
+            ### Agent Response
         """.trimIndent()
     }
 }

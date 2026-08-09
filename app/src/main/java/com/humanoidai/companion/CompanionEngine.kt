@@ -1,9 +1,6 @@
 package com.humanoidai.companion
 
 import android.content.Context
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import com.humanoidai.context.CurrentContext
 import com.humanoidai.voice.TTSManager
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,13 +9,15 @@ import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * Master lifecycle controller. Owns the observe -> listen -> understand -> decide -> speak loop.
+ * CEA v1.4: Refactored to standard Engine class to ensure thread stability on startup.
  */
 class CompanionEngine(
     private val context: Context,
     private val ttsManager: TTSManager,
     private val contextEngine: com.humanoidai.context.ContextEngine,
-    private val microphoneManager: com.humanoidai.hearing.SpeechRecognizerManager
-) : ViewModel() {
+    private val microphoneManager: com.humanoidai.hearing.SpeechRecognizerManager,
+    private val scope: CoroutineScope
+) {
 
     private val _state = MutableStateFlow<CompanionState>(CompanionState.SLEEPING)
     val state: StateFlow<CompanionState> = _state.asStateFlow()
@@ -36,10 +35,10 @@ class CompanionEngine(
     fun wake() {
         if (_state.value != CompanionState.SLEEPING) return
         
-        viewModelScope.launch {
+        scope.launch {
             _state.value = CompanionState.WAKING
             
-            // Initialise TTS
+            // Initialise TTS (suspend)
             ttsManager.initialize()
             
             _state.value = CompanionState.OBSERVING
@@ -59,28 +58,28 @@ class CompanionEngine(
     }
 
     private fun startCompanionLoop() {
+        android.util.Log.i("HumanoidEngine", "Companion Loop: Starting")
         loopJob?.cancel()
-        loopJob = viewModelScope.launch(Dispatchers.Default) {
+        loopJob = scope.launch(Dispatchers.Default) {
             while (isActive) {
-                val context = contextFlow.value
-                
-                // 1. OBSERVE (Updated via contextEngine)
-                
-                // 2. LISTEN (Updated via contextEngine/microphoneManager)
-                
-                // 3. UNDERSTAND (BDI Step 1: Update Beliefs)
-                val beliefs = beliefEngine.updateBeliefs(context)
-                
-                // 4. DECIDE (BDI Step 2 & 3: Generate Desires & Intentions)
-                val desires = desireEngine.generateDesires(beliefs)
-                val intention = intentionEngine.determineIntention(desires, beliefs)
-                
-                // 5. SPEAK IF NEEDED
-                if (intention != null) {
-                    // Logic to fulfill intention
+                try {
+                    val context = contextFlow.value
+                    
+                    // 1. UNDERSTAND
+                    val beliefs = beliefEngine.updateBeliefs(context)
+                    
+                    // 2. DECIDE
+                    val desires = desireEngine.generateDesires(beliefs)
+                    val intention = intentionEngine.determineIntention(desires, beliefs)
+                    
+                    // 3. ACT (Stub)
+                    if (intention != null) {
+                        android.util.Log.d("HumanoidEngine", "Loop: Intention formed - ${intention}")
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("HumanoidEngine", "Loop Error: ${e.message}")
                 }
-                
-                delay(1500) // Reduced frequency to 1.5s to prevent UI stutter
+                delay(2000)
             }
         }
     }
@@ -90,8 +89,8 @@ class CompanionEngine(
         _state.value = CompanionState.SLEEPING
     }
 
-    override fun onCleared() {
-        super.onCleared()
+    fun shutdown() {
+        sleep()
         ttsManager.shutdown()
     }
 }

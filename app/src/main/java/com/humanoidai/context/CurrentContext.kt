@@ -26,5 +26,6 @@ data class CurrentContext(
     val recentAlerts: List<String> = emptyList(),   // Placeholder for Alert Items
     val companionState: CompanionState = CompanionState.SLEEPING,
     val lastWakeWordAt: Long = 0L,
-    val activeConversation: Boolean = false
+    val activeConversation: Boolean = false,
+    val preferredLanguage: String = "auto" // "en", "ta", or "auto"
 )

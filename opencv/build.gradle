@@ -102,10 +102,7 @@ android {
 
     defaultConfig {
         minSdkVersion 21
-        targetSdkVersion 31
 
-        versionCode openCVersionCode
-        versionName openCVersionName
 
     }
 
@@ -151,6 +148,12 @@ android {
             withSourcesJar()
             withJavadocJar()
         }
+    }
+    lint {
+        targetSdk 31
+    }
+    testOptions {
+        targetSdk 31
     }
 
 

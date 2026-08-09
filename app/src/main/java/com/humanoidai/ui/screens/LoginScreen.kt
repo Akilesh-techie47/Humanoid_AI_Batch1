@@ -176,7 +176,11 @@ private fun PhoneOtpForm(
             onMicClick = {
                 if (com.humanoidai.permission.PermissionManager.hasRecordAudioPermission(context)) {
                     if (isListening) microphoneManager.stopListening()
-                    else microphoneManager.startListening(onFinalResult = { phone = it })
+                    else microphoneManager.startListening(onFinalResult = { 
+                        phone = it 
+                        // Automatically stop listening for single-field input
+                        microphoneManager.stopListening()
+                    })
                 } else {
                     onPermissionRequired()
                 }
@@ -195,7 +199,10 @@ private fun PhoneOtpForm(
                 onMicClick = {
                     if (com.humanoidai.permission.PermissionManager.hasRecordAudioPermission(context)) {
                         if (isListening) microphoneManager.stopListening()
-                        else microphoneManager.startListening(onFinalResult = { otp = it })
+                        else microphoneManager.startListening(onFinalResult = { 
+                            otp = it 
+                            microphoneManager.stopListening()
+                        })
                     } else {
                         onPermissionRequired()
                     }
@@ -254,7 +261,10 @@ private fun EmailPasswordForm(
             onMicClick = {
                 if (com.humanoidai.permission.PermissionManager.hasRecordAudioPermission(context)) {
                     if (isListening) microphoneManager.stopListening()
-                    else microphoneManager.startListening(onFinalResult = { email = it })
+                    else microphoneManager.startListening(onFinalResult = { 
+                        email = it 
+                        microphoneManager.stopListening()
+                    })
                 } else {
                     onPermissionRequired()
                 }
@@ -274,7 +284,10 @@ private fun EmailPasswordForm(
             onMicClick = {
                 if (com.humanoidai.permission.PermissionManager.hasRecordAudioPermission(context)) {
                     if (isListening) microphoneManager.stopListening()
-                    else microphoneManager.startListening(onFinalResult = { password = it })
+                    else microphoneManager.startListening(onFinalResult = { 
+                        password = it 
+                        microphoneManager.stopListening()
+                    })
                 } else {
                     onPermissionRequired()
                 }

@@ -1,0 +1,7 @@
+- [x] Create `recovery` package and core models (`GapModels.kt`, `GapEventEntity.kt`, `GapEventDao.kt`, `GapDetector.kt`)
+- [x] Create `ContextLogDao.kt` and update `ContextLogEntity.kt`
+- [x] Implement `MIGRATION_1_2` in `HumanoidDatabase.kt`
+- [x] Implement `ContextLogTimestampAdapter.kt`
+- [x] Wire `GapDetector` into `MainActivity.kt`
+- [x] Update `ContextEngine.kt` to persist logs to DB
+- [x] Verify build and perform manual gap detection test

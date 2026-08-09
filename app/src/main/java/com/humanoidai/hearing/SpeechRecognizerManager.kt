@@ -27,6 +27,9 @@ class SpeechRecognizerManager(private val context: Context) {
     private val _isListening = MutableStateFlow(false)
     val isListening: StateFlow<Boolean> = _isListening.asStateFlow()
 
+    private val _ambientNoise = MutableStateFlow(0f)
+    val ambientNoise: StateFlow<Float> = _ambientNoise.asStateFlow()
+
     private val _lastRecognizedText = MutableStateFlow("")
     val lastRecognizedText: StateFlow<String> = _lastRecognizedText.asStateFlow()
 
@@ -62,7 +65,10 @@ class SpeechRecognizerManager(private val context: Context) {
         }
 
         override fun onRmsChanged(rmsdB: Float) {
-            // Log.v(TAG, "onRmsChanged: $rmsdB") // Too verbose for regular logging
+            // Robust normalization for visualizers
+            // rmsdB typically ranges from -2.0 to 10.0+
+            val normalized = ((rmsdB + 2f) / 12f).coerceIn(0f, 1f) * 100f
+            _ambientNoise.value = normalized
         }
 
         override fun onBufferReceived(buffer: ByteArray?) {
@@ -179,18 +185,39 @@ class SpeechRecognizerManager(private val context: Context) {
         }
     }
 
+    private var currentLanguage = "en-US"
+
+    fun setLanguage(langCode: String) {
+        currentLanguage = when(langCode) {
+            "ta" -> "ta-IN"
+            "en" -> "en-US"
+            else -> "en-US" 
+        }
+        Log.d(TAG, "Recognizer language set to: $currentLanguage")
+    }
+
+    fun setCustomWakeWord(name: String) {
+        wakeWordManager.setCustomWakeWord(name)
+    }
+
     private fun startInternal(isPartial: Boolean) {
         mainHandler.post {
+            try {
+                speechRecognizer?.cancel()
+            } catch (e: Exception) {}
+
             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, currentLanguage)
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, currentLanguage)
+                putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, currentLanguage)
                 putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, isPartial)
                 putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
-                // For Android 9/10, sometimes this helps
                 putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, context.packageName)
             }
             try {
                 speechRecognizer?.startListening(intent)
-                Log.d(TAG, "SpeechRecognizer.startListening() called")
+                Log.i(TAG, ">>> Recognizer listening started ($currentLanguage, isPartial=$isPartial)")
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to start listening: ${e.message}")
                 recreateRecognizer()

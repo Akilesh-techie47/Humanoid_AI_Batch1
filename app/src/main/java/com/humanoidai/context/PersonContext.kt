@@ -8,5 +8,7 @@ data class PersonContext(
     val label: String,
     val confidence: Float,
     val isPrimary: Boolean = false,
-    val lastSeenAt: Long = System.currentTimeMillis()
+    val lastSeenAt: Long = System.currentTimeMillis(),
+    val distanceCategory: String = "MEDIUM",
+    val isLookingAtCamera: Boolean = false
 )

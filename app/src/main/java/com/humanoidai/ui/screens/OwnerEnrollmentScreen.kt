@@ -18,7 +18,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -36,12 +38,15 @@ import com.humanoidai.ml.FaceEmbeddingHelper
 import com.humanoidai.ml.FaceRecognitionManager
 import com.humanoidai.ml.FisheyeCorrector
 import com.humanoidai.ml.OwnerEnrollmentManager
+import com.humanoidai.vision.FrameEnhancer
+import com.humanoidai.navigation.NavRoutes
 import com.humanoidai.ui.components.WithCameraPermission
+import com.humanoidai.ui.components.WithMicrophonePermission
 import com.humanoidai.ui.theme.*
 import java.util.*
 import java.util.concurrent.Executors
 
-enum class OwnerEnrollStep { WELCOME, SCANNING, PROCESSING, SUCCESS }
+enum class OwnerEnrollStep { WELCOME, FACE_SCANNING, VOICE_SCANNING, PROCESSING, SUCCESS }
 
 @Composable
 fun OwnerEnrollmentScreen(
@@ -58,25 +63,31 @@ fun OwnerEnrollmentScreen(
 
     LaunchedEffect(step) {
         when(step) {
-            OwnerEnrollStep.WELCOME -> voiceEngine.speak("Welcome. Let's personalize your AI. What is your name?")
-            OwnerEnrollStep.SCANNING -> voiceEngine.speak("Position your face in the circle and follow the instructions.")
-            OwnerEnrollStep.PROCESSING -> voiceEngine.speak("Building your biometric profile.")
-            OwnerEnrollStep.SUCCESS -> voiceEngine.speak("Enrollment complete. Welcome to your AI world, $ownerName.")
+            OwnerEnrollStep.WELCOME -> voiceEngine.speak("Welcome. Let's build your profile. Enter your name first.")
+            OwnerEnrollStep.FACE_SCANNING -> {
+                voiceEngine.speak("Position your face in the circle. Move your head slowly to all angles.")
+            }
+            OwnerEnrollStep.VOICE_SCANNING -> {
+                voiceEngine.speak("Face scan complete. Now, let's record your voice. Say the phrase: Humanoid, this is my voice, three times.")
+            }
+            OwnerEnrollStep.PROCESSING -> {
+                voiceEngine.speak("Fusing your biometric data.")
+            }
+            OwnerEnrollStep.SUCCESS -> voiceEngine.speak("Setup complete. Welcome, $ownerName.")
         }
     }
     
     // Scan State
-    var progress by remember { mutableFloatStateOf(0f) }
-    var instruction by remember { mutableStateOf("Position your face in the circle") }
+    var faceProgress by remember { mutableFloatStateOf(0f) }
+    var voiceCount by remember { mutableIntStateOf(0) }
     val capturedEmbeddings = remember { mutableListOf<FloatArray>() }
     var lastCaptureTime by remember { mutableLongStateOf(0L) }
     
-    // Coverage points (representing angles: center, up, down, left, right, etc.)
     val coveragePoints = remember { mutableStateMapOf<Int, Boolean>().apply { 
         (0..8).forEach { put(it, false) } 
     } }
 
-    Scaffold(containerColor = Color(0xFF020408)) { padding ->
+    Scaffold(containerColor = BackgroundDark) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             AnimatedContent(
                 targetState = step,
@@ -87,54 +98,51 @@ fun OwnerEnrollmentScreen(
                     OwnerEnrollStep.WELCOME -> WelcomeStep(
                         name = ownerName,
                         onNameChange = { ownerName = it },
-                        onStart = { if(ownerName.isNotBlank()) step = OwnerEnrollStep.SCANNING },
+                        onStart = { if(ownerName.isNotBlank()) step = OwnerEnrollStep.FACE_SCANNING },
                         isListening = isListening,
                         onMicClick = {
-                            if (isListening) {
-                                microphoneManager.stopListening()
-                            } else {
-                                microphoneManager.startListening(
-                                    onFinalResult = { ownerName = it }
-                                )
+                            if (isListening) microphoneManager.stopListening()
+                            else microphoneManager.startListening(onFinalResult = { ownerName = it })
+                        }
+                    )
+                    OwnerEnrollStep.FACE_SCANNING -> FaceScanningStep(
+                        faceProgress = faceProgress,
+                        onFrameProcessed = { embedding, angleId ->
+                            val now = System.currentTimeMillis()
+                            if (now - lastCaptureTime > 200) {
+                                coveragePoints[angleId] = true
+                                if (capturedEmbeddings.size < 25) {
+                                    capturedEmbeddings.add(embedding)
+                                    faceProgress = capturedEmbeddings.size / 25f
+                                    lastCaptureTime = now
+                                }
+                                
+                                if (capturedEmbeddings.size >= 25) {
+                                    step = OwnerEnrollStep.VOICE_SCANNING
+                                }
                             }
                         }
                     )
-                    OwnerEnrollStep.SCANNING -> ScanningStep(
-                        instruction = instruction,
-                        progress = progress,
-                        coveragePoints = coveragePoints,
-                        onFrameProcessed = { embedding, angleId ->
-                            val now = System.currentTimeMillis()
-                            // Throttling: only capture one frame every 150ms to ensure variety
-                            if (now - lastCaptureTime > 150) {
-                                val isNewAngle = !coveragePoints[angleId]!!
-                                coveragePoints[angleId] = true
-                                
-                                if (capturedEmbeddings.size < 25) {
-                                    capturedEmbeddings.add(embedding)
-                                    progress = capturedEmbeddings.size / 25f
-                                    lastCaptureTime = now
-                                    // Update instructions every time or when state changes
-                                    updateInstruction(angleId, coveragePoints, capturedEmbeddings.size) { instruction = it }
-                                }
-                                
-                                // Transition to processing only if target reached AND all angles covered
-                                if (capturedEmbeddings.size >= 25 && coveragePoints.all { it.value }) {
-                                    step = OwnerEnrollStep.PROCESSING
-                                }
+                    OwnerEnrollStep.VOICE_SCANNING -> VoiceScanningStep(
+                        voiceCount = voiceCount,
+                        microphoneManager = microphoneManager,
+                        onVoiceSampleDetected = {
+                            voiceCount++
+                            if (voiceCount < 3) {
+                                voiceEngine.speak("Sample $voiceCount recorded.")
+                            } else {
+                                step = OwnerEnrollStep.PROCESSING
                             }
                         }
                     )
                     OwnerEnrollStep.PROCESSING -> ProcessingStep {
-                        ownerManager.enrollOwner(ownerName, capturedEmbeddings, 0.98f)
-                        ownerManager.getMasterEmbedding()?.let { 
-                            recognitionManager.registerFace(ownerName, it) 
-                        }
+                        ownerManager.enrollOwner(ownerName, capturedEmbeddings, 0.98f, voiceEnrolled = true)
+                        ownerManager.getMasterEmbedding()?.let { recognitionManager.registerFace(ownerName, it) }
                         step = OwnerEnrollStep.SUCCESS
                     }
                     OwnerEnrollStep.SUCCESS -> SuccessStep(ownerName) {
-                        navController.navigate("dashboard") {
-                            popUpTo("owner_enrollment") { inclusive = true }
+                        navController.navigate(NavRoutes.ENVIRONMENT) { 
+                            popUpTo(NavRoutes.OWNER_ENROLLMENT) { inclusive = true } 
                         }
                     }
                 }
@@ -143,26 +151,260 @@ fun OwnerEnrollmentScreen(
     }
 }
 
-private fun updateInstruction(lastAngle: Int, coverage: Map<Int, Boolean>, currentCount: Int, setMsg: (String) -> Unit) {
-    val remaining = coverage.filter { !it.value }.keys
-    if (remaining.isEmpty()) {
-        if (currentCount < 25) {
-            setMsg("Hold still... finalizing biometric data")
-        } else {
-            setMsg("Scan complete. Processing...")
+@SuppressLint("UnsafeOptInUsageError")
+@Composable
+fun FaceScanningStep(
+    faceProgress: Float,
+    onFrameProcessed: (FloatArray, Int) -> Unit
+) {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val embeddingHelper = remember { FaceEmbeddingHelper(context) }
+    val fisheyeCorrector = remember { FisheyeCorrector() }
+    val frameEnhancer = remember { FrameEnhancer() }
+    val analysisExecutor = remember { Executors.newSingleThreadExecutor() }
+    val detector = remember {
+        FaceDetection.getClient(FaceDetectorOptions.Builder()
+            .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_ACCURATE)
+            .build())
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            analysisExecutor.shutdown()
+            embeddingHelper.close()
+            fisheyeCorrector.release()
+            detector.close()
         }
-        return
     }
-    val next = when (remaining.first()) {
-        1 -> "Tilt your head UP"
-        2 -> "Tilt your head DOWN"
-        3 -> "Look slowly LEFT"
-        4 -> "Look slowly RIGHT"
-        5 -> "Now SMILE"
-        6 -> "Blink your eyes"
-        else -> "Keep moving slowly"
+
+    Column(
+        modifier = Modifier.fillMaxSize().padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text("Face Biometric Scan", color = AccentCyan, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+        Text("Position face in the circle and rotate slowly", color = TextSecondary, fontSize = 12.sp)
+        
+        Spacer(Modifier.height(40.dp))
+        
+        Box(contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(
+                progress = { faceProgress },
+                modifier = Modifier.size(280.dp),
+                color = AccentCyan,
+                strokeWidth = 4.dp,
+                trackColor = Color.White.copy(alpha = 0.05f)
+            )
+            
+            WithCameraPermission {
+                Box(modifier = Modifier.size(240.dp).clip(CircleShape).border(1.dp, Color.White.copy(alpha = 0.1f), CircleShape)) {
+                    AndroidView(
+                        factory = { ctx ->
+                            PreviewView(ctx).also { pv ->
+                                val future = ProcessCameraProvider.getInstance(ctx)
+                                future.addListener({
+                                    val provider = future.get()
+                                    val preview = Preview.Builder().build().also { it.surfaceProvider = pv.surfaceProvider }
+                                    val analysis = ImageAnalysis.Builder()
+                                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                                        .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888)
+                                        .build()
+                                    analysis.setAnalyzer(analysisExecutor) { image ->
+                                        processStepFrame(image, detector, embeddingHelper, fisheyeCorrector, frameEnhancer) { embedding, angleId ->
+                                            onFrameProcessed(embedding, angleId)
+                                        }
+                                    }
+                                    try {
+                                        provider.unbindAll()
+                                        provider.bindToLifecycle(lifecycleOwner, CameraSelector.DEFAULT_FRONT_CAMERA, preview, analysis)
+                                    } catch (e: Exception) {}
+                                }, ContextCompat.getMainExecutor(ctx))
+                            }
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+            }
+        }
+        
+        Spacer(Modifier.height(40.dp))
+        Text("${(faceProgress * 100).toInt()}%", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = AccentCyan)
+        Text("Capturing face viewpoints...", color = TextSecondary, fontSize = 14.sp)
     }
-    setMsg(next)
+}
+
+@Composable
+fun VoiceScanningStep(
+    voiceCount: Int,
+    microphoneManager: com.humanoidai.hearing.SpeechRecognizerManager,
+    onVoiceSampleDetected: () -> Unit
+) {
+    val isListening by microphoneManager.isListening.collectAsState()
+    val ambientNoise by microphoneManager.ambientNoise.collectAsState()
+    
+    val voicePulse by animateFloatAsState(
+        targetValue = (ambientNoise / 100f).coerceIn(0f, 1f),
+        animationSpec = tween(100),
+        label = "voice_pulse"
+    )
+
+    var lastVoiceTriggerTime by remember { mutableLongStateOf(0L) }
+
+    val startScanning = {
+        microphoneManager.startListening(
+            onPartialResult = { text ->
+                val phrase = text.lowercase()
+                val hasKeywords = phrase.contains("humanoid") && 
+                                 (phrase.contains("voice") || phrase.contains("this"))
+                
+                val now = System.currentTimeMillis()
+                if (hasKeywords && now - lastVoiceTriggerTime > 2500) {
+                    lastVoiceTriggerTime = now
+                    onVoiceSampleDetected()
+                }
+            }
+        )
+    }
+
+    LaunchedEffect(Unit) {
+        startScanning()
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            microphoneManager.stopListening()
+        }
+    }
+
+    Column(
+        modifier = Modifier.fillMaxSize().padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text("Voice Biometric Scan", color = AccentPurple, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+        Spacer(Modifier.height(16.dp))
+        
+        WithMicrophonePermission {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    "Say the phrase 3 times:",
+                    color = TextSecondary,
+                    fontSize = 14.sp,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    "\"Humanoid, this is my voice.\"",
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(vertical = 12.dp)
+                )
+                
+                Spacer(Modifier.height(40.dp))
+                
+                Box(contentAlignment = Alignment.Center) {
+                    // Frequency Pulse Wave
+                    FrequencyPulseWave(
+                        amplitude = voicePulse,
+                        color = AccentPurple
+                    )
+
+                    CircularProgressIndicator(
+                        progress = { voiceCount.toFloat() / 3f },
+                        modifier = Modifier.size(200.dp),
+                        color = AccentPurple,
+                        strokeWidth = 6.dp,
+                        trackColor = Color.White.copy(alpha = 0.05f)
+                    )
+                    
+                    Surface(
+                        onClick = {
+                            if (isListening) microphoneManager.stopListening()
+                            else startScanning()
+                        },
+                        modifier = Modifier.size(80.dp),
+                        color = if (isListening) Color.Red.copy(alpha = 0.2f) else AccentPurple.copy(alpha = 0.1f),
+                        shape = CircleShape,
+                        border = BorderStroke(2.dp, if (isListening) Color.Red else AccentPurple)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                if (isListening) Icons.Default.StopCircle else Icons.Default.Mic,
+                                null,
+                                tint = if (isListening) Color.Red else AccentPurple,
+                                modifier = Modifier.size(40.dp)
+                            )
+                        }
+                    }
+                }
+                
+                Spacer(Modifier.height(40.dp))
+                Text("SAMPLES: $voiceCount / 3", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+                
+                // Live Guidance Text
+                val guidanceText = when {
+                    !isListening -> "TAP TO START"
+                    voicePulse < 0.15f -> "SPEAK LOUDER"
+                    voicePulse < 0.4f -> "LISTENING..."
+                    else -> "PERFECT VOLUME"
+                }
+                val guidanceColor = when {
+                    !isListening -> TextSecondary
+                    voicePulse < 0.15f -> Color.Yellow
+                    voicePulse < 0.4f -> SuccessGreen
+                    else -> AccentCyan
+                }
+                
+                Text(guidanceText, color = guidanceColor, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+@Composable
+fun FrequencyPulseWave(amplitude: Float, color: Color) {
+    Canvas(modifier = Modifier.size(280.dp)) {
+        val center = Offset(size.width / 2, size.height / 2)
+        val innerRadius = 100.dp.toPx()
+        val maxExtra = 50.dp.toPx()
+        val barCount = 72
+        
+        for (i in 0 until barCount) {
+            val angle = Math.toRadians((i * 360f / barCount).toDouble())
+            // Simulate frequency variety using a sine-based variation
+            val variation = 0.6f + 0.4f * Math.abs(Math.sin(i.toDouble() * 0.3)).toFloat()
+            val length = innerRadius + (amplitude * maxExtra * variation)
+            
+            val start = Offset(
+                (center.x + innerRadius * Math.cos(angle)).toFloat(),
+                (center.y + innerRadius * Math.sin(angle)).toFloat()
+            )
+            val end = Offset(
+                (center.x + length * Math.cos(angle)).toFloat(),
+                (center.y + length * Math.sin(angle)).toFloat()
+            )
+            
+            // Draw a glowing bar
+            drawLine(
+                color = color.copy(alpha = 0.4f * (0.2f + amplitude)),
+                start = start,
+                end = end,
+                strokeWidth = 4.dp.toPx(),
+                cap = StrokeCap.Round
+            )
+            
+            // Core sharp bar
+            drawLine(
+                color = color.copy(alpha = 0.8f),
+                start = start,
+                end = end,
+                strokeWidth = 1.5.dp.toPx(),
+                cap = StrokeCap.Round
+            )
+        }
+    }
 }
 
 @Composable
@@ -172,12 +414,12 @@ fun WelcomeStep(name: String, onNameChange: (String) -> Unit, onStart: () -> Uni
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Icon(Icons.Default.Face, null, tint = AccentCyan, modifier = Modifier.size(64.dp))
+        Icon(Icons.Default.Fingerprint, null, tint = AccentCyan, modifier = Modifier.size(64.dp))
         Spacer(Modifier.height(24.dp))
-        Text("Welcome to Humanoid AI", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
+        Text("Multi-Modal Enrollment", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
         Spacer(Modifier.height(12.dp))
         Text(
-            "Let's personalize your AI. This will build your master biometric profile.",
+            "Position your face and speak the phrase simultaneously to build your unified profile.",
             textAlign = TextAlign.Center, color = TextSecondary, fontSize = 14.sp
         )
         
@@ -211,113 +453,7 @@ fun WelcomeStep(name: String, onNameChange: (String) -> Unit, onStart: () -> Uni
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(containerColor = AccentCyan)
         ) {
-            Text("Start Enrollment", color = Color.Black, fontWeight = FontWeight.Bold)
-        }
-    }
-}
-
-@SuppressLint("UnsafeOptInUsageError")
-@Composable
-fun ScanningStep(
-    instruction: String,
-    progress: Float,
-    coveragePoints: Map<Int, Boolean>,
-    onFrameProcessed: (FloatArray, Int) -> Unit
-) {
-    val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
-    val embeddingHelper = remember { FaceEmbeddingHelper(context) }
-    val fisheyeCorrector = remember { FisheyeCorrector() }
-    val analysisExecutor = remember { Executors.newSingleThreadExecutor() }
-    val detector = remember {
-        FaceDetection.getClient(FaceDetectorOptions.Builder()
-            .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_ACCURATE)
-            .build())
-    }
-
-    Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text("Owner Enrollment", color = AccentCyan, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(32.dp))
-        
-        Box(contentAlignment = Alignment.Center) {
-            // Progress Ring
-            CircularProgressIndicator(
-                progress = { progress },
-                modifier = Modifier.size(260.dp),
-                color = AccentCyan,
-                strokeWidth = 4.dp,
-                trackColor = Color.White.copy(alpha = 0.1f)
-            )
-            
-            // Camera Preview
-            WithCameraPermission {
-                Box(modifier = Modifier.size(240.dp).clip(CircleShape).border(1.dp, Color.White.copy(alpha = 0.2f), CircleShape)) {
-                    AndroidView(
-                        factory = { ctx ->
-                            PreviewView(ctx).also { pv ->
-                                val future = ProcessCameraProvider.getInstance(ctx)
-                                future.addListener({
-                                    val provider = future.get()
-                                    val preview = Preview.Builder().build().also { it.surfaceProvider = pv.surfaceProvider }
-                                    val analysis = ImageAnalysis.Builder()
-                                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                                        .build()
-                                    
-                                    analysis.setAnalyzer(analysisExecutor) { image ->
-                                        processStepFrame(image, detector, embeddingHelper, fisheyeCorrector) { embedding, angleId ->
-                                            onFrameProcessed(embedding, angleId)
-                                        }
-                                    }
-                                    
-                                    try {
-                                        provider.unbindAll()
-                                        provider.bindToLifecycle(lifecycleOwner, CameraSelector.DEFAULT_FRONT_CAMERA, preview, analysis)
-                                    } catch (e: Exception) {}
-                                }, ContextCompat.getMainExecutor(ctx))
-                            }
-                        },
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
-            }
-        }
-        
-        Spacer(Modifier.height(32.dp))
-        
-        Text(instruction, fontSize = 18.sp, fontWeight = FontWeight.Medium, color = Color.White, textAlign = TextAlign.Center)
-        
-        Spacer(Modifier.height(48.dp))
-        
-        // Coverage Dots Grid
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("ANGLE COVERAGE", fontSize = 10.sp, color = TextSecondary, letterSpacing = 2.sp)
-            Spacer(Modifier.height(16.dp))
-            CoverageGrid(coveragePoints)
-        }
-    }
-}
-
-@Composable
-fun CoverageGrid(points: Map<Int, Boolean>) {
-    // 3x3 Grid representation
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        repeat(3) { row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                repeat(3) { col ->
-                    val id = row * 3 + col
-                    val active = points[id] ?: false
-                    Box(
-                        modifier = Modifier
-                            .size(12.dp)
-                            .clip(CircleShape)
-                            .background(if (active) AlertGreen else Color.White.copy(alpha = 0.1f))
-                            .border(1.dp, if (active) AlertGreen else Color.White.copy(alpha = 0.2f), CircleShape)
-                    )
-                }
-            }
+            Text("Start Scanning", color = Color.Black, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -335,8 +471,8 @@ fun ProcessingStep(onComplete: () -> Unit) {
     ) {
         CircularProgressIndicator(color = AccentCyan)
         Spacer(Modifier.height(24.dp))
-        Text("Building Owner Profile...", color = Color.White)
-        Text("Normalizing embeddings and encrypting data", fontSize = 12.sp, color = TextSecondary)
+        Text("Synthesizing Biometric Data...", color = Color.White)
+        Text("Generating unified face-voice hash", fontSize = 12.sp, color = TextSecondary)
     }
 }
 
@@ -347,11 +483,11 @@ fun SuccessStep(name: String, onDone: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Icon(Icons.Default.CheckCircle, null, tint = AlertGreen, modifier = Modifier.size(80.dp))
+        Icon(Icons.Default.CheckCircle, null, tint = SuccessGreen, modifier = Modifier.size(80.dp))
         Spacer(Modifier.height(32.dp))
-        Text("Enrollment Complete", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
+        Text("Enrollment Successful", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
         Spacer(Modifier.height(12.dp))
-        Text("Welcome, $name. Your AI now recognizes you with 98% confidence.", textAlign = TextAlign.Center, color = TextSecondary)
+        Text("Welcome, $name. Your AI world is now secured.", textAlign = TextAlign.Center, color = TextSecondary)
         
         Spacer(Modifier.height(48.dp))
         
@@ -361,7 +497,7 @@ fun SuccessStep(name: String, onDone: () -> Unit) {
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(containerColor = AccentCyan)
         ) {
-            Text("Enter Dashboard", color = Color.Black, fontWeight = FontWeight.Bold)
+            Text("Launch Humanoid AI", color = Color.Black, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -372,46 +508,104 @@ private fun processStepFrame(
     detector: com.google.mlkit.vision.face.FaceDetector,
     helper: FaceEmbeddingHelper,
     corrector: FisheyeCorrector,
+    enhancer: FrameEnhancer,
     onResult: (FloatArray, Int) -> Unit
 ) {
-    val raw = try {
-        val original = image.toBitmap()
-        val matrix = android.graphics.Matrix().apply { 
-            // Mirror front camera (Standard toBitmap handles rotation)
-            postScale(-1f, 1f) 
-        }
-        Bitmap.createBitmap(original, 0, 0, original.width, original.height, matrix, true)
+    val rotation = image.imageInfo.rotationDegrees
+    val original = try {
+        val bitmap = image.toBitmap()
+        val matrix = android.graphics.Matrix()
+        
+        // Handle Rotation
+        matrix.postRotate(rotation.toFloat())
+        
+        // Front camera mirroring
+        matrix.postScale(-1f, 1f)
+        
+        Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
     } catch (e: Exception) { image.close(); return }
 
-    val corrected = try { corrector.correct(raw) } catch (e: Exception) { raw }
-    val input = InputImage.fromBitmap(corrected, 0)
+    val processedBitmap = if (FisheyeCorrector.isOpenCVLoaded) {
+        try {
+            // 1. Fisheye Correction
+            val corrected = corrector.correct(original)
+            
+            // 2. Enhancement Pipeline (Mirroring FaceAnalyzer)
+            val mat = org.opencv.core.Mat()
+            org.opencv.android.Utils.bitmapToMat(corrected, mat)
+            
+            val bgr = org.opencv.core.Mat()
+            org.opencv.imgproc.Imgproc.cvtColor(mat, bgr, org.opencv.imgproc.Imgproc.COLOR_RGBA2BGR)
+            
+            val enhancedBgr = enhancer.enhance(bgr)
+            
+            val outputRgba = org.opencv.core.Mat()
+            org.opencv.imgproc.Imgproc.cvtColor(enhancedBgr, outputRgba, org.opencv.imgproc.Imgproc.COLOR_BGR2RGBA)
+            
+            val outputBitmap = Bitmap.createBitmap(outputRgba.cols(), outputRgba.rows(), Bitmap.Config.ARGB_8888)
+            org.opencv.android.Utils.matToBitmap(outputRgba, outputBitmap)
+            
+            mat.release()
+            bgr.release()
+            enhancedBgr.release()
+            outputRgba.release()
+            
+            outputBitmap
+        } catch (e: Exception) {
+            original
+        }
+    } else {
+        original
+    }
+
+    val input = InputImage.fromBitmap(processedBitmap, 0)
 
     detector.process(input)
         .addOnSuccessListener { faces ->
             if (faces.isNotEmpty()) {
                 val face = faces[0]
                 val box = face.boundingBox
-                
                 val rotY = face.headEulerAngleY 
                 val rotX = face.headEulerAngleX 
-                
-                val col = when {
-                    rotY < -15 -> 0
-                    rotY > 15 -> 2
-                    else -> 1
-                }
-                val row = when {
-                    rotX < -15 -> 0
-                    rotX > 15 -> 2
-                    else -> 1
-                }
+                val col = when { rotY < -15 -> 0; rotY > 15 -> 2; else -> 1 }
+                val row = when { rotX < -15 -> 0; rotX > 15 -> 2; else -> 1 }
                 val angleId = row * 3 + col
-
+                
                 try {
-                    val crop = Bitmap.createBitmap(corrected, box.left.coerceAtLeast(0), box.top.coerceAtLeast(0), box.width().coerceAtLeast(1), box.height().coerceAtLeast(1))
-                    onResult(helper.getEmbedding(crop), angleId)
+                    val left = box.left.coerceAtLeast(0)
+                    val top = box.top.coerceAtLeast(0)
+                    val width = box.width().coerceAtLeast(1)
+                    val height = box.height().coerceAtLeast(1)
+                    
+                    // 3. Face Isolation Logic (Background Removal)
+                    val crop = Bitmap.createBitmap(processedBitmap, left, top, width, height)
+                    val isolated = isolateFace(crop)
+                    
+                    onResult(helper.getEmbedding(isolated), angleId)
                 } catch (e: Exception) {}
             }
         }
         .addOnCompleteListener { image.close() }
+}
+
+/**
+ * Advanced Face Isolation: Applies a circular mask to the face crop, 
+ * blacking out the background to improve recognition accuracy.
+ */
+private fun isolateFace(source: Bitmap): Bitmap {
+    val size = Math.min(source.width, source.height)
+    val output = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+    val canvas = android.graphics.Canvas(output)
+    
+    val paint = android.graphics.Paint()
+    val rect = android.graphics.Rect(0, 0, size, size)
+    
+    paint.isAntiAlias = true
+    canvas.drawARGB(0, 0, 0, 0)
+    canvas.drawCircle(size / 2f, size / 2f, size / 2f, paint)
+    
+    paint.xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.SRC_IN)
+    canvas.drawBitmap(source, rect, rect, paint)
+    
+    return output
 }

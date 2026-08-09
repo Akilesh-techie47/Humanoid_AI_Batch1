@@ -29,8 +29,10 @@ import com.google.mlkit.vision.face.FaceDetection
 import com.google.mlkit.vision.face.FaceDetectorOptions
 import com.humanoidai.ml.FaceEmbeddingHelper
 import com.humanoidai.ml.FaceEnrollmentManager
+import com.humanoidai.ml.OwnerEnrollmentManager
 import com.humanoidai.ml.FaceRecognitionManager
 import com.humanoidai.ml.FisheyeCorrector
+import com.humanoidai.vision.FrameEnhancer
 import com.humanoidai.ui.components.SidePanelDrawer
 import com.humanoidai.ui.components.WithCameraPermission
 import com.humanoidai.ui.theme.*
@@ -43,6 +45,7 @@ import java.util.concurrent.Executors
 fun EnrollmentScreen(
     navController: NavController,
     enrollmentManager: FaceEnrollmentManager,
+    ownerManager: OwnerEnrollmentManager,
     recognitionManager: FaceRecognitionManager,
     microphoneManager: com.humanoidai.hearing.SpeechRecognizerManager,
     voiceEngine: com.humanoidai.voice.VoiceEngine
@@ -56,13 +59,18 @@ fun EnrollmentScreen(
     var label         by remember { mutableStateOf("Family") }
     var step          by remember { mutableStateOf(EnrollStep.ENTER_NAME) }
     var captureCount  by remember { mutableIntStateOf(0) }
+    var currentAngle  by remember { mutableIntStateOf(0) }
     var statusMessage by remember { mutableStateOf("") }
     val isListening   by microphoneManager.isListening.collectAsState()
+
+    val angles = listOf("Center", "Tilt Up", "Tilt Down", "Look Left", "Look Right")
+    val targetCapturesPerAngle = 3
+    val totalTarget = angles.size * targetCapturesPerAngle
 
     LaunchedEffect(step) {
         when(step) {
             EnrollStep.ENTER_NAME -> voiceEngine.speak("Who are you enrolling today?")
-            EnrollStep.CAPTURE -> voiceEngine.speak("Position the person's face in the frame.")
+            EnrollStep.CAPTURE -> voiceEngine.speak("Position the person's face. We'll capture a few angles.")
             EnrollStep.SUCCESS -> voiceEngine.speak("$name has been enrolled successfully.")
         }
     }
@@ -70,6 +78,7 @@ fun EnrollmentScreen(
     val capturedEmbeddings = remember { mutableListOf<FloatArray>() }
     val embeddingHelper    = remember { FaceEmbeddingHelper(context) }
     val fisheyeCorrector   = remember { FisheyeCorrector() }
+    val frameEnhancer      = remember { FrameEnhancer() }
     val analysisExecutor   = remember { Executors.newSingleThreadExecutor() }
     val detector           = remember {
         FaceDetection.getClient(
@@ -80,7 +89,6 @@ fun EnrollmentScreen(
         )
     }
 
-    val targetCaptures = 8
     val labels = listOf("Family", "Colleague", "Neighbor", "Friend", "Other")
 
     DisposableEffect(Unit) {
@@ -88,6 +96,7 @@ fun EnrollmentScreen(
             analysisExecutor.shutdown()
             embeddingHelper.close()
             fisheyeCorrector.release()
+            detector.close()
         }
     }
 
@@ -190,8 +199,10 @@ fun EnrollmentScreen(
                         }
                     }
                     EnrollStep.CAPTURE -> {
+                        val angleName = angles[currentAngle]
                         Spacer(modifier = Modifier.height(16.dp))
                         Text("Enrolling: $name", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = AccentCyan)
+                        Text("Angle: $angleName", fontSize = 13.sp, color = TextPrimary)
                         Spacer(modifier = Modifier.height(12.dp))
                         WithCameraPermission {
                             Box(
@@ -199,7 +210,7 @@ fun EnrollmentScreen(
                                     .fillMaxWidth()
                                     .height(320.dp)
                                     .background(Color(0xFF060610), RoundedCornerShape(12.dp))
-                                    .border(2.dp, if (captureCount >= targetCaptures) Color(0xFF66BB6A) else AccentCyan.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                                    .border(2.dp, if (captureCount >= totalTarget) Color(0xFF66BB6A) else AccentCyan.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
                             ) {
                                 AndroidView(
                                     factory = { ctx ->
@@ -213,14 +224,21 @@ fun EnrollmentScreen(
                                                     .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888)
                                                     .build()
                                                 imageAnalysis.setAnalyzer(analysisExecutor) { imageProxy ->
-                                                    if (captureCount < targetCaptures) {
-                                                        processEnrollmentFrame(imageProxy, detector, embeddingHelper, fisheyeCorrector) { embedding ->
+                                                    if (captureCount < totalTarget) {
+                                                        processEnrollmentFrame(imageProxy, detector, embeddingHelper, fisheyeCorrector, frameEnhancer) { embedding ->
                                                             capturedEmbeddings.add(embedding)
                                                             captureCount++
-                                                            statusMessage = "Captured $captureCount/$targetCaptures frames..."
-                                                            if (captureCount >= targetCaptures) {
+                                                            
+                                                            // Advance angle logic
+                                                            if (captureCount % targetCapturesPerAngle == 0 && currentAngle < angles.size - 1) {
+                                                                currentAngle++
+                                                                voiceEngine.speak("Next: ${angles[currentAngle]}")
+                                                            }
+
+                                                            statusMessage = "Captured $captureCount/$totalTarget frames..."
+                                                            if (captureCount >= totalTarget) {
                                                                 enrollmentManager.enrollPerson(name, label, capturedEmbeddings)
-                                                                enrollmentManager.loadAllInto(recognitionManager)
+                                                                enrollmentManager.loadAllInto(recognitionManager, ownerManager)
                                                                 step = EnrollStep.SUCCESS
                                                             }
                                                         }
@@ -241,11 +259,11 @@ fun EnrollmentScreen(
                             }
                         }
                         Spacer(modifier = Modifier.height(16.dp))
-                        LinearProgressIndicator(progress = { captureCount.toFloat() / targetCaptures }, modifier = Modifier.fillMaxWidth().height(6.dp), color = AccentCyan, trackColor = SurfaceDark)
+                        LinearProgressIndicator(progress = { captureCount.toFloat() / totalTarget }, modifier = Modifier.fillMaxWidth().height(6.dp), color = AccentCyan, trackColor = SurfaceDark)
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(statusMessage, fontSize = 13.sp, color = TextSecondary)
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text("Keep your face centered in the circle.\nFront camera will be used automatically.", fontSize = 12.sp, color = TextSecondary.copy(alpha = 0.6f), lineHeight = 18.sp)
+                        Text("Follow the prompts to capture different angles.\nKeep your face centered.", fontSize = 12.sp, color = TextSecondary.copy(alpha = 0.6f), lineHeight = 18.sp)
                     }
                     EnrollStep.SUCCESS -> {
                         Spacer(modifier = Modifier.height(80.dp))
@@ -283,22 +301,60 @@ private fun processEnrollmentFrame(
     detector: com.google.mlkit.vision.face.FaceDetector,
     embeddingHelper: FaceEmbeddingHelper,
     fisheyeCorrector: FisheyeCorrector,
+    frameEnhancer: FrameEnhancer,
     onEmbedding: (FloatArray) -> Unit
 ) {
-    // imageProxy.toBitmap() already rotates the bitmap to the correct orientation.
-    val bitmap = try {
-        val original = imageProxy.toBitmap()
+    val rotation = imageProxy.imageInfo.rotationDegrees
+    val original = try {
+        val bitmap = imageProxy.toBitmap()
         val matrix = android.graphics.Matrix()
+        
+        // Handle Rotation
+        matrix.postRotate(rotation.toFloat())
+        
         // Front camera mirroring for enrollment (matching UI view)
         matrix.postScale(-1f, 1f)
-        android.graphics.Bitmap.createBitmap(original, 0, 0, original.width, original.height, matrix, true)
+        
+        android.graphics.Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
     } catch (e: Exception) {
         imageProxy.close()
         return
     }
 
-    val corrected = try { fisheyeCorrector.correct(bitmap) } catch (e: Exception) { bitmap }
-    val inputImage = InputImage.fromBitmap(corrected, 0)
+    val processedBitmap = if (FisheyeCorrector.isOpenCVLoaded) {
+        try {
+            // 1. Fisheye Correction
+            val corrected = fisheyeCorrector.correct(original)
+            
+            // 2. Enhancement Pipeline (Mirroring FaceAnalyzer)
+            val mat = org.opencv.core.Mat()
+            org.opencv.android.Utils.bitmapToMat(corrected, mat)
+            
+            val bgr = org.opencv.core.Mat()
+            org.opencv.imgproc.Imgproc.cvtColor(mat, bgr, org.opencv.imgproc.Imgproc.COLOR_RGBA2BGR)
+            
+            val enhancedBgr = frameEnhancer.enhance(bgr)
+            
+            val outputRgba = org.opencv.core.Mat()
+            org.opencv.imgproc.Imgproc.cvtColor(enhancedBgr, outputRgba, org.opencv.imgproc.Imgproc.COLOR_BGR2RGBA)
+            
+            val outputBitmap = android.graphics.Bitmap.createBitmap(outputRgba.cols(), outputRgba.rows(), android.graphics.Bitmap.Config.ARGB_8888)
+            org.opencv.android.Utils.matToBitmap(outputRgba, outputBitmap)
+            
+            mat.release()
+            bgr.release()
+            enhancedBgr.release()
+            outputRgba.release()
+            
+            outputBitmap
+        } catch (e: Exception) {
+            original
+        }
+    } else {
+        original
+    }
+
+    val inputImage = InputImage.fromBitmap(processedBitmap, 0)
 
     detector.process(inputImage)
         .addOnSuccessListener { faces ->
@@ -308,11 +364,11 @@ private fun processEnrollmentFrame(
                 try {
                     val left   = box.left.coerceAtLeast(0)
                     val top    = box.top.coerceAtLeast(0)
-                    val right  = box.right.coerceAtMost(corrected.width)
-                    val bottom = box.bottom.coerceAtMost(corrected.height)
+                    val right  = box.right.coerceAtMost(processedBitmap.width)
+                    val bottom = box.bottom.coerceAtMost(processedBitmap.height)
                     val w      = (right - left).coerceAtLeast(1)
                     val h      = (bottom - top).coerceAtLeast(1)
-                    val crop = android.graphics.Bitmap.createBitmap(corrected, left, top, w, h)
+                    val crop = android.graphics.Bitmap.createBitmap(processedBitmap, left, top, w, h)
                     val embedding = embeddingHelper.getEmbedding(crop)
                     onEmbedding(embedding)
                 } catch (e: Exception) {}

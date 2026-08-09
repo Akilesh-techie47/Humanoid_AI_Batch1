@@ -2,22 +2,20 @@ package com.humanoidai.ml
 
 import android.content.Context
 import android.content.SharedPreferences
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
+import com.humanoidai.memory.security.PrivacyVault
 
 // -----------------------------------------------------------------
 // FaceEnrollmentManager
 // -----------------------------------------------------------------
 // Persists known face embeddings across app sessions using
-// SharedPreferences + Gson serialization.
+// SharedPreferences + PrivacyVault (AES-256).
 //
 // Each enrolled person is stored as:
 //   key   → "face_<name>"
-//   value → JSON array of FloatArray (multiple embeddings per person
-//            for better accuracy — average of 5 captures)
+//   value → Encrypted JSON string of averaged embedding
 //
 // On app start, FaceRecognitionManager loads all saved faces
-// via loadAllInto(recognitionManager).
+// via loadAllInto(recognitionManager, ownerManager).
 // -----------------------------------------------------------------
 class FaceEnrollmentManager(context: Context) {
 
@@ -26,31 +24,36 @@ class FaceEnrollmentManager(context: Context) {
         private const val KEY_NAMES       = "enrolled_names"
         private const val FACE_PREFIX     = "face_"
         private const val LABEL_PREFIX    = "label_"
-        private const val MAX_EMBEDDINGS  = 5   // capture 5 frames, average them
+        private const val VIEWPOINT_COUNT = "vcount_"
     }
 
     private val prefs: SharedPreferences =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-    private val gson = Gson()
+    private val vault = PrivacyVault(context)
 
     // ------------------------------------------------------------
     // Enrollment
     // ------------------------------------------------------------
 
     /**
-     * Save a person with their averaged embedding.
-     * embeddings: list of captures (ideally 3-5 frames of same person)
+     * Save a person with multiple viewpoints.
      */
     fun enrollPerson(name: String, label: String, embeddings: List<FloatArray>) {
         if (embeddings.isEmpty()) return
 
-        // Average all captured embeddings for robustness
-        val averaged = averageEmbeddings(embeddings)
+        // We'll store up to 5 representative viewpoints (e.g. from a larger list)
+        val representative = if (embeddings.size > 5) {
+            // Take start, middle-ish, and end of the session to get different angles
+            listOf(embeddings[0], embeddings[embeddings.size/4], embeddings[embeddings.size/2], embeddings[(3 * embeddings.size) / 4], embeddings.last())
+        } else embeddings
 
-        // Save embedding
-        val json = gson.toJson(averaged)
+        representative.forEachIndexed { index, emb ->
+            val encrypted = vault.encryptEmbedding(emb)
+            prefs.edit().putString("$FACE_PREFIX${name}_$index", encrypted).apply()
+        }
+        
         prefs.edit()
-            .putString("$FACE_PREFIX$name", json)
+            .putInt("$VIEWPOINT_COUNT$name", representative.size)
             .putString("$LABEL_PREFIX$name", label)
             .apply()
 
@@ -66,9 +69,15 @@ class FaceEnrollmentManager(context: Context) {
     fun removePerson(name: String) {
         val names = getEnrolledNames().toMutableSet()
         names.remove(name)
-        prefs.edit()
-            .putStringSet(KEY_NAMES, names)
-            .remove("$FACE_PREFIX$name")
+        
+        val count = prefs.getInt("$VIEWPOINT_COUNT$name", 0)
+        val editor = prefs.edit()
+        for (i in 0 until count) {
+            editor.remove("${FACE_PREFIX}${name}_$i")
+        }
+        
+        editor.putStringSet(KEY_NAMES, names)
+            .remove("$VIEWPOINT_COUNT$name")
             .remove("$LABEL_PREFIX$name")
             .apply()
     }
@@ -90,26 +99,43 @@ class FaceEnrollmentManager(context: Context) {
     fun getLabel(name: String): String =
         prefs.getString("$LABEL_PREFIX$name", "Unknown") ?: "Unknown"
 
-    fun getEmbedding(name: String): FloatArray? {
-        val json = prefs.getString("$FACE_PREFIX$name", null) ?: return null
-        return try {
-            val type = object : TypeToken<FloatArray>() {}.type
-            gson.fromJson(json, type)
-        } catch (e: Exception) {
-            null
+    fun getEmbeddings(name: String): List<FloatArray> {
+        val count = prefs.getInt("$VIEWPOINT_COUNT$name", 0)
+        val list = mutableListOf<FloatArray>()
+        for (i in 0 until count) {
+            val encrypted = prefs.getString("${FACE_PREFIX}${name}_$i", null)
+            if (encrypted != null) {
+                try {
+                    list.add(vault.decryptEmbedding(encrypted))
+                } catch (e: Exception) {}
+            }
         }
+        return list
     }
 
     /**
      * Load all saved faces into the FaceRecognitionManager.
-     * Call this on app start from MainActivity or EnvironmentScreen.
+     * Call this on app start. Also loads the Owner if present.
      */
-    fun loadAllInto(recognitionManager: FaceRecognitionManager) {
+    fun loadAllInto(recognitionManager: FaceRecognitionManager, ownerManager: OwnerEnrollmentManager? = null) {
         recognitionManager.clearAll()
+        
+        // 1. Load Owner first (Primary priority)
+        ownerManager?.let { om ->
+            if (om.isOwnerEnrolled()) {
+                val name = om.getOwnerName()
+                recognitionManager.setOwner(name)
+                om.getMasterEmbedding()?.let { emb ->
+                    recognitionManager.registerFace(name, emb)
+                }
+            }
+        }
+
+        // 2. Load all other enrolled persons (multiple viewpoints)
         getEnrolledNames().forEach { name ->
-            val embedding = getEmbedding(name)
-            if (embedding != null) {
-                recognitionManager.registerFace(name, embedding)
+            val embeddings = getEmbeddings(name)
+            if (embeddings.isNotEmpty()) {
+                recognitionManager.registerFaces(name, embeddings)
             }
         }
     }
@@ -130,17 +156,6 @@ class FaceEnrollmentManager(context: Context) {
     // Helpers
     // ------------------------------------------------------------
 
-    private fun averageEmbeddings(embeddings: List<FloatArray>): FloatArray {
-        if (embeddings.size == 1) return embeddings[0]
-        val size   = embeddings[0].size
-        val result = FloatArray(size)
-        for (i in 0 until size) {
-            result[i] = embeddings.map { it[i] }.average().toFloat()
-        }
-        // Re-normalize after averaging
-        val norm = kotlin.math.sqrt(result.map { it * it }.sum())
-        return if (norm > 0f) FloatArray(size) { result[it] / norm } else result
-    }
 }
 
 // Simple UI model

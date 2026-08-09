@@ -2,8 +2,7 @@ package com.humanoidai.ml
 
 import android.content.Context
 import android.content.SharedPreferences
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
+import com.humanoidai.memory.security.PrivacyVault
 import java.util.*
 
 // -----------------------------------------------------------------
@@ -16,17 +15,29 @@ import java.util.*
 class OwnerEnrollmentManager(context: Context) {
 
     companion object {
-        private const val PREFS_NAME       = "humanoid_owner_biometrics"
-        private const val KEY_ENROLLED     = "is_owner_enrolled"
-        private const val KEY_OWNER_NAME   = "owner_name"
-        private const val KEY_EMBEDDINGS   = "owner_embeddings"
-        private const val KEY_LAST_UPDATED = "last_updated"
-        private const val KEY_ACCURACY     = "accuracy_score"
+        private const val PREFS_NAME        = "humanoid_owner_biometrics"
+        private const val KEY_ENROLLED      = "is_owner_enrolled"
+        private const val KEY_VOICE_ENROLLED = "is_voice_enrolled"
+        private const val KEY_OWNER_NAME    = "owner_name"
+        private const val KEY_EMBEDDINGS    = "owner_embeddings"
+        private const val KEY_LAST_UPDATED  = "last_updated"
+        private const val KEY_ACCURACY      = "accuracy_score"
+        private const val KEY_LANGUAGE      = "preferred_language"
+        private const val KEY_AI_NAME       = "ai_name"
+        
+        // UI Customization Keys
+        private const val KEY_MAX_ROI       = "ui_max_roi"
+        private const val KEY_ROI_STRUCTURE = "ui_roi_structure" // "classic", "minimal", "expanded"
+        private const val KEY_FOCUS_MODE    = "ui_focus_mode" // "owner", "primary", "all"
+        private const val KEY_SHOW_STATS    = "ui_show_stats"
+        private const val KEY_SHOW_LABELS   = "ui_show_labels"
+        private const val KEY_GLOW_EFFECT   = "ui_glow_enabled"
+        private const val KEY_LAYOUT_PRESET = "ui_layout_preset"
     }
 
     private val prefs: SharedPreferences =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-    private val gson = Gson()
+    private val vault = PrivacyVault(context)
 
     /**
      * Check if the owner has already completed the enrollment wizard.
@@ -34,32 +45,47 @@ class OwnerEnrollmentManager(context: Context) {
     fun isOwnerEnrolled(): Boolean = prefs.getBoolean(KEY_ENROLLED, false)
 
     /**
+     * Check if the owner has registered their voice.
+     */
+    fun isVoiceEnrolled(): Boolean = prefs.getBoolean(KEY_VOICE_ENROLLED, false)
+
+    /**
      * Save the master owner profile.
      * @param name Owner's name
      * @param embeddings A list of 20-30 high-quality embeddings from different angles.
      */
-    fun enrollOwner(name: String, embeddings: List<FloatArray>, accuracy: Float) {
+    fun enrollOwner(name: String, embeddings: List<FloatArray>, accuracy: Float, voiceEnrolled: Boolean = false) {
         if (embeddings.isEmpty()) return
 
         // Calculate Master Embedding (Cluster and Average)
         val masterEmbedding = calculateMasterEmbedding(embeddings)
 
+        // Encrypt embedding before saving
+        val encrypted = vault.encryptEmbedding(masterEmbedding)
+
         prefs.edit()
             .putBoolean(KEY_ENROLLED, true)
+            .putBoolean(KEY_VOICE_ENROLLED, voiceEnrolled)
             .putString(KEY_OWNER_NAME, name)
-            .putString(KEY_EMBEDDINGS, gson.toJson(masterEmbedding))
+            .putString(KEY_EMBEDDINGS, encrypted)
             .putLong(KEY_LAST_UPDATED, System.currentTimeMillis())
             .putFloat(KEY_ACCURACY, accuracy)
             .apply()
     }
 
+    /**
+     * Mark voice as enrolled separately if needed.
+     */
+    fun markVoiceEnrolled(enrolled: Boolean) {
+        prefs.edit().putBoolean(KEY_VOICE_ENROLLED, enrolled).apply()
+    }
+
     fun getOwnerName(): String = prefs.getString(KEY_OWNER_NAME, "Owner") ?: "Owner"
 
     fun getMasterEmbedding(): FloatArray? {
-        val json = prefs.getString(KEY_EMBEDDINGS, null) ?: return null
+        val encrypted = prefs.getString(KEY_EMBEDDINGS, null) ?: return null
         return try {
-            val type = object : TypeToken<FloatArray>() {}.type
-            gson.fromJson(json, type)
+            vault.decryptEmbedding(encrypted)
         } catch (e: Exception) {
             null
         }
@@ -67,6 +93,38 @@ class OwnerEnrollmentManager(context: Context) {
 
     fun getLastUpdated(): Long = prefs.getLong(KEY_LAST_UPDATED, 0L)
     fun getAccuracyScore(): Float = prefs.getFloat(KEY_ACCURACY, 0f)
+
+    fun getPreferredLanguage(): String = prefs.getString(KEY_LANGUAGE, "auto") ?: "auto"
+    fun setPreferredLanguage(lang: String) {
+        prefs.edit().putString(KEY_LANGUAGE, lang).apply()
+    }
+
+    fun getAiName(): String = prefs.getString(KEY_AI_NAME, "Humanoid") ?: "Humanoid"
+    fun setAiName(name: String) {
+        prefs.edit().putString(KEY_AI_NAME, name).apply()
+    }
+
+    // UI Customization Getters/Setters
+    fun getMaxRoi(): Int = prefs.getInt(KEY_MAX_ROI, 3)
+    fun setMaxRoi(count: Int) = prefs.edit().putInt(KEY_MAX_ROI, count).apply()
+
+    fun getRoiStructure(): String = prefs.getString(KEY_ROI_STRUCTURE, "classic") ?: "classic"
+    fun setRoiStructure(mode: String) = prefs.edit().putString(KEY_ROI_STRUCTURE, mode).apply()
+
+    fun getFocusMode(): String = prefs.getString(KEY_FOCUS_MODE, "owner") ?: "owner"
+    fun setFocusMode(mode: String) = prefs.edit().putString(KEY_FOCUS_MODE, mode).apply()
+
+    fun isShowStatsEnabled(): Boolean = prefs.getBoolean(KEY_SHOW_STATS, true)
+    fun setShowStatsEnabled(enabled: Boolean) = prefs.edit().putBoolean(KEY_SHOW_STATS, enabled).apply()
+
+    fun isShowLabelsEnabled(): Boolean = prefs.getBoolean(KEY_SHOW_LABELS, true)
+    fun setShowLabelsEnabled(enabled: Boolean) = prefs.edit().putBoolean(KEY_SHOW_LABELS, enabled).apply()
+
+    fun isGlowEnabled(): Boolean = prefs.getBoolean(KEY_GLOW_EFFECT, true)
+    fun setGlowEnabled(enabled: Boolean) = prefs.edit().putBoolean(KEY_GLOW_EFFECT, enabled).apply()
+
+    fun getLayoutPreset(): String = prefs.getString(KEY_LAYOUT_PRESET, "classic") ?: "classic"
+    fun setLayoutPreset(preset: String) = prefs.edit().putString(KEY_LAYOUT_PRESET, preset).apply()
 
     fun clearOwner() {
         prefs.edit().clear().apply()

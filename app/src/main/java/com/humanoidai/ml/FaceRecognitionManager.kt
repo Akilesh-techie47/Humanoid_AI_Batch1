@@ -1,5 +1,6 @@
 package com.humanoidai.ml
 
+import android.util.Log
 import kotlin.math.sqrt
 
 // -----------------------------------------------------------------
@@ -17,24 +18,49 @@ import kotlin.math.sqrt
 class FaceRecognitionManager {
 
     companion object {
-        // Reverting to a more stable threshold for recognition
-        private const val SIMILARITY_THRESHOLD = 0.78f
+        private const val TAG = "FaceRecognition"
+        
+        // Confidence Bands - Optimized for Agent-level speed
+        private const val THRESHOLD_CONFIRMED = 0.78f // Lowered from 0.85f for faster confirmed lock
+        private const val THRESHOLD_PROBABLE  = 0.60f // Lowered from 0.65f
     }
 
-    // Registry: person name → their face embedding
-    private val knownFaces = mutableMapOf<String, FloatArray>()
+    private var ownerName: String? = null
+    
+    fun setOwner(name: String) {
+        this.ownerName = name
+    }
+
+    // Registry: person name → list of their face embeddings (viewpoints)
+    private val knownFaces = mutableMapOf<String, MutableList<FloatArray>>()
 
     // ------------------------------------------------------------
     // Registration
     // ------------------------------------------------------------
 
     /**
-     * Register a known person.
-     * Call this when user adds a person in RecognitionScreen (Phase 3).
-     * For now called manually or from a saved file.
+     * Register a known person with a single embedding or add to existing.
      */
     fun registerFace(name: String, embedding: FloatArray) {
-        knownFaces[name] = embedding
+        val list = knownFaces.getOrPut(name) { mutableListOf() }
+        // To prevent memory leak if called repeatedly, limit to 10 best viewpoints
+        if (list.size >= 10) list.removeAt(0) 
+        list.add(embedding)
+        Log.d(TAG, "Registered viewpoint for $name. Total viewpoints: ${list.size}")
+    }
+
+    /**
+     * Register multiple viewpoints at once.
+     */
+    fun registerFaces(name: String, embeddings: List<FloatArray>) {
+        val list = knownFaces.getOrPut(name) { mutableListOf() }
+        list.addAll(embeddings)
+        if (list.size > 10) {
+            val kept = list.takeLast(10)
+            list.clear()
+            list.addAll(kept)
+        }
+        Log.d(TAG, "Registered ${embeddings.size} viewpoints for $name.")
     }
 
     /**
@@ -60,7 +86,11 @@ class FaceRecognitionManager {
     /**
      * Finds the best matching known person for a given embedding.
      * Returns Pair(name, confidence).
-     * If no match above threshold, returns Pair("UNKNOWN", 0f).
+     * 
+     * Logic:
+     * > 0.85: Confirmed match.
+     * 0.65 - 0.85: Probable match (often requires secondary auth like voice).
+     * < 0.65: Unknown.
      */
     fun findMatch(embedding: FloatArray): Pair<String, Float> {
         if (knownFaces.isEmpty()) return Pair("UNKNOWN", 0f)
@@ -68,18 +98,32 @@ class FaceRecognitionManager {
         var bestName = "UNKNOWN"
         var bestSimilarity = 0f
 
-        knownFaces.forEach { (name, knownEmbedding) ->
-            val similarity = cosineSimilarity(embedding, knownEmbedding)
-            if (similarity > bestSimilarity) {
-                bestSimilarity = similarity
-                bestName = name
+        knownFaces.forEach { (name, embeddings) ->
+            // Check against ALL stored viewpoints for this person
+            embeddings.forEach { knownEmbedding ->
+                val similarity = cosineSimilarity(embedding, knownEmbedding)
+                if (similarity > bestSimilarity) {
+                    bestSimilarity = similarity
+                    bestName = name
+                }
             }
         }
 
-        return if (bestSimilarity >= SIMILARITY_THRESHOLD) {
-            Pair(bestName, bestSimilarity)
-        } else {
-            Pair("UNKNOWN", bestSimilarity)
+        return when {
+            // Priority 1: High Similarity Confirmation
+            bestSimilarity >= 0.92f -> Pair(bestName, bestSimilarity)
+            
+            // Priority 2: Owner-specific lenient lock (Sticky Recognition)
+            // If we are even moderately sure it's the owner, we keep the lock to avoid "Unknown" flicker
+            ownerName != null && bestName == ownerName && bestSimilarity >= 0.65f -> Pair(bestName, bestSimilarity)
+
+            // Priority 3: Standard Confirmation
+            bestSimilarity >= THRESHOLD_CONFIRMED -> Pair(bestName, bestSimilarity)
+            
+            // Priority 4: Probable match
+            bestSimilarity >= THRESHOLD_PROBABLE  -> Pair("PROBABLE_$bestName", bestSimilarity)
+            
+            else -> Pair("UNKNOWN", bestSimilarity)
         }
     }
 

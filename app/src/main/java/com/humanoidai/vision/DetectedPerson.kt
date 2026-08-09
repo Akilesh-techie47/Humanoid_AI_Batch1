@@ -11,5 +11,9 @@ data class DetectedPerson(
     val label: String = "Unknown",
     val faceBitmap: android.graphics.Bitmap? = null,
     val heatPoints: List<PointF> = emptyList(),
-    val isNewArrival: Boolean = false
+    val isNewArrival: Boolean = false,
+    val trackId: Int = -1,
+    val livenessScore: Float = 0f,
+    val distanceCategory: String = "MEDIUM", // NEAR, MID, FAR
+    val isLookingAtCamera: Boolean = false
 )

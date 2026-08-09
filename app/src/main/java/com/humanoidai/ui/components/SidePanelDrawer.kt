@@ -6,8 +6,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -67,6 +66,7 @@ fun SidePanelDrawer(
 
                     // Menu Items
                     NavItem(Icons.Default.CameraAlt, "Camera Home", NavRoutes.ENVIRONMENT, navController, drawerState)
+                    
                     NavItem(Icons.Default.Notifications, "Alerts", NavRoutes.ALERTS, navController, drawerState, badge = unreadCount)
                     NavItem(Icons.Default.AutoAwesome, "AI Assistant", NavRoutes.ASSISTANT, navController, drawerState)
                     NavItem(Icons.Default.Face, "Face Recognition", NavRoutes.RECOGNITION, navController, drawerState)

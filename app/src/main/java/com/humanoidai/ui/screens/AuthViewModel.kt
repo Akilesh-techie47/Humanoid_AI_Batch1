@@ -41,6 +41,17 @@ class AuthViewModel : ViewModel() {
     private val _authState = MutableStateFlow<AuthState>(AuthState.Idle)
     val authState: StateFlow<AuthState> = _authState
 
+    // Flag to track if the user JUST successfully logged in manually
+    // This allows us to skip the redundant biometric check for this session.
+    private var _justAuthenticated = false
+    val justAuthenticated: Boolean get() = _justAuthenticated
+
+    fun consumeAuthFlag(): Boolean {
+        val flag = _justAuthenticated
+        _justAuthenticated = false
+        return flag
+    }
+
     private var storedVerificationId: String? = null
     private var resendToken: PhoneAuthProvider.ForceResendingToken? = null
 
@@ -122,6 +133,7 @@ class AuthViewModel : ViewModel() {
     ) {
         auth.signInWithCredential(credential)
             .addOnSuccessListener {
+                _justAuthenticated = true
                 _authState.value = AuthState.Success
                 onSuccess()
             }
@@ -141,6 +153,7 @@ class AuthViewModel : ViewModel() {
         _authState.value = AuthState.Loading
         auth.signInWithEmailAndPassword(email, password)
             .addOnSuccessListener {
+                _justAuthenticated = true
                 _authState.value = AuthState.Success
                 onSuccess()
             }
@@ -162,6 +175,7 @@ class AuthViewModel : ViewModel() {
         _authState.value = AuthState.Loading
         auth.createUserWithEmailAndPassword(email, password)
             .addOnSuccessListener {
+                _justAuthenticated = true
                 _authState.value = AuthState.Success
                 onSuccess()
             }
@@ -174,6 +188,12 @@ class AuthViewModel : ViewModel() {
 
     /** Returns true if a user is already signed in (e.g. on app relaunch). */
     fun isUserLoggedIn(): Boolean = auth.currentUser != null
+
+    fun clearError() {
+        if (_authState.value is AuthState.Error) {
+            _authState.value = AuthState.Idle
+        }
+    }
 
     fun signOut() {
         auth.signOut()
