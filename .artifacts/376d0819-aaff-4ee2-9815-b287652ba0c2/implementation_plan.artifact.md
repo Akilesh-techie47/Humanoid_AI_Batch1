@@ -1,45 +1,39 @@
-# Implementation Plan - Final Access Unification & UI Overlap Fix
+# Implementation Plan - UI Personalization Fix & Agent Interaction Stability
 
-The user wants to completely remove the "Restricted Access" feature and fix the remaining UI overlapping issues (messy structure). Additionally, the AI voice must be strictly male across all parts of the app.
+This plan addresses critical bugs in UI customization (ROI centering), resolves the silent AI issue, and organizes the Environment HUD to eliminate mess and overlaps.
 
 ## User Review Required
 
 > [!IMPORTANT]
-> - **Full Access for All**: I will remove the `GUEST` role entirely. Any authenticated user will have full owner privileges.
-> - **Notification Silencing**: I will explicitly silence standard Android notifications while the HUD is active to prevent the "white box" overlap.
-> - **UI De-cluttering**: I will relocate the Alert Banner to the bottom-start area to ensure it never overlaps with the top status bar or the camera core.
-> - **Hard Male Voice Enforcement**: I will apply a pitch shift to all TTS output to ensure a deep male voice, even if the device's default voice is female.
+> - **Functional Customization**: I will fix the bug where the camera ROI stays centered even after you change its position. It will now correctly follow your "Top Left", "Bottom Right", etc. settings.
+> - **Voice Interaction Fix**: I will increase the pitch slightly to `0.80f` (still deep male) to ensure maximum compatibility with the Android TTS engine. I will also move the "Wake Word" initialization to occur *after* you enter the HUD to ensure it has microphone access.
+> - **HUD Re-Organization**: I will remove the hardcoded vertical sidebar and integrate it as a modular component. This prevents detections from overlapping with your top bar menu or status indicators.
 
 ## Proposed Changes
 
-### [Component] Security & Access (Full Unification)
+### [Component] UI / Layout Customization
 
-#### [MODIFY] [SessionManager.kt](file:///D:/Projects(ASC)/app/src/main/java/com/humanoidai/security/SessionManager.kt)
-- Final removal of `UserAccessLevel.GUEST`.
-- Ensure all session creation defaults to `OWNER`.
+#### [MODIFY] [LayoutCustomizationEngine.kt](file:///D:/Projects(ASC)/app/src/main/java/com/humanoidai/ui/layoutcustomization/domain/manager/LayoutCustomizationEngine.kt)
+- **Anchor Application**: Update the pipeline to apply the `anchor` derived from the `roi.primaryPositionX/Y` coordinates in the customization state. This makes the camera move as intended.
 
-#### [MODIFY] [BiometricVerificationScreen.kt](file:///D:/Projects(ASC)/app/src/main/java/com/humanoidai/ui/screens/BiometricVerificationScreen.kt)
-- Simplify logic: Recognize any enrolled face -> Grant full access.
+### [Component] UI / HUD Rendering
 
-#### [MODIFY] [SidePanelDrawer.kt](file:///D:/Projects(ASC)/app/src/main/java/com/humanoidai/ui/components/SidePanelDrawer.kt)
-- Always show all navigation items (Settings, Alerts, Analytics).
-
-### [Component] UI / HUD Polishing (Zero Overlap)
+#### [MODIFY] [HUDRenderer.kt](file:///D:/Projects(ASC)/app/src/main/java/com/humanoidai/ui/layoutcustomization/HUDRenderer.kt)
+- **Integrate Secondary ROI**: Remove the hardcoded sidebar `Box`.
+- **Modularization**: Ensure `SecondaryRoiBlip` is rendered through the component list, allowing it to respect its own anchor and visibility settings.
+- **De-clutter**: Remove redundant `AlertBanner` calls that might be doubling up.
 
 #### [MODIFY] [LayoutRegistry.kt](file:///D:/Projects(ASC)/app/src/main/java/com/humanoidai/ui/layoutcustomization/domain/manager/LayoutRegistry.kt)
-- **Relocate Alerts**: Move the `ALERTS` component to `BOTTOM_START` or a lower `offsetY` (e.g., 200dp) to prevent collision with the Top Bar.
-- **Sidebar Padding**: Increase the sidebar's top padding to ensure it starts below the menu button.
+- **Sidebar Definition**: Ensure every layout preset has a clear definition for where the `SECONDARY_ROI` (sidebar) should appear (usually `CENTER_START`).
 
-#### [MODIFY] [NavGraph.kt](file:///D:/Projects(ASC)/app/src/main/java/com/humanoidai/navigation/NavGraph.kt)
-- Explicitly block `NotificationHelper.sendAlert` when the `ENVIRONMENT` screen is active.
+### [Component] AI Agent / Interaction
 
-### [Component] AI Voice Persona (Total Male Enforcement)
+#### [MODIFY] [AndroidSpeechEngine.kt](file:///D:/Projects(ASC)/app/src/main/java/com/humanoidai/voice/AndroidSpeechEngine.kt) & [TTSManager.kt](file:///D:/Projects(ASC)/app/src/main/java/com/humanoidai/voice/TTSManager.kt)
+- Adjust pitch to `0.80f` for reliability.
+- Add more logging to track if the engine is truly ready.
 
-#### [MODIFY] [AndroidSpeechEngine.kt](file:///D:/Projects(ASC)/app/src/main/java/com/humanoidai/voice/AndroidSpeechEngine.kt)
-- Apply a hardcoded pitch of `0.78f` to guarantee a deep male tone.
-
-#### [MODIFY] [TTSManager.kt](file:///D:/Projects(ASC)/app/src/main/java/com/humanoidai/voice/TTSManager.kt)
-- Synchronize pitch to `0.78f`.
+#### [MODIFY] [EnvironmentScreen.kt](file:///D:/Projects(ASC)/app/src/main/java/com/humanoidai/ui/screens/EnvironmentScreen.kt)
+- **Wake Call**: Call `companionEngine.wake()` inside this screen's `LaunchedEffect` instead of just at the app start. This ensures the microphone is ready exactly when you need it.
 
 ## Verification Plan
 
@@ -47,6 +41,6 @@ The user wants to completely remove the "Restricted Access" feature and fix the 
 - Build verification.
 
 ### Manual Verification
-- **Login Check**: Log in and verify all sidebar items are visible.
-- **Overlap Check**: Trigger an alert and verify the banner appears in a clear area at the bottom/side.
-- **Voice Check**: Listen to the "Systems Online" greeting. It should be deep and masculine.
+- **ROI Test**: Go to Customization. Change camera to "Top Left". Return to HUD. Verify it moved.
+- **Wake Word Test**: Say "Humanoid". Verify the AI responds "At your service, Sir".
+- **Visual Check**: Verify the HUD elements are neatly organized and no longer overlapping.

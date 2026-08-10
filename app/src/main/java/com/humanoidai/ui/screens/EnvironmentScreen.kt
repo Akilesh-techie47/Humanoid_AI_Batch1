@@ -240,12 +240,13 @@ fun EnvironmentScreen(
     }
 
     LaunchedEffect(Unit) {
+        companionEngine.wake()
         layoutViewModel.recordMemory(
             com.humanoidai.ui.layoutcustomization.domain.memory.MemoryEntry(
                 id = "session_start_${System.currentTimeMillis()}",
                 type = com.humanoidai.ui.layoutcustomization.domain.memory.MemoryType.SESSION,
                 source = "environment_screen",
-                payload = "Camera session initialized."
+                payload = "Camera session initialized. AI Agent waking."
             )
         )
     }

@@ -154,11 +154,10 @@ fun NavGraph(navController: NavHostController, startDestination: String = NavRou
                 navController = navController,
                 ownerManager = ownerManager,
                 recognitionManager = recognitionManager,
-                onAccessGranted = { _ ->
+                onAccessGranted = {
                     val sessionManager = TrustFramework.getInstance(context).sessionManager
                     sessionManager.createSession(
-                        userId = ownerManager.getOwnerName(),
-                        accessLevel = com.humanoidai.security.UserAccessLevel.OWNER
+                        userId = ownerManager.getOwnerName()
                     )
                     sessionManager.authenticateSession()
                     sessionManager.activateSession()

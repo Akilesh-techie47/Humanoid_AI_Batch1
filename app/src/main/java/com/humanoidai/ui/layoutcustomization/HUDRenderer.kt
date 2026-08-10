@@ -159,36 +159,12 @@ fun HUDRenderer(
                             LiveContextSummary(scale = scale)
                         }
                     }
-                }
-            }
-        }
-
-        // Secondary ROIs - Vertical Sidebar (Polished with Glass)
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(start = (16 * scale).dp, top = (100 * scale).dp, bottom = (100 * scale).dp), // Added top/bottom padding to avoid overlap
-            contentAlignment = Alignment.CenterStart
-        ) {
-            GlassPanel(
-                settings = settings,
-                modifier = Modifier
-                    .wrapContentWidth()
-                    .fillMaxHeight(0.6f) // Limit height to middle section
-            ) {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy((12 * scale).dp),
-                    modifier = Modifier
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = (4 * scale).dp),
-                    horizontalAlignment = Alignment.Start
-                ) {
-                    detectedPersons.take(settings.maxRoi).forEach { person ->
-                        SecondaryRoiBlip(
-                            person = person,
+                    HUDComponentRegistry.SECONDARY_ROI -> {
+                        // Render Face Blip Sidebar as a modular component
+                        SidebarBlips(
+                            persons = detectedPersons,
                             scale = scale,
-                            accent = Color(settings.accentColor),
-                            showConfidence = settings.showConfidence
+                            settings = settings
                         )
                     }
                 }
@@ -197,6 +173,37 @@ fun HUDRenderer(
         
         if (debugEnabled) {
             WorkspaceDebugTag(workspaceName, intentName, focusId, activeDecisions, perceptionState)
+        }
+    }
+}
+
+@Composable
+fun SidebarBlips(
+    persons: List<DetectedPerson>,
+    scale: Float,
+    settings: AppearanceSettings
+) {
+    GlassPanel(
+        settings = settings,
+        modifier = Modifier
+            .wrapContentWidth()
+            .padding(vertical = (20 * scale).dp)
+    ) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy((12 * scale).dp),
+            modifier = Modifier
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = (8 * scale).dp),
+            horizontalAlignment = Alignment.Start
+        ) {
+            persons.take(settings.maxRoi).forEach { person ->
+                SecondaryRoiBlip(
+                    person = person,
+                    scale = scale,
+                    accent = Color(settings.accentColor),
+                    showConfidence = settings.showConfidence
+                )
+            }
         }
     }
 }

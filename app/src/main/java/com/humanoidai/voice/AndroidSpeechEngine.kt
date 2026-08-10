@@ -44,7 +44,7 @@ class AndroidSpeechEngine(context: Context) : SpeechOutputEngine {
         }
 
         // Apply a "Strong, Friendly Male" base (Lower pitch for masculinity, confident rate)
-        val basePitch = 0.76f // Enforced deep male resonance
+        val basePitch = 0.80f // Deep resonant male, tuned for reliability
         val baseRate = 1.05f  // Confident, professional pacing
 
         val (rateMult, pitchMult) = when (tone) {

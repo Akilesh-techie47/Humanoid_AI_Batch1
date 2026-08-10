@@ -39,6 +39,10 @@ object LayoutRegistry {
                     offsetX = 20.dp,
                     offsetY = 220.dp // Moved DOWN to clear Status Bar, Sidebar, and Central Core
                 )
+                widgets[HUDComponentRegistry.SECONDARY_ROI] = HUDComponentRegistry.getComponentDefaults(HUDComponentRegistry.SECONDARY_ROI).copy(
+                    anchor = WidgetAnchor.CENTER_START,
+                    offsetX = 16.dp
+                )
             }
             "SIDE_SPLIT" -> {
                 widgets[HUDComponentRegistry.CAMERA] = HUDComponentRegistry.getComponentDefaults(HUDComponentRegistry.CAMERA).copy(

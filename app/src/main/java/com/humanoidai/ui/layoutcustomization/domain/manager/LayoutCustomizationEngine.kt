@@ -33,18 +33,40 @@ class LayoutCustomizationEngine(
         // 2. Apply user personalization overrides
         candidateWidgets["camera"]?.let { cam ->
             candidateWidgets["camera"] = cam.copy(
+                anchor = mapCoordsToAnchor(customization.roi.primaryPositionX, customization.roi.primaryPositionY),
                 scale = customization.camera.scale,
                 offsetX = customization.camera.offsetX.dp,
                 offsetY = customization.camera.offsetY.dp
             )
         }
         
-        // 3. Construct candidate blueprint
+        // 3. Apply ROI visibility
+        candidateWidgets["secondary_roi"]?.let { roi ->
+            candidateWidgets["secondary_roi"] = roi.copy(
+                isVisible = customization.widget.visibilityMap["Secondary ROI"] ?: true
+            )
+        }
+        
+        // 4. Construct candidate blueprint
         val candidateBlueprint = baseBlueprint.copy(
             widgets = candidateWidgets
         )
 
-        // 4. Resolve Constraints (Phase 1D: Anchor & Priority logic)
+        // 5. Resolve Constraints (Phase 1D: Anchor & Priority logic)
         return resolver.resolve(candidateBlueprint)
+    }
+
+    private fun mapCoordsToAnchor(x: Float, y: Float): com.humanoidai.ui.layoutcustomization.domain.blueprint.WidgetAnchor {
+        return when {
+            x < 0.3f && y < 0.3f -> com.humanoidai.ui.layoutcustomization.domain.blueprint.WidgetAnchor.TOP_START
+            x > 0.7f && y < 0.3f -> com.humanoidai.ui.layoutcustomization.domain.blueprint.WidgetAnchor.TOP_END
+            y < 0.3f -> com.humanoidai.ui.layoutcustomization.domain.blueprint.WidgetAnchor.TOP_CENTER
+            x < 0.3f && y > 0.7f -> com.humanoidai.ui.layoutcustomization.domain.blueprint.WidgetAnchor.BOTTOM_START
+            x > 0.7f && y > 0.7f -> com.humanoidai.ui.layoutcustomization.domain.blueprint.WidgetAnchor.BOTTOM_END
+            y > 0.7f -> com.humanoidai.ui.layoutcustomization.domain.blueprint.WidgetAnchor.BOTTOM_CENTER
+            x < 0.3f -> com.humanoidai.ui.layoutcustomization.domain.blueprint.WidgetAnchor.CENTER_START
+            x > 0.7f -> com.humanoidai.ui.layoutcustomization.domain.blueprint.WidgetAnchor.CENTER_END
+            else -> com.humanoidai.ui.layoutcustomization.domain.blueprint.WidgetAnchor.CENTER
+        }
     }
 }

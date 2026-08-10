@@ -14,7 +14,7 @@ class TTSManager(private val context: Context) {
     private var tts: TextToSpeech? = null
     private var isInitialized = false
 
-    private val VOICE_PITCH = 0.76f
+    private val VOICE_PITCH = 0.80f
     private val SPEECH_RATE = 1.05f
 
     suspend fun initialize(): Boolean = suspendCancellableCoroutine { continuation ->
