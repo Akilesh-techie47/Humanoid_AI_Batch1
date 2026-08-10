@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="org.opencv" >
+    package="org.opencv"
+    android:versionCode="490"
+    android:versionName="4.9.0" >
 
-    <uses-sdk android:minSdkVersion="21" />
+    <uses-sdk android:minSdkVersion="26" />
+
+    <application />
 
 </manifest>

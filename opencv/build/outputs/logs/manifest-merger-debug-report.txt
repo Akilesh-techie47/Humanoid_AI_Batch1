@@ -1,12 +1,18 @@
 -- Merging decision tree log ---
 manifest
-ADDED from D:\Projects(ASC)\opencv\java\AndroidManifest.xml:2:1-4:12
-INJECTED from D:\Projects(ASC)\opencv\java\AndroidManifest.xml:2:1-4:12
+ADDED from D:\Projects(ASC)\opencv\java\AndroidManifest.xml:2:1-7:12
+INJECTED from D:\Projects(ASC)\opencv\java\AndroidManifest.xml:2:1-7:12
 	package
 		ADDED from D:\Projects(ASC)\opencv\java\AndroidManifest.xml:3:7-27
 		INJECTED from D:\Projects(ASC)\opencv\java\AndroidManifest.xml
+	android:versionName
+		ADDED from D:\Projects(ASC)\opencv\java\AndroidManifest.xml:5:7-34
 	xmlns:android
 		ADDED from D:\Projects(ASC)\opencv\java\AndroidManifest.xml:2:11-69
+	android:versionCode
+		ADDED from D:\Projects(ASC)\opencv\java\AndroidManifest.xml:4:7-32
+application
+ADDED from D:\Projects(ASC)\opencv\java\AndroidManifest.xml:6:5-20
 uses-sdk
 INJECTED from D:\Projects(ASC)\opencv\java\AndroidManifest.xml reason: use-sdk injection requested
 INJECTED from D:\Projects(ASC)\opencv\java\AndroidManifest.xml
