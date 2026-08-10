@@ -1,6 +1,7 @@
 package com.humanoidai.distributed.ui
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.humanoidai.distributed.AIInstance
 import com.humanoidai.distributed.CoordinationManager
@@ -29,5 +30,12 @@ class CoordinationInspectorViewModel(private val manager: CoordinationManager) :
 
     fun removeInstance(instanceId: String) {
         manager.registry.unregisterInstance(instanceId)
+    }
+
+    class Factory(private val manager: CoordinationManager) : ViewModelProvider.Factory {
+        @Suppress("UNCHECKED_CAST")
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            return CoordinationInspectorViewModel(manager) as T
+        }
     }
 }

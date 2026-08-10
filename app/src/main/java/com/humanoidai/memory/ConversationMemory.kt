@@ -13,7 +13,7 @@ class ConversationMemory {
     val messages: StateFlow<List<ChatMessage>> = _messages.asStateFlow()
 
     fun addMessage(message: ChatMessage) {
-        _messages.value = _messages.value + message
+        _messages.value += message
     }
 
     fun getHistorySnippet(limit: Int = 10): String {

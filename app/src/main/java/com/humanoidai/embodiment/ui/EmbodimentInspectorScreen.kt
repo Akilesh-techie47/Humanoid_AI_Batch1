@@ -28,7 +28,7 @@ fun EmbodimentInspectorScreen(viewModel: EmbodimentInspectorViewModel) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp)
+            .padding(16.dp),
     ) {
         Text("Embodiment Inspector", style = MaterialTheme.typography.headlineMedium)
         Spacer(modifier = Modifier.height(16.dp))

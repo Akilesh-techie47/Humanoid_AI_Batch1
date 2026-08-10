@@ -1,8 +1,9 @@
 package org.opencv.android;
 
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.content.Context;
 import android.graphics.SurfaceTexture;
@@ -97,6 +98,7 @@ public class Camera2Renderer extends CameraGLRendererBase {
     }
 
     @Override
+    @SuppressLint("MissingPermission")
     protected void openCamera(int id) {
         Log.i(LOGTAG, "openCamera");
         CameraManager manager = (CameraManager) mView.getContext().getSystemService(Context.CAMERA_SERVICE);
@@ -214,7 +216,7 @@ public class Camera2Renderer extends CameraGLRendererBase {
                     .createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
             mPreviewRequestBuilder.addTarget(surface);
 
-            mCameraDevice.createCaptureSession(Arrays.asList(surface),
+            mCameraDevice.createCaptureSession(Collections.singletonList(surface),
                     new CameraCaptureSession.StateCallback() {
                         @Override
                         public void onConfigured( CameraCaptureSession cameraCaptureSession) {

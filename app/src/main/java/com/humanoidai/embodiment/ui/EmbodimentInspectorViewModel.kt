@@ -1,6 +1,7 @@
 package com.humanoidai.embodiment.ui
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.humanoidai.embodiment.Capability
 import com.humanoidai.embodiment.Embodiment
@@ -20,4 +21,11 @@ class EmbodimentInspectorViewModel(private val manager: EmbodimentManager) : Vie
 
     val capabilities: StateFlow<Set<Capability>> = manager.capabilityRegistry.capabilities
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
+    class Factory(private val manager: EmbodimentManager) : ViewModelProvider.Factory {
+        @Suppress("UNCHECKED_CAST")
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            return EmbodimentInspectorViewModel(manager) as T
+        }
+    }
 }

@@ -1,6 +1,7 @@
 package com.humanoidai.security.ui
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.humanoidai.security.AiPermission
 import com.humanoidai.security.AiSession
@@ -31,5 +32,12 @@ class PrivacyDashboardViewModel(private val trust: TrustFramework) : ViewModel()
 
     fun refreshPermissions() {
         trust.permissionEngine.refreshPermissions()
+    }
+
+    class Factory(private val trust: TrustFramework) : ViewModelProvider.Factory {
+        @Suppress("UNCHECKED_CAST")
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            return PrivacyDashboardViewModel(trust) as T
+        }
     }
 }

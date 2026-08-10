@@ -6,7 +6,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Hub
-import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -30,13 +29,19 @@ fun CoordinationInspectorScreen(viewModel: CoordinationInspectorViewModel) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp)
+            .padding(16.dp),
     ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Text("Coordination Inspector", style = MaterialTheme.typography.headlineMedium)
-            IconButton(onClick = {
-                viewModel.addMockInstance(AIInstance(type = EmbodimentType.ROBOT, capabilities = emptySet()))
-            }) {
+            IconButton(
+                onClick = {
+                    viewModel.addMockInstance(AIInstance(type = EmbodimentType.ROBOT, capabilities = emptySet()))
+                }
+            ) {
                 Icon(Icons.Default.Add, contentDescription = "Add Mock Robot")
             }
         }
@@ -64,8 +69,7 @@ fun CoordinationInspectorScreen(viewModel: CoordinationInspectorViewModel) {
                 InstanceCard(
                     instance = instance,
                     isLocal = instance.id == viewModel.localInstanceId,
-                    onRemove = { viewModel.removeInstance(instance.id) }
-                )
+                ) { viewModel.removeInstance(instance.id) }
             }
         }
     }

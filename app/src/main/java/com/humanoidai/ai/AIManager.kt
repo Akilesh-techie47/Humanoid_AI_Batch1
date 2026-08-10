@@ -2,13 +2,10 @@ package com.humanoidai.ai
 
 import android.content.Context
 import com.humanoidai.context.ContextEngine
-import com.humanoidai.context.CurrentContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 
 import com.humanoidai.memory.ConversationMemory
-import com.humanoidai.ai.ChatMessage
 import com.humanoidai.ml.OwnerEnrollmentManager
 
 /**
@@ -20,16 +17,14 @@ class AIManager(
     private val contextEngine: ContextEngine,
     private val conversationMemory: ConversationMemory,
     private val voiceEngine: com.humanoidai.voice.VoiceEngine,
-    private val behaviorEngine: com.humanoidai.behavior.BehaviorEngine? = null
+    private val behaviorEngine: com.humanoidai.behavior.BehaviorEngine? = null,
 ) {
 
     private val providers = mutableMapOf<String, AIProvider>()
     
     private val _activeProviderId = MutableStateFlow("MockAI-1.0")
-    val activeProviderId: StateFlow<String> = _activeProviderId.asStateFlow()
 
     private val _aiState = MutableStateFlow<AIState>(AIState.Idle)
-    val aiState: StateFlow<AIState> = _aiState.asStateFlow()
 
     // Context Cache for High-Speed Reasoning
     private var cachedOwnerName: String = ""
@@ -47,20 +42,6 @@ class AIManager(
         
         // Default to Gemini (Phase 7)
         _activeProviderId.value = gemini.id
-    }
-
-    fun updateEnvironment(
-        detections: List<com.humanoidai.vision.DetectedPerson>,
-        alertCount: Int
-    ) {
-        contextEngine.updateFromVision(detections)
-        contextEngine.updateAlerts(alertCount)
-    }
-
-    fun setProvider(providerId: String) {
-        if (providers.containsKey(providerId)) {
-            _activeProviderId.value = providerId
-        }
     }
 
     suspend fun ask(
@@ -83,7 +64,7 @@ class AIManager(
         _aiState.value = AIState.Loading
         
         // 1. Refresh Context (Optimized with Cache)
-        if (cachedOwnerName.isEmpty() || ownerName != cachedOwnerName) {
+        if (cachedOwnerName.isEmpty() || (ownerName != cachedOwnerName)) {
             cachedOwnerName = ownerName
             cachedAiName = ownerEnrollmentManager.getAiName()
             cachedLanguage = ownerEnrollmentManager.getPreferredLanguage()
@@ -143,8 +124,4 @@ class AIManager(
     }
 
     fun getMessages(): StateFlow<List<ChatMessage>> = conversationMemory.messages
-
-    fun clearConversation() {
-        conversationMemory.clear()
-    }
 }

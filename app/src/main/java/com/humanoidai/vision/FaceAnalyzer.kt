@@ -2,7 +2,6 @@ package com.humanoidai.vision
 
 import android.annotation.SuppressLint
 import android.graphics.*
-import android.view.Surface
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import com.google.mlkit.vision.common.InputImage
@@ -10,6 +9,7 @@ import com.google.mlkit.vision.face.Face
 import com.google.mlkit.vision.face.FaceDetection
 import com.google.mlkit.vision.face.FaceDetectorOptions
 import com.humanoidai.ml.*
+import kotlin.math.abs
 
 class FaceAnalyzer(
     private val embeddingHelper: FaceEmbeddingHelper,
@@ -18,8 +18,7 @@ class FaceAnalyzer(
     private val contextEngine: com.humanoidai.context.ContextEngine,
     private val onResults: (List<DetectedPerson>) -> Unit,
     private val fisheyeCorrector: FisheyeCorrector? = null,
-    var deviceRotation: Int = Surface.ROTATION_0,
-    var isFrontCamera: Boolean = false
+    var isFrontCamera: Boolean = false,
 ) : ImageAnalysis.Analyzer {
 
     // Lazy initialization to prevent constructor crash if native libs fail
@@ -29,8 +28,8 @@ class FaceAnalyzer(
     // ---- Presence Management (Memory) ----
     private val lastSeenMap = mutableMapOf<String, Long>()
     private val greetingHistory = mutableMapOf<String, Long>()
-    private val GREETING_COOLDOWN = 10 * 60 * 1000L // 10 minutes
-    private val PRESENCE_TIMEOUT = 8000L           // 8 seconds
+    private val greetingCooldown = 10 * 60 * 1000L // 10 minutes
+    private val presenceTimeout = 8000L           // 8 seconds
 
     private val detector = FaceDetection.getClient(
         FaceDetectorOptions.Builder()
@@ -47,7 +46,7 @@ class FaceAnalyzer(
         frameCount++
         // Recognition interval (Phase 9 Performance Optimization)
         // Only run full embedding extraction every 5 frames to save CPU/Battery
-        val shouldRecognize = frameCount % 5 == 0
+        val shouldRecognize = (frameCount % 5 == 0)
 
         val rotation = imageProxy.imageInfo.rotationDegrees
         
@@ -64,7 +63,7 @@ class FaceAnalyzer(
             }
             
             Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             imageProxy.close()
             return
         }
@@ -136,7 +135,7 @@ class FaceAnalyzer(
 
                 val iterator = lastSeenMap.entries.iterator()
                 while (iterator.hasNext()) {
-                    if (now - iterator.next().value > PRESENCE_TIMEOUT) {
+                    if (now - iterator.next().value > presenceTimeout) {
                         iterator.remove()
                     }
                 }
@@ -152,7 +151,7 @@ class FaceAnalyzer(
         if (name == "UNKNOWN") return false
         lastSeenMap[name] = now
         val lastGreeted = greetingHistory[name] ?: 0L
-        if (now - lastGreeted > GREETING_COOLDOWN) {
+        if (now - lastGreeted > greetingCooldown) {
             greetingHistory[name] = now
             return true
         }
@@ -210,9 +209,9 @@ class FaceAnalyzer(
             }
 
             // 4. Attention Detection (Looking at Camera)
-            val isLookingAtCamera = Math.abs(headRotY) < 15f && Math.abs(headRotX) < 15f
+            val isLookingAtCamera = abs(headRotY) < 15f && abs(headRotX) < 15f
 
-            val movementScore = (Math.abs(headRotY) + Math.abs(headRotX)) / 40f
+            val movementScore = (abs(headRotY) + abs(headRotX)) / 40f
             val livenessScore = (if (isBlinking) 0.5f else 0f) + (movementScore * 0.5f).coerceAtMost(0.5f)
 
             var faceBitmap: Bitmap? = null
@@ -271,7 +270,7 @@ class FaceAnalyzer(
         }
     }
 
-    private fun cropFace(bitmap: Bitmap, box: android.graphics.Rect): Bitmap {
+    private fun cropFace(bitmap: Bitmap, box: Rect): Bitmap {
         val left   = box.left.coerceAtLeast(0)
         val top    = box.top.coerceAtLeast(0)
         val right  = box.right.coerceAtMost(bitmap.width)

@@ -1,6 +1,5 @@
 package com.humanoidai.ui.screens
 
-import android.view.OrientationEventListener
 import android.view.Surface
 import android.view.WindowManager
 import androidx.camera.core.*
@@ -18,6 +17,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.BatteryChargingFull
 import androidx.compose.material3.*
@@ -80,7 +80,7 @@ fun EnvironmentScreen(
     microphoneManager: com.humanoidai.hearing.SpeechRecognizerManager,
     attentionManager: com.humanoidai.attention.AttentionManager,
     appearanceViewModel: AppearanceViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-        factory = AppearanceViewModel.Factory(LocalContext.current)
+        factory = AppearanceViewModel.Factory(LocalContext.current),
     ),
     layoutViewModel: com.humanoidai.ui.layoutcustomization.presentation.viewmodel.LayoutCustomizationViewModel
 ) {
@@ -208,7 +208,7 @@ fun EnvironmentScreen(
                 alertEngine.processDetections(persons)
 
                 // Interactive Greeting Logic
-                persons.find { it.isNewArrival && it.name != "UNKNOWN" }?.let { newPerson ->
+                persons.find { it.isNewArrival && (it.name != "UNKNOWN") }?.let { newPerson ->
                     voiceEngine.speak("Hello ${newPerson.name}, welcome back.")
                 } ?: persons.find { it.isNewArrival && it.name == "UNKNOWN" }?.let {
                     voiceEngine.speak("Hello there. I don't recognize you yet.")
@@ -226,7 +226,7 @@ fun EnvironmentScreen(
         val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
         cameraProviderFuture.addListener({
             val cameraProvider = cameraProviderFuture.get()
-            val preview = Preview.Builder().build().also { it.setSurfaceProvider(pv.surfaceProvider) }
+            val preview = Preview.Builder().build().also { it.surfaceProvider = pv.surfaceProvider }
             val analysis = ImageAnalysis.Builder()
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                 .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
@@ -254,12 +254,12 @@ fun EnvironmentScreen(
     var radarSector by remember { mutableStateOf(CompassSector.UNKNOWN) }
 
     LaunchedEffect(ambientNoise) {
-        if (ambientNoise > 40f) {
+        radarSector = if (ambientNoise > 40f) {
             // Cycle through sectors based on noise intensity to simulate "direction finding"
-            val sectors = CompassSector.values().filter { it != CompassSector.UNKNOWN }
-            radarSector = sectors[(System.currentTimeMillis() / 200 % sectors.size).toInt()]
+            val sectors = CompassSector.entries.filter { it != CompassSector.UNKNOWN }
+            sectors[(System.currentTimeMillis() / 200 % sectors.size).toInt()]
         } else {
-            radarSector = CompassSector.UNKNOWN
+            CompassSector.UNKNOWN
         }
     }
 
@@ -302,17 +302,16 @@ fun EnvironmentScreen(
                         } else {
                             microphoneManager.startListening(
                                 onPartialResult = { inputText = it },
-                                onFinalResult = { final ->
-                                    if (final.isBlank()) return@startListening
-                                    inputText = ""
-                                    scope.launch {
-                                        aiManager.ask(final, ownerManager.getOwnerName(), "Home") {
-                                            microphoneManager.stopListening()
-                                            microphoneManager.startPassiveListening { voiceEngine.speak("Acknowledged.") }
-                                        }
+                            ) { final ->
+                                if (final.isBlank()) return@startListening
+                                inputText = ""
+                                scope.launch {
+                                    aiManager.ask(final, ownerManager.getOwnerName(), "Home") {
+                                        microphoneManager.stopListening()
+                                        microphoneManager.startPassiveListening { voiceEngine.speak("Acknowledged.") }
                                     }
                                 }
-                            )
+                            }
                         }
                     },
                     onAdd = {
@@ -433,7 +432,9 @@ fun SystemControlBar(
                         decorationBox = { if (inputText.isEmpty()) Text("Command...", color = Color.White.copy(alpha = 0.2f), fontSize = (14 * scale).sp) ; it() }
                     )
                     if (inputText.isNotEmpty()) {
-                        IconButton(onClick = onSend) { Icon(Icons.Default.ArrowForward, null, tint = accent) }
+                        IconButton(onClick = onSend) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowForward, null, tint = accent)
+                        }
                     }
                 }
             }
@@ -452,14 +453,6 @@ fun SystemControlBar(
                 )
             }
         }
-    }
-}
-
-@Composable
-fun StatusText(label: String, value: String) {
-    Column {
-        Text(label, fontSize = 8.sp, color = TextSecondary)
-        Text(value, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White, fontFamily = FontFamily.Monospace)
     }
 }
 
@@ -564,7 +557,7 @@ fun SecondaryRoiBlip(person: DetectedPerson, scale: Float, accent: Color, showCo
         if (showConfidence) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = String.format("%.2f", person.confidence),
+                    text = java.lang.String.format(java.util.Locale.getDefault(), "%.2f", person.confidence),
                     color = TextSecondary.copy(alpha = 0.8f),
                     fontSize = (7 * scale).sp,
                     fontFamily = FontFamily.Monospace

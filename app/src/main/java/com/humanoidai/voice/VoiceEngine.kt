@@ -19,7 +19,7 @@ class VoiceEngine(context: Context) {
         val now = System.currentTimeMillis()
         
         // Cooldown for repeated phrases (unless priority like alert)
-        if (!priority && text == lastSpokenText && (now - lastSpokenTime) < 15_000) {
+        if (!priority && (text == lastSpokenText) && ((now - lastSpokenTime) < 15_000)) {
             onComplete()
             return
         }

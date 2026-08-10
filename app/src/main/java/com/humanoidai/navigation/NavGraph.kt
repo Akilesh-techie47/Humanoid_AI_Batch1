@@ -248,77 +248,49 @@ fun NavGraph(navController: NavHostController, startDestination: String = NavRou
 
         composable(NavRoutes.RUNTIME_INSPECTOR) {
             val runtimeViewModel: RuntimeInspectorViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-                factory = object : androidx.lifecycle.ViewModelProvider.Factory {
-                    override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-                        return RuntimeInspectorViewModel(AIRuntimeManager.getInstance(context)) as T
-                    }
-                }
+                factory = RuntimeInspectorViewModel.Factory(AIRuntimeManager.getInstance(context))
             )
             RuntimeInspectorScreen(runtimeViewModel)
         }
 
         composable(NavRoutes.PRIVACY_DASHBOARD) {
             val privacyViewModel: PrivacyDashboardViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-                factory = object : androidx.lifecycle.ViewModelProvider.Factory {
-                    override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-                        return PrivacyDashboardViewModel(TrustFramework.getInstance(context)) as T
-                    }
-                }
+                factory = PrivacyDashboardViewModel.Factory(TrustFramework.getInstance(context))
             )
             PrivacyDashboardScreen(privacyViewModel)
         }
 
         composable(NavRoutes.SECURITY_INSPECTOR) {
             val privacyViewModel: PrivacyDashboardViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-                factory = object : androidx.lifecycle.ViewModelProvider.Factory {
-                    override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-                        return PrivacyDashboardViewModel(TrustFramework.getInstance(context)) as T
-                    }
-                }
+                factory = PrivacyDashboardViewModel.Factory(TrustFramework.getInstance(context))
             )
             SecurityInspectorScreen(privacyViewModel)
         }
 
         composable(NavRoutes.GOAL_INSPECTOR) {
             val goalViewModel: GoalInspectorViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-                factory = object : androidx.lifecycle.ViewModelProvider.Factory {
-                    override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-                        return GoalInspectorViewModel(layoutCustomizationManager.goalManager) as T
-                    }
-                }
+                factory = GoalInspectorViewModel.Factory(layoutCustomizationManager.goalManager)
             )
             GoalInspectorScreen(goalViewModel)
         }
 
         composable(NavRoutes.BEHAVIOR_INSPECTOR) {
             val behaviorViewModel: BehaviorInspectorViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-                factory = object : androidx.lifecycle.ViewModelProvider.Factory {
-                    override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-                        return BehaviorInspectorViewModel(layoutCustomizationManager.behaviorEngine!!) as T
-                    }
-                }
+                factory = BehaviorInspectorViewModel.Factory(layoutCustomizationManager.behaviorEngine!!)
             )
             BehaviorInspectorScreen(behaviorViewModel)
         }
 
         composable(NavRoutes.EMBODIMENT_INSPECTOR) {
             val embodimentViewModel: EmbodimentInspectorViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-                factory = object : androidx.lifecycle.ViewModelProvider.Factory {
-                    override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-                        return EmbodimentInspectorViewModel(layoutCustomizationManager.embodimentManager) as T
-                    }
-                }
+                factory = EmbodimentInspectorViewModel.Factory(layoutCustomizationManager.embodimentManager)
             )
             EmbodimentInspectorScreen(embodimentViewModel)
         }
 
         composable(NavRoutes.COORDINATION_INSPECTOR) {
             val coordViewModel: CoordinationInspectorViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-                factory = object : androidx.lifecycle.ViewModelProvider.Factory {
-                    override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-                        return CoordinationInspectorViewModel(layoutCustomizationManager.coordinationManager) as T
-                    }
-                }
+                factory = CoordinationInspectorViewModel.Factory(layoutCustomizationManager.coordinationManager)
             )
             CoordinationInspectorScreen(coordViewModel)
         }

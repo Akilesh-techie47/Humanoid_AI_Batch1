@@ -1,6 +1,7 @@
 package com.humanoidai.behavior.ui
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.humanoidai.behavior.BehaviorEngine
 import com.humanoidai.behavior.CommunicationLevel
@@ -35,5 +36,12 @@ class BehaviorInspectorViewModel(private val engine: BehaviorEngine) : ViewModel
 
     fun clearHistory() {
         engine.conversationManager.clearHistory()
+    }
+
+    class Factory(private val engine: BehaviorEngine) : ViewModelProvider.Factory {
+        @Suppress("UNCHECKED_CAST")
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            return BehaviorInspectorViewModel(engine) as T
+        }
     }
 }

@@ -8,8 +8,8 @@ import android.content.Intent
 import android.graphics.Bitmap
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.graphics.scale
 import com.humanoidai.MainActivity
-import com.humanoidai.R
 
 // -----------------------------------------------------------------
 // NotificationHelper
@@ -35,15 +35,17 @@ object NotificationHelper {
     fun createChannels(context: Context) {
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-        manager.createNotificationChannel(NotificationChannel(
-            CHANNEL_CRITICAL,
-            "Critical Alerts",
-            NotificationManager.IMPORTANCE_HIGH
-        ).apply {
-            description = "Critical security alerts — unknown persons, multiple intrusions"
-            enableVibration(true)
-            enableLights(true)
-        })
+        manager.createNotificationChannel(
+            NotificationChannel(
+                CHANNEL_CRITICAL,
+                "Critical Alerts",
+                NotificationManager.IMPORTANCE_HIGH,
+            ).apply {
+                description = "Critical security alerts — unknown persons, multiple intrusions"
+                enableVibration(true)
+                enableLights(true)
+            }
+        )
 
         manager.createNotificationChannel(NotificationChannel(
             CHANNEL_HIGH,
@@ -103,19 +105,17 @@ object NotificationHelper {
 
         // Add face crop as large icon if available
         alert.faceBitmap?.let { bitmap ->
-            builder.setLargeIcon(
-                Bitmap.createScaledBitmap(bitmap, 128, 128, false)
-            )
+            builder.setLargeIcon(bitmap.scale(128, 128))
         }
 
         // Heads-up for HIGH/CRITICAL
-        if (alert.priority == AlertPriority.CRITICAL || alert.priority == AlertPriority.HIGH) {
+        if ((alert.priority == AlertPriority.CRITICAL) || (alert.priority == AlertPriority.HIGH)) {
             builder.setDefaults(NotificationCompat.DEFAULT_VIBRATE)
         }
 
         try {
             NotificationManagerCompat.from(context).notify(notificationId++, builder.build())
-        } catch (e: SecurityException) {
+        } catch (_: SecurityException) {
             // Notification permission not granted — silently ignore
         }
     }

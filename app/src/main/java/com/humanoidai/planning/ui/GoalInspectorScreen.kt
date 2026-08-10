@@ -45,8 +45,12 @@ fun GoalInspectorScreen(viewModel: GoalInspectorViewModel) {
         Spacer(Modifier.height(16.dp))
 
         LazyColumn(modifier = Modifier.fillMaxSize()) {
-            items(goals.values.toList().sortedByDescending { it.creationTime }) { goal ->
-                GoalCard(goal, onCancel = { viewModel.cancelGoal(goal.id) })
+            items(
+                goals.values.asSequence()
+                    .sortedByDescending { it.creationTime }
+                    .toList()
+            ) { goal ->
+                GoalCard(goal) { viewModel.cancelGoal(goal.id) }
             }
         }
     }
@@ -66,7 +70,7 @@ fun GoalCard(goal: Goal, onCancel: () -> Unit) {
                     Text("Type: ${goal.type} | Priority: ${goal.priority}", style = MaterialTheme.typography.labelSmall)
                 }
                 
-                if (goal.status != GoalStatus.COMPLETED && goal.status != GoalStatus.CANCELLED) {
+                if ((goal.status != GoalStatus.COMPLETED) && (goal.status != GoalStatus.CANCELLED)) {
                     IconButton(onClick = onCancel) {
                         Icon(Icons.Default.Cancel, contentDescription = "Cancel", tint = Color.Red)
                     }

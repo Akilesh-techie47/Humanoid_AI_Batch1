@@ -55,7 +55,7 @@ class EmbodimentManager {
         _worldState.value = WorldState(
             activeEmbodimentId = embodiment.profile.id,
             connectedEmbodimentIds = setOf(embodiment.profile.id),
-            availableCapabilities = embodiment.profile.capabilities
+            availableCapabilities = embodiment.profile.capabilities,
         )
     }
 

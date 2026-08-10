@@ -26,7 +26,6 @@ enum class AlertType {
     UNKNOWN_PERSON,
     MULTIPLE_UNKNOWNS,
     OWNER_RETURNED,
-    OWNER_ABSENT,
     KNOWN_PERSON_ARRIVED
 }
 
@@ -40,7 +39,7 @@ data class AlertItem(
     val faceBitmap: Bitmap? = null,
     val personName: String = "",
     val personLabel: String = "",
-    var isRead: Boolean = false
+    var isRead: Boolean = false,
 )
 
 class AlertEngine(
@@ -96,7 +95,7 @@ class AlertEngine(
                     cooldownMs = 60_000L
                 )
             }
-        } else if (ownerLastSeenAt > 0 && (now - ownerLastSeenAt) > OWNER_ABSENT_THRESHOLD_MS) {
+        } else if (ownerLastSeenAt > 0 && ((now - ownerLastSeenAt) > OWNER_ABSENT_THRESHOLD_MS)) {
             ownerWasAbsent = true
         }
 
@@ -171,8 +170,10 @@ class AlertEngine(
         )
 
         val updated = (_alerts.value + alert)
+            .asSequence()
             .sortedByDescending { it.timestamp }
             .take(MAX_ALERTS)
+            .toList()
 
         _alerts.value = updated
         _unreadCount.value = updated.count { !it.isRead }

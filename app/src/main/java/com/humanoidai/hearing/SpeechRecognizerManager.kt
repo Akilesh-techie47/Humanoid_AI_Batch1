@@ -19,23 +19,22 @@ import kotlinx.coroutines.flow.asStateFlow
  */
 class SpeechRecognizerManager(private val context: Context) {
 
-    private val TAG = "SpeechRecognizerManager"
-    
     private var speechRecognizer: SpeechRecognizer? = null
     private val mainHandler = Handler(Looper.getMainLooper())
     
-    private val _isListening = MutableStateFlow(false)
+    private val _isListening = MutableStateFlow(value = false)
     val isListening: StateFlow<Boolean> = _isListening.asStateFlow()
 
     private val _ambientNoise = MutableStateFlow(0f)
     val ambientNoise: StateFlow<Float> = _ambientNoise.asStateFlow()
 
-    private val _lastRecognizedText = MutableStateFlow("")
-    val lastRecognizedText: StateFlow<String> = _lastRecognizedText.asStateFlow()
-
     private var isPassiveMode = false
     private val wakeWordManager = WakeWordManager()
     private var onWakeWordDetected: (() -> Unit)? = null
+
+    companion object {
+        private const val TAG = "SpeechRecognizerManager"
+    }
 
     init {
         initializeRecognizer()
@@ -93,7 +92,6 @@ class SpeechRecognizerManager(private val context: Context) {
             val text = matches?.getOrNull(0) ?: ""
             Log.d(TAG, "onResults: \"$text\"")
             
-            _lastRecognizedText.value = text
             processResults(text)
         }
 
@@ -196,15 +194,11 @@ class SpeechRecognizerManager(private val context: Context) {
         Log.d(TAG, "Recognizer language set to: $currentLanguage")
     }
 
-    fun setCustomWakeWord(name: String) {
-        wakeWordManager.setCustomWakeWord(name)
-    }
-
     private fun startInternal(isPartial: Boolean) {
         mainHandler.post {
             try {
                 speechRecognizer?.cancel()
-            } catch (e: Exception) {}
+            } catch (_: Exception) {}
 
             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
@@ -245,14 +239,6 @@ class SpeechRecognizerManager(private val context: Context) {
         mainHandler.post {
             speechRecognizer?.cancel()
             mainHandler.postDelayed({ restartListening() }, 500)
-        }
-    }
-
-    fun destroy() {
-        Log.d(TAG, "destroy() called")
-        mainHandler.post {
-            speechRecognizer?.destroy()
-            speechRecognizer = null
         }
     }
 

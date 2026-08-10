@@ -1,6 +1,7 @@
 package com.humanoidai.runtime.ui
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.humanoidai.runtime.AIRuntimeManager
 import com.humanoidai.runtime.HealthState
@@ -23,5 +24,12 @@ class RuntimeInspectorViewModel(private val manager: AIRuntimeManager) : ViewMod
 
     fun setProfile(profile: RuntimeProfile) {
         manager.policyEngine.setUserProfile(profile)
+    }
+
+    class Factory(private val manager: AIRuntimeManager) : ViewModelProvider.Factory {
+        @Suppress("UNCHECKED_CAST")
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            return RuntimeInspectorViewModel(manager) as T
+        }
     }
 }

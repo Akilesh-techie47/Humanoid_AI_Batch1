@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.remember
+import androidx.core.content.edit
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.rememberNavController
 import com.humanoidai.memory.database.HumanoidDatabase
@@ -46,7 +47,7 @@ class MainActivity : ComponentActivity() {
         if (!wasCleanShutdown) {
             android.util.Log.w("GapDetection", "System detected a dirty shutdown (likely CRASH)")
         }
-        prefs.edit().putBoolean("clean_shutdown", false).apply() // Reset for this session
+        prefs.edit { putBoolean("clean_shutdown", false) } // Reset for this session
 
         setContent {
             HumanoidAITheme {
@@ -76,9 +77,11 @@ class MainActivity : ComponentActivity() {
             val gapDetector = GapDetector(adapter)
             
             val detectedGap = gapDetector.checkForGap()
-            if (detectedGap != null) {
-                android.util.Log.d("GapDetection", "Gap detected: ${detectedGap.cause}, " +
-                    "${(detectedGap.gapEnd - detectedGap.gapStart) / 60000} min")
+            detectedGap?.let { gap ->
+                android.util.Log.d(
+                    "GapDetection",
+                    "Gap detected: ${gap.cause}, ${(gap.gapEnd - gap.gapStart) / 60000} min"
+                )
                 // TODO: Store GapEventEntity and hand off to RecoveryEngine UI
             }
         }
@@ -94,7 +97,8 @@ class MainActivity : ComponentActivity() {
         TrustFramework.getInstance(this).sessionManager.closeSession()
         
         // Path B: Step D - Clean Shutdown Marker
-        getSharedPreferences("humanoid_recovery", MODE_PRIVATE)
-            .edit().putBoolean("clean_shutdown", true).apply()
+        getSharedPreferences("humanoid_recovery", MODE_PRIVATE).edit {
+            putBoolean("clean_shutdown", true)
+        }
     }
 }

@@ -2,8 +2,10 @@ package org.opencv.android;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
+import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.content.Context;
 import android.graphics.ImageFormat;
@@ -86,6 +88,7 @@ public class JavaCamera2View extends CameraBridgeViewBase {
         }
     }
 
+    @SuppressLint("MissingPermission")
     protected boolean initializeCamera() {
         Log.i(LOGTAG, "initializeCamera");
         CameraManager manager = (CameraManager) getContext().getSystemService(Context.CAMERA_SERVICE);
@@ -224,7 +227,7 @@ public class JavaCamera2View extends CameraBridgeViewBase {
             mPreviewRequestBuilder = mCameraDevice.createCaptureRequest(mRequestTemplate);
             mPreviewRequestBuilder.addTarget(surface);
 
-            mCameraDevice.createCaptureSession(Arrays.asList(surface),
+            mCameraDevice.createCaptureSession(Collections.singletonList(surface),
                                                allocateSessionStateCallback(), null);
         } catch (CameraAccessException e) {
             Log.e(LOGTAG, "createCameraPreviewSession", e);
