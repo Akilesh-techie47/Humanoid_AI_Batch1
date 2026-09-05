@@ -98,29 +98,23 @@ class PrivacyVault(private val context: Context) {
     }
 
     private fun getOrCreateAesKey(): SecretKey {
-        try {
-            val keyStore = KeyStore.getInstance(KEYSTORE_PROVIDER)
-            keyStore.load(null)
-            if (keyStore.containsAlias(DATA_KEY_ALIAS)) {
-                val entry = keyStore.getEntry(DATA_KEY_ALIAS, null) as? KeyStore.SecretKeyEntry
-                if (entry != null) return entry.secretKey
-            }
-            
-            val keyGen = KeyGenerator.getInstance(ALGORITHM, KEYSTORE_PROVIDER)
-            keyGen.init(
-                KeyGenParameterSpec.Builder(DATA_KEY_ALIAS, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
-                    .setBlockModes(BLOCK_MODE)
-                    .setEncryptionPaddings(PADDING)
-                    .setKeySize(256)
-                    .setUserAuthenticationRequired(false)
-                    .build()
-            )
-            return keyGen.generateKey()
-        } catch (e: Exception) {
-            android.util.Log.e("PrivacyVault", "Keystore error: ${e.message}")
-            // Fallback: Generate a non-keystore key if Keystore is broken (Emergency only)
-            throw e 
+        val keyStore = KeyStore.getInstance(KEYSTORE_PROVIDER)
+        keyStore.load(null)
+        if (keyStore.containsAlias(DATA_KEY_ALIAS)) {
+            val entry = keyStore.getEntry(DATA_KEY_ALIAS, null) as? KeyStore.SecretKeyEntry
+            if (entry != null) return entry.secretKey
         }
+        
+        val keyGen = KeyGenerator.getInstance(ALGORITHM, KEYSTORE_PROVIDER)
+        keyGen.init(
+            KeyGenParameterSpec.Builder(DATA_KEY_ALIAS, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
+                .setBlockModes(BLOCK_MODE)
+                .setEncryptionPaddings(PADDING)
+                .setKeySize(256)
+                .setUserAuthenticationRequired(false)
+                .build()
+        )
+        return keyGen.generateKey()
     }
 
     private fun deleteAesKey() {

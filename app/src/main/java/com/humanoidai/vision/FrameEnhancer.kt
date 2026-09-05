@@ -105,4 +105,9 @@ class FrameEnhancer(private val config: EnhancementConfig = EnhancementConfig())
         channels.forEach { it.release() }
         return brightness
     }
+
+    fun release() {
+        // No explicit release needed for most Mat wrappers in this class as they are local,
+        // but it's good practice to have it.
+    }
 }

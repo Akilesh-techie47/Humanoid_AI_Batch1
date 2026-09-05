@@ -1,8 +1,6 @@
 package com.humanoidai.ui.screens
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -18,6 +16,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -40,6 +43,7 @@ fun AlertsScreen(
     val unreadCount by alertEngine.unreadCount.collectAsState()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+    val haptic = LocalHapticFeedback.current
 
     var selectedFilter by remember { mutableStateOf<AlertPriority?>(null) }
 
@@ -57,19 +61,33 @@ fun AlertsScreen(
         Scaffold(
             containerColor = BackgroundDark,
             topBar = {
-                CenterAlignedTopAppBar(
-                    title = {
-                        Text("ALERTS CENTER", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AccentCyan)
+                Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = { 
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        scope.launch { drawerState.open() } 
                     },
-                    navigationIcon = {
-                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(Icons.Default.Menu, "Menu", tint = Color.White)
-                        }
-                    },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
-                )
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(SurfaceDark.copy(alpha = 0.4f))
+                        .border(1.dp, Color.White.copy(alpha = 0.05f), CircleShape)
+                ) {
+                    Icon(Icons.Default.Menu, "Open Menu", tint = Color.White, modifier = Modifier.size(20.dp))
+                }
+                
+                Spacer(Modifier.width(16.dp))
+                
+                Text("ALERTS CENTER", fontSize = 15.sp, fontWeight = FontWeight.Black, color = AccentCyan, fontFamily = FontFamily.Monospace, letterSpacing = 1.sp)
             }
-        ) { padding ->
+        }
+    ) { padding ->
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -97,12 +115,18 @@ fun AlertsScreen(
 
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         if (unreadCount > 0) {
-                            TextButton(onClick = { alertEngine.markAllRead() }) {
+                            TextButton(onClick = { 
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                alertEngine.markAllRead() 
+                            }) {
                                 Text("Mark all read", color = AccentCyan, fontSize = 12.sp)
                             }
                         }
-                        IconButton(onClick = { alertEngine.clearAll() }) {
-                            Icon(Icons.Default.DeleteSweep, null, tint = TextSecondary)
+                        IconButton(onClick = { 
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            alertEngine.clearAll() 
+                        }) {
+                            Icon(Icons.Default.DeleteSweep, "Clear all alerts", tint = TextSecondary)
                         }
                     }
                 }
@@ -116,7 +140,10 @@ fun AlertsScreen(
                 ) {
                     FilterChip(
                         selected = selectedFilter == null,
-                        onClick = { selectedFilter = null },
+                        onClick = { 
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            selectedFilter = null 
+                        },
                         label = { Text("All (${alerts.size})", fontSize = 12.sp) },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = AccentCyan.copy(alpha = 0.2f),
@@ -125,7 +152,10 @@ fun AlertsScreen(
                     )
                     FilterChip(
                         selected = selectedFilter == AlertPriority.CRITICAL,
-                        onClick = { selectedFilter = if (selectedFilter == AlertPriority.CRITICAL) null else AlertPriority.CRITICAL },
+                        onClick = { 
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            selectedFilter = if (selectedFilter == AlertPriority.CRITICAL) null else AlertPriority.CRITICAL 
+                        },
                         label = { Text("Critical", fontSize = 12.sp) },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = Color(0xFFFF3B30).copy(alpha = 0.2f),
@@ -134,7 +164,10 @@ fun AlertsScreen(
                     )
                     FilterChip(
                         selected = selectedFilter == AlertPriority.HIGH,
-                        onClick = { selectedFilter = if (selectedFilter == AlertPriority.HIGH) null else AlertPriority.HIGH },
+                        onClick = { 
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            selectedFilter = if (selectedFilter == AlertPriority.HIGH) null else AlertPriority.HIGH 
+                        },
                         label = { Text("High", fontSize = 12.sp) },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = Color(0xFFFF5C5C).copy(alpha = 0.2f),
@@ -199,6 +232,7 @@ private fun AlertCard(
     formattedTime: String,
     onTap: () -> Unit
 ) {
+    val haptic = LocalHapticFeedback.current
     val (borderColor, iconColor, bgColor, icon) = when (alert.priority) {
         AlertPriority.CRITICAL -> Quad(
             Color(0xFFFF3B30), Color(0xFFFF3B30),
@@ -220,84 +254,87 @@ private fun AlertCard(
 
     val alpha = if (alert.isRead) 0.5f else 1f
 
-    Row(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .background(
-                if (!alert.isRead) bgColor else SurfaceDark,
-                RoundedCornerShape(12.dp)
-            )
-            .border(
-                width = if (!alert.isRead) 1.dp else 0.5.dp,
-                color = borderColor.copy(alpha = if (!alert.isRead) 0.6f else 0.2f),
-                shape = RoundedCornerShape(12.dp)
-            )
-            .clickable(onClick = onTap)
-            .padding(14.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(vertical = 4.dp)
+            .clickable { 
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                onTap() 
+            },
+        color = if (!alert.isRead) bgColor.copy(alpha = 0.6f) else SurfaceDark.copy(alpha = 0.3f),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(if (!alert.isRead) 1.dp else 0.5.dp, borderColor.copy(alpha = if (!alert.isRead) 0.4f else 0.1f))
     ) {
-        Box(
-            modifier = Modifier
-                .size(44.dp)
-                .clip(CircleShape)
-                .background(iconColor.copy(alpha = 0.15f)),
-            contentAlignment = Alignment.Center
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            if (alert.faceBitmap != null) {
-                androidx.compose.foundation.Image(
-                    bitmap = alert.faceBitmap.asImageBitmap(),
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize().clip(CircleShape)
-                )
-            } else {
-                Icon(
-                    icon,
-                    null,
-                    tint = iconColor.copy(alpha = alpha),
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.width(12.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    alert.title,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = TextPrimary.copy(alpha = alpha)
-                )
-                Text(
-                    formattedTime,
-                    fontSize = 10.sp,
-                    color = TextSecondary.copy(alpha = alpha)
-                )
-            }
-            Spacer(modifier = Modifier.height(3.dp))
-            Text(
-                alert.description,
-                fontSize = 12.sp,
-                color = TextSecondary.copy(alpha = alpha),
-                lineHeight = 16.sp
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-
-            PriorityBadge(alert.priority, alpha)
-        }
-
-        if (!alert.isRead) {
-            Spacer(modifier = Modifier.width(8.dp))
             Box(
                 modifier = Modifier
-                    .size(8.dp)
-                    .background(borderColor, CircleShape)
-            )
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(iconColor.copy(alpha = 0.1f)),
+                contentAlignment = Alignment.Center
+            ) {
+                if (alert.faceBitmap != null) {
+                    Image(
+                        bitmap = alert.faceBitmap.asImageBitmap(),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize().clip(CircleShape),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Icon(
+                        icon,
+                        null,
+                        tint = iconColor.copy(alpha = alpha),
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        alert.title,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White.copy(alpha = alpha)
+                    )
+                    Text(
+                        formattedTime,
+                        fontSize = 10.sp,
+                        color = TextSecondary.copy(alpha = alpha),
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    alert.description,
+                    fontSize = 12.sp,
+                    color = TextSecondary.copy(alpha = alpha),
+                    lineHeight = 16.sp
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                PriorityBadge(alert.priority, alpha)
+            }
+
+            if (!alert.isRead) {
+                Spacer(modifier = Modifier.width(8.dp))
+                Box(
+                    modifier = Modifier
+                        .size((6).dp)
+                        .background(borderColor, CircleShape)
+                )
+            }
         }
     }
 }

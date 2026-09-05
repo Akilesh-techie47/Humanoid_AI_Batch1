@@ -8,7 +8,11 @@ data class UserEntity(
     @PrimaryKey val userId: String,
     val name: String,
     val userClass: String, // OWNER, FAMILY, FRIEND, UNKNOWN
+    val label: String = "Unknown",
+    val passwordHash: String? = null,
+    val passwordSalt: String? = null,
     val embeddingData: String, // Encrypted AES-256 base64
+    val viewpointsJson: String? = null, // JSON list of encrypted embeddings
     val enrolledAt: Long,
     val lastSeenAt: Long = 0L,
     val detectionCount: Int = 0,

@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.asStateFlow
  */
 class BehaviorEngine(
     private val voiceEngine: VoiceEngine,
+    private val microphoneManager: com.humanoidai.hearing.SpeechRecognizerManager? = null,
     private val embodimentManager: com.humanoidai.embodiment.EmbodimentManager? = null
 ) {
 
@@ -60,8 +61,29 @@ class BehaviorEngine(
                 )
             } else {
                 turnManager.onAiStartedResponding()
+                
+                // Interaction 2.0: Enable Barge-in by keeping mic active or ready
+                microphoneManager?.startPassiveListening(
+                    onDetected = {
+                        // Wake word while speaking
+                        voiceEngine.stop()
+                        turnManager.onUserStartedSpeaking()
+                    },
+                    onSpeechStarted = {
+                        // Natural Barge-in: Human started talking
+                        Log.i(TAG, "Natural Barge-in detected. Interrupting AI.")
+                        voiceEngine.stop()
+                        turnManager.onUserStartedSpeaking()
+                    }
+                )
+                
                 voiceEngine.speak(response.spokenText, tone = mapPriorityToTone(response.priority)) {
                     turnManager.onAiFinishedResponding()
+                    microphoneManager?.startPassiveListening(
+                        onDetected = {
+                            // Logic for wake word after AI finishes
+                        }
+                    )
                 }
             }
         }

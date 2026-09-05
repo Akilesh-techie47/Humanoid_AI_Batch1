@@ -14,6 +14,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.humanoidai.runtime.HealthState
 import com.humanoidai.runtime.RuntimeProfile
+import com.humanoidai.ui.theme.AccentCyan
+import com.humanoidai.ui.theme.BackgroundDark
+import com.humanoidai.ui.theme.SurfaceDark
+import com.humanoidai.ui.theme.TextPrimary
+import com.humanoidai.ui.theme.TextSecondary
 
 @Composable
 fun RuntimeInspectorScreen(viewModel: RuntimeInspectorViewModel) {
@@ -21,69 +26,78 @@ fun RuntimeInspectorScreen(viewModel: RuntimeInspectorViewModel) {
     val profile by viewModel.profile.collectAsState()
     val health by viewModel.health.collectAsState()
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState())
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = BackgroundDark
     ) {
-        Text("AI Runtime Inspector", style = MaterialTheme.typography.headlineMedium)
-        Spacer(modifier = Modifier.height(16.dp))
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState())
+        ) {
+            Text("AI Runtime Inspector", style = MaterialTheme.typography.headlineMedium, color = TextPrimary)
+            Spacer(Modifier.height(16.dp))
 
-        // System Health
-        StatusCard(
-            title = "System Health",
-            value = health.name,
-            color = when (health) {
-                HealthState.HEALTHY -> Color.Green
-                HealthState.BUSY -> Color.Yellow
-                HealthState.DEGRADED -> Color.Red
-                else -> Color.Gray
+            // System Health
+            StatusCard(
+                title = "System Health",
+                value = health.name,
+                color = when (health) {
+                    HealthState.HEALTHY -> Color.Green
+                    HealthState.BUSY -> Color.Yellow
+                    HealthState.DEGRADED -> Color.Red
+                    else -> Color.Gray
+                }
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            // Active Profile
+            Text("Runtime Profile", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                RuntimeProfile.entries.forEach { p ->
+                    FilterChip(
+                        selected = profile == p,
+                        onClick = { viewModel.setProfile(p) },
+                        label = { Text(p.name) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = AccentCyan.copy(alpha = 0.2f),
+                            selectedLabelColor = AccentCyan
+                        )
+                    )
+                }
             }
-        )
 
-        Spacer(modifier = Modifier.height(8.dp))
+            Spacer(Modifier.height(16.dp))
 
-        // Active Profile
-        Text("Runtime Profile", style = MaterialTheme.typography.titleMedium)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            RuntimeProfile.entries.forEach { p ->
-                FilterChip(
-                    selected = profile == p,
-                    onClick = { viewModel.setProfile(p) },
-                    label = { Text(p.name) }
-                )
+            // Resource Metrics
+            MetricSection("CPU") {
+                MetricRow("Utilization", "${metrics.cpu.utilizationPercent}%")
+                MetricRow("Threads", "${metrics.cpu.activeThreads}")
             }
-        }
 
-        Spacer(modifier = Modifier.height(16.dp))
+            MetricSection("Memory") {
+                MetricRow("Heap Used", "${metrics.memory.heapUsedMb} MB")
+                MetricRow("Heap Max", "${metrics.memory.heapMaxMb} MB")
+                MetricRow("Native", "${metrics.memory.nativeUsedMb} MB")
+            }
 
-        // Resource Metrics
-        MetricSection("CPU") {
-            MetricRow("Utilization", "${metrics.cpu.utilizationPercent}%")
-            MetricRow("Threads", "${metrics.cpu.activeThreads}")
-        }
+            MetricSection("Battery") {
+                MetricRow("Level", "${metrics.battery.percentage}%")
+                MetricRow("Status", if (metrics.battery.isCharging) "Charging" else "Discharging")
+                MetricRow("Current", "${metrics.battery.currentNowMa} mA")
+            }
 
-        MetricSection("Memory") {
-            MetricRow("Heap Used", "${metrics.memory.heapUsedMb} MB")
-            MetricRow("Heap Max", "${metrics.memory.heapMaxMb} MB")
-            MetricRow("Native", "${metrics.memory.nativeUsedMb} MB")
-        }
+            MetricSection("AI Scheduler") {
+                MetricRow("Queued Tasks", "${metrics.ai.tasksQueued}")
+                MetricRow("Avg Latency", "${metrics.ai.averageInferenceTimeMs} ms")
+            }
 
-        MetricSection("Battery") {
-            MetricRow("Level", "${metrics.battery.percentage}%")
-            MetricRow("Status", if (metrics.battery.isCharging) "Charging" else "Discharging")
-            MetricRow("Current", "${metrics.battery.currentNowMa} mA")
-        }
-
-        MetricSection("AI Scheduler") {
-            MetricRow("Queued Tasks", "${metrics.ai.tasksQueued}")
-            MetricRow("Avg Latency", "${metrics.ai.averageInferenceTimeMs} ms")
-        }
-
-        MetricSection("Thermal") {
-            MetricRow("Status", "${metrics.thermal.status}")
-            MetricRow("Throttling", if (metrics.thermal.isThrottling) "YES" else "NO")
+            MetricSection("Thermal") {
+                MetricRow("Status", "${metrics.thermal.status}")
+                MetricRow("Throttling", if (metrics.thermal.isThrottling) "YES" else "NO")
+            }
         }
     }
 }
@@ -95,7 +109,7 @@ fun StatusCard(title: String, value: String, color: Color) {
         colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.1f))
     ) {
         Column(Modifier.padding(16.dp)) {
-            Text(title, style = MaterialTheme.typography.labelMedium)
+            Text(title, style = MaterialTheme.typography.labelMedium, color = TextSecondary)
             Text(value, style = MaterialTheme.typography.titleLarge, color = color, fontWeight = FontWeight.Bold)
         }
     }
@@ -104,8 +118,8 @@ fun StatusCard(title: String, value: String, color: Color) {
 @Composable
 fun MetricSection(title: String, content: @Composable ColumnScope.() -> Unit) {
     Column(Modifier.padding(vertical = 8.dp)) {
-        Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
-        HorizontalDivider()
+        Text(title, style = MaterialTheme.typography.titleSmall, color = AccentCyan)
+        HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
         Column(content = content)
     }
 }
@@ -118,7 +132,7 @@ fun MetricRow(label: String, value: String) {
             .padding(vertical = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(label, style = MaterialTheme.typography.bodyMedium)
-        Text(value, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = TextPrimary)
+        Text(value, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = TextPrimary)
     }
 }

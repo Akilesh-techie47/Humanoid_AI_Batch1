@@ -161,7 +161,7 @@ class LayoutCustomizationViewModel(
      * Part of Phase 2B.
      */
     val hudComponents: StateFlow<List<WidgetBlueprint>> = manager.componentManager.components
-        .map { it.values.sortedByDescending { widget -> widget.priority } }
+        .map { it.values.sortedBy { widget -> widget.priority } } // Ascending for Box Z-stack
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),

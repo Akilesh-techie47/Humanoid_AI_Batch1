@@ -18,7 +18,11 @@ import androidx.compose.ui.unit.dp
 import com.humanoidai.security.AiPermission
 import com.humanoidai.security.SecurityPolicyProfile
 import com.humanoidai.ui.theme.AccentCyan
+import com.humanoidai.ui.theme.BackgroundDark
 import com.humanoidai.ui.theme.SuccessGreen
+import com.humanoidai.ui.theme.SurfaceDark
+import com.humanoidai.ui.theme.TextPrimary
+import com.humanoidai.ui.theme.TextSecondary
 
 @Composable
 fun PrivacyDashboardScreen(viewModel: PrivacyDashboardViewModel) {
@@ -26,78 +30,95 @@ fun PrivacyDashboardScreen(viewModel: PrivacyDashboardViewModel) {
     val permissions by viewModel.permissions.collectAsState()
     val policy by viewModel.policy.collectAsState()
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState())
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = BackgroundDark
     ) {
-        Text("Privacy Dashboard", style = MaterialTheme.typography.headlineMedium)
-        Spacer(Modifier.height(16.dp))
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState())
+        ) {
+            Text("Privacy Dashboard", style = MaterialTheme.typography.headlineMedium, color = TextPrimary)
+            Spacer(Modifier.height(16.dp))
 
-        // Session Info
-        Card(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp)) {
-                Text("AI Session Status", style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.height(8.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = if (session != null) Icons.Default.Shield else Icons.Default.Warning,
-                        contentDescription = null,
-                        tint = if (session != null) SuccessGreen else Color.Red
+            // Session Info
+            Card(
+                Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = SurfaceDark)
+            ) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("AI Session Status", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+                    Spacer(Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = if (session != null) Icons.Default.Shield else Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = if (session != null) SuccessGreen else Color.Red
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = session?.status?.name ?: "NO ACTIVE SESSION",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
+                        )
+                    }
+                    session?.let {
+                        Text("ID: ${it.id}", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            // Privacy Policy
+            Text("Security Policy", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                SecurityPolicyProfile.entries.forEach { p ->
+                    FilterChip(
+                        selected = policy == p,
+                        onClick = { viewModel.setPolicy(p) },
+                        label = { Text(p.name.replace("_", " ")) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = AccentCyan.copy(alpha = 0.2f),
+                            selectedLabelColor = AccentCyan
+                        )
                     )
-                    Spacer(Modifier.width(8.dp))
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            // Permissions
+            Text("Active Permissions", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+            HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
+            permissions.forEach { (perm, granted) ->
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(perm.name, color = TextPrimary)
                     Text(
-                        text = session?.status?.name ?: "NO ACTIVE SESSION",
-                        style = MaterialTheme.typography.bodyLarge,
+                        text = if (granted) "GRANTED" else "DENIED",
+                        color = if (granted) SuccessGreen else Color.Red,
                         fontWeight = FontWeight.Bold
                     )
                 }
-                session?.let {
-                    Text("ID: ${it.id}", style = MaterialTheme.typography.bodySmall)
-                }
             }
-        }
-
-        Spacer(Modifier.height(16.dp))
-
-        // Privacy Policy
-        Text("Security Policy", style = MaterialTheme.typography.titleMedium)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            SecurityPolicyProfile.entries.forEach { p ->
-                FilterChip(
-                    selected = policy == p,
-                    onClick = { viewModel.setPolicy(p) },
-                    label = { Text(p.name.replace("_", " ")) }
-                )
-            }
-        }
-
-        Spacer(Modifier.height(16.dp))
-
-        // Permissions
-        Text("Active Permissions", style = MaterialTheme.typography.titleMedium)
-        HorizontalDivider()
-        permissions.forEach { (perm, granted) ->
-            Row(
-                Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            
+            Button(
+                onClick = { viewModel.refreshPermissions() },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = AccentCyan)
             ) {
-                Text(perm.name)
-                Text(
-                    text = if (granted) "GRANTED" else "DENIED",
-                    color = if (granted) SuccessGreen else Color.Red,
-                    fontWeight = FontWeight.Bold
-                )
+                Text("Refresh Permissions", color = Color.Black)
             }
-        }
-        
-        Button(
-            onClick = { viewModel.refreshPermissions() },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Refresh Permissions")
         }
     }
 }
+

@@ -8,6 +8,7 @@ import com.humanoidai.memory.database.HumanoidDatabase
 import com.humanoidai.memory.entities.*
 import com.humanoidai.memory.security.PrivacyVault
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
@@ -69,7 +70,7 @@ class MemoryRepository(context: Context) {
                 eventType = eventType,
                 timestamp = System.currentTimeMillis(),
                 contextSnapshot = vault.encrypt(gson.toJson(contextSnapshot)),
-                aiResponse = aiResponse,
+                aiResponse = vault.encrypt(aiResponse),
                 wasOwnerPresent = wasOwnerPresent,
                 recognitionConfidence = confidence
             )
@@ -77,8 +78,30 @@ class MemoryRepository(context: Context) {
         return id
     }
 
-    suspend fun getRecentInteractions(limit: Int = 50) = db.interactionDao().getRecentInteractions(limit)
-    fun observeInteractions(): Flow<List<InteractionEntity>> = db.interactionDao().observeAllInteractions()
+    suspend fun getRecentInteractions(limit: Int = 50): List<InteractionEntity> {
+        return db.interactionDao().getRecentInteractions(limit).map { decryptInteraction(it) }
+    }
+
+    private fun decryptInteraction(entity: InteractionEntity): InteractionEntity {
+        return try {
+            entity.copy(
+                aiResponse = vault.decrypt(entity.aiResponse),
+                contextSnapshot = vault.decrypt(entity.contextSnapshot)
+            )
+        } catch (e: Exception) {
+            android.util.Log.e("MemoryRepository", "Decryption failed for interaction ${entity.interactionId}: ${e.message}")
+            // Return placeholder on failure to avoid UI garbage
+            entity.copy(
+                aiResponse = "[ENCRYPTED DATA]",
+                contextSnapshot = "{}"
+            )
+        }
+    }
+    fun observeInteractions(): Flow<List<InteractionEntity>> {
+        return db.interactionDao().observeAllInteractions().map { list ->
+            list.map { decryptInteraction(it) }
+        }
+    }
     suspend fun getInteractionsByUser(userId: String) = db.interactionDao().getInteractionsByUser(userId)
 
     suspend fun logAlert(

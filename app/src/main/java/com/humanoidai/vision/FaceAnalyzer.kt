@@ -2,6 +2,7 @@ package com.humanoidai.vision
 
 import android.annotation.SuppressLint
 import android.graphics.*
+import android.util.Log
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import com.google.mlkit.vision.common.InputImage
@@ -45,73 +46,53 @@ class FaceAnalyzer(
     override fun analyze(imageProxy: ImageProxy) {
         frameCount++
         // Recognition interval (Phase 9 Performance Optimization)
-        // Only run full embedding extraction every 5 frames to save CPU/Battery
         val shouldRecognize = (frameCount % 5 == 0)
 
         val rotation = imageProxy.imageInfo.rotationDegrees
-        
-        val originalBitmap = try {
-            val bitmap = imageProxy.toBitmap()
-            val matrix = Matrix()
-            
-            // Handle Rotation
-            matrix.postRotate(rotation.toFloat())
-            
-            // Handle Mirroring for Front Camera
-            if (isFrontCamera) {
-                matrix.postScale(-1f, 1f)
-            }
-            
-            Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
-        } catch (_: Exception) {
+        val mediaImage = imageProxy.image
+        if (mediaImage == null) {
             imageProxy.close()
             return
         }
 
-        val processedBitmap = if (FisheyeCorrector.isOpenCVLoaded) {
-            try {
-                // 1. Fisheye Correction
-                val corrected = fisheyeCorrector?.correct(originalBitmap) ?: originalBitmap
-                
-                // 2. Enhancement Pipeline
-                val mat = org.opencv.core.Mat()
-                org.opencv.android.Utils.bitmapToMat(corrected, mat)
-                
-                val bgr = org.opencv.core.Mat()
-                org.opencv.imgproc.Imgproc.cvtColor(mat, bgr, org.opencv.imgproc.Imgproc.COLOR_RGBA2BGR)
-                
-                val enhancedBgr = frameEnhancer.enhance(bgr)
-                
-                val outputRgba = org.opencv.core.Mat()
-                org.opencv.imgproc.Imgproc.cvtColor(enhancedBgr, outputRgba, org.opencv.imgproc.Imgproc.COLOR_BGR2RGBA)
-                
-                val outputBitmap = Bitmap.createBitmap(outputRgba.cols(), outputRgba.rows(), Bitmap.Config.ARGB_8888)
-                org.opencv.android.Utils.matToBitmap(outputRgba, outputBitmap)
-                
-                mat.release()
-                bgr.release()
-                enhancedBgr.release()
-                outputRgba.release()
-                
-                outputBitmap
-            } catch (e: Exception) {
-                android.util.Log.e("FaceAnalyzer", "Vision Pipeline Error: ${e.localizedMessage}")
-                originalBitmap 
-            }
-        } else {
-            originalBitmap
-        }
-
-        val inputImage = InputImage.fromBitmap(processedBitmap, 0)
+        // Optimization: Pass mediaImage directly to ML Kit (Efficient)
+        val inputImage = InputImage.fromMediaImage(mediaImage, rotation)
 
         detector.process(inputImage)
             .addOnSuccessListener { faces ->
-                android.util.Log.d("FaceAnalyzer", "Detected ${faces.size} faces")
+                // Lazy bitmap creation: only if we have faces AND it's a recognition turn
+                var processedBitmap: Bitmap? = null
+                
+                if (faces.isNotEmpty() && shouldRecognize) {
+                    processedBitmap = try {
+                        val bitmap = imageProxy.toBitmap()
+                        val matrix = Matrix()
+                        matrix.postRotate(rotation.toFloat())
+                        if (isFrontCamera) matrix.postScale(-1f, 1f)
+                        
+                        val rotated = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+                        
+                        // Apply Fisheye Correction if enabled
+                        val corrected = if (FisheyeCorrector.isOpenCVLoaded) {
+                            fisheyeCorrector?.correct(rotated) ?: rotated
+                        } else rotated
+                        
+                        if (rotated != bitmap && rotated != corrected) rotated.recycle()
+                        if (bitmap != rotated) bitmap.recycle()
+                        
+                        corrected
+                    } catch (e: Exception) {
+                        Log.e("FaceAnalyzer", "Bitmap conversion failed: ${e.message}")
+                        null
+                    }
+                }
+
                 val rawResults = processFaces(
                     faces, processedBitmap,
-                    processedBitmap.width.toFloat(),
-                    processedBitmap.height.toFloat(),
-                    shouldRecognize
+                    imageProxy.width.toFloat(),
+                    imageProxy.height.toFloat(),
+                    shouldRecognize,
+                    rotation
                 )
                 
                 // Temporal Smoothing via FaceTracker
@@ -133,6 +114,7 @@ class FaceAnalyzer(
                     )
                 }
 
+                // Cleanup presence map
                 val iterator = lastSeenMap.entries.iterator()
                 while (iterator.hasNext()) {
                     if (now - iterator.next().value > presenceTimeout) {
@@ -142,9 +124,16 @@ class FaceAnalyzer(
 
                 onResults(finalResults)
                 contextEngine.updateFromVision(finalResults)
+                
+                // Cleanup lazy bitmap
+                processedBitmap?.recycle()
             }
-            .addOnFailureListener { }
-            .addOnCompleteListener { imageProxy.close() }
+            .addOnFailureListener { e ->
+                Log.e("FaceAnalyzer", "Detection failed: ${e.message}")
+            }
+            .addOnCompleteListener { 
+                imageProxy.close() 
+            }
     }
 
     private fun updatePresence(name: String, now: Long): Boolean {
@@ -163,18 +152,24 @@ class FaceAnalyzer(
         fullBitmap: Bitmap?,
         imageWidth: Float,
         imageHeight: Float,
-        performRecognition: Boolean
+        performRecognition: Boolean,
+        rotation: Int
     ): List<DetectedPerson> {
         if (faces.isEmpty()) return emptyList()
+
+        // Handle dimension swap for 90/270 degree rotation
+        val isRotated = rotation == 90 || rotation == 270
+        val effectiveWidth = if (isRotated) imageHeight else imageWidth
+        val effectiveHeight = if (isRotated) imageWidth else imageHeight
 
         return faces.mapIndexed { index, face ->
             val box = face.boundingBox
 
             val scaledBox = RectF(
-                box.left.toFloat()   / imageWidth,
-                box.top.toFloat()    / imageHeight,
-                box.right.toFloat()  / imageWidth,
-                box.bottom.toFloat() / imageHeight
+                box.left.toFloat()   / effectiveWidth,
+                box.top.toFloat()    / effectiveHeight,
+                box.right.toFloat()  / effectiveWidth,
+                box.bottom.toFloat() / effectiveHeight
             )
 
             scaledBox.left   = scaledBox.left.coerceIn(0f, 1f)
@@ -182,56 +177,49 @@ class FaceAnalyzer(
             scaledBox.right  = scaledBox.right.coerceIn(0f, 1f)
             scaledBox.bottom = scaledBox.bottom.coerceIn(0f, 1f)
 
-            // 1. Fisheye Edge Weighting
-            // Faces near the edge (0.0 - 0.2 or 0.8 - 1.0) get a confidence penalty
-            val centerX = scaledBox.centerX()
-            val centerY = scaledBox.centerY()
-            val edgeDistance = minOf(centerX, 1f - centerX, centerY, 1f - centerY)
-            // Reduced penalty for edge detections to improve Agent-level continuity
-            val edgeWeight = (edgeDistance / 0.15f).coerceIn(0.75f, 1.0f)
-
-            // 2. Liveness Check (Blink/Movement)
-            val leftEyeOpen = face.leftEyeOpenProbability ?: -1f
-            val rightEyeOpen = face.rightEyeOpenProbability ?: -1f
-            val isBlinking = if (leftEyeOpen != -1f && rightEyeOpen != -1f) {
-                (leftEyeOpen < 0.2f || rightEyeOpen < 0.2f)
-            } else false
-            
-            val headRotY = face.headEulerAngleY // Turn
-            val headRotX = face.headEulerAngleX // Tilt
-            
-            // 3. Distance Estimation
+            // 1. Quality Gate (Phase 4 Week 4 Restoration)
             val faceArea = scaledBox.width() * scaledBox.height()
             val distanceCategory = when {
                 faceArea > 0.15f -> "NEAR"
                 faceArea > 0.04f -> "MEDIUM"
                 else -> "FAR"
             }
-
-            // 4. Attention Detection (Looking at Camera)
+            
+            val headRotY = face.headEulerAngleY // Turn
+            val headRotX = face.headEulerAngleX // Tilt
+            val isGoodAngle = abs(headRotY) < 30f && abs(headRotX) < 30f
+            val isGoodSize = faceArea > 0.02f // Skip tiny faces for recognition
+            
             val isLookingAtCamera = abs(headRotY) < 15f && abs(headRotX) < 15f
 
-            val movementScore = (abs(headRotY) + abs(headRotX)) / 40f
-            val livenessScore = (if (isBlinking) 0.5f else 0f) + (movementScore * 0.5f).coerceAtMost(0.5f)
-
+            // 2. Recognition Logic with Quality Gate
             var faceBitmap: Bitmap? = null
-            var (name, confidence) = if (performRecognition && fullBitmap != null) {
+            var (name, confidence) = if (performRecognition && fullBitmap != null && isGoodAngle && isGoodSize) {
                 try {
-                    val faceCrop = cropFace(fullBitmap, box)
+                    val faceCrop = FacePreprocessor.alignAndIsolate(fullBitmap, face)
                     faceBitmap = faceCrop
                     val embedding = embeddingHelper.getEmbedding(faceCrop)
                     recognitionManager.findMatch(embedding)
                 } catch (e: Exception) {
+                    Log.e("FaceAnalyzer", "Recognition failed: ${e.message}")
                     Pair("UNKNOWN", 0f)
                 }
             } else {
-                Pair("UNKNOWN", 0f)
+                // Return a temporary marker. The FaceTracker will handle smoothing.
+                Pair("STABLE", -1f) 
             }
 
-            // Apply Edge Weighting to confidence
-            confidence *= edgeWeight
+            // 3. Liveness and Attention
+            val leftEyeOpen = face.leftEyeOpenProbability ?: -1f
+            val rightEyeOpen = face.rightEyeOpenProbability ?: -1f
+            val isBlinking = if (leftEyeOpen != -1f && rightEyeOpen != -1f) {
+                (leftEyeOpen < 0.2f || rightEyeOpen < 0.2f)
+            } else false
 
-            val label = if (name != "UNKNOWN" && !name.startsWith("PROBABLE_")) {
+            val movementScore = (abs(headRotY) + abs(headRotX)) / 40f
+            val livenessScore = (if (isBlinking) 0.5f else 0f) + (movementScore * 0.5f).coerceAtMost(0.5f)
+
+            val label = if (name != "UNKNOWN" && name != "ANALYZING" && !name.startsWith("PROBABLE_")) {
                 enrollmentManager.getLabel(name)
             } else if (name.startsWith("PROBABLE_")) {
                 "PROBABLE"
@@ -278,5 +266,14 @@ class FaceAnalyzer(
         val width  = (right - left).coerceAtLeast(1)
         val height = (bottom - top).coerceAtLeast(1)
         return Bitmap.createBitmap(bitmap, left, top, width, height)
+    }
+
+    fun release() {
+        try {
+            detector.close()
+            fisheyeCorrector?.release()
+        } catch (e: Exception) {
+            android.util.Log.e("FaceAnalyzer", "Release error: ${e.message}")
+        }
     }
 }

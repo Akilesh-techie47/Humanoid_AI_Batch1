@@ -59,6 +59,10 @@ class AlertEngine(
     private val _unreadCount = MutableStateFlow(0)
     val unreadCount: StateFlow<Int> = _unreadCount.asStateFlow()
 
+    private val _latestAlert = MutableStateFlow<AlertItem?>(null)
+    val latestAlert: StateFlow<AlertItem?> = _latestAlert.asStateFlow()
+
+
     // Cooldown tracking — key: AlertType, value: last trigger time
     private val lastAlertTime = mutableMapOf<AlertType, Long>()
 
@@ -177,9 +181,11 @@ class AlertEngine(
 
         _alerts.value = updated
         _unreadCount.value = updated.count { !it.isRead }
+        _latestAlert.value = alert
 
         onNewAlert(alert)
     }
+
 
     // -----------------------------------------------------------------
     // UI helpers

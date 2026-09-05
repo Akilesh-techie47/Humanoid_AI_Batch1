@@ -1,9 +1,10 @@
 package com.humanoidai.ui.screens
 
-import androidx.compose.foundation.background
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -11,15 +12,25 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.navigation.NavController
 import com.humanoidai.ui.components.SidePanelDrawer
 import com.humanoidai.ui.theme.*
 import kotlinx.coroutines.launch
+import androidx.compose.ui.platform.LocalContext
+import com.humanoidai.memory.LongTermMemory
+import java.text.SimpleDateFormat
+import java.util.*
 
 enum class EventType { DETECTION, ALERT, SYSTEM }
 
@@ -29,26 +40,56 @@ data class HistoryEvent(
     val detail: String,
     val timestamp: String,
     val date: String,
-    val type: EventType
+    val type: EventType,
+    val rawTimestamp: Long = 0L
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryScreen(navController: NavController) {
-    val events = remember {
-        listOf(
-            HistoryEvent(1, "Person A detected", "Confidence: 97%", "09:14 AM", "Today", EventType.DETECTION),
-            HistoryEvent(2, "Unknown person alert", "Alert triggered at zone 1", "09:02 AM", "Today", EventType.ALERT),
-            HistoryEvent(3, "System started", "All sensors online", "08:55 AM", "Today", EventType.SYSTEM),
-            HistoryEvent(4, "Person B detected", "Confidence: 89%", "06:30 PM", "Yesterday", EventType.DETECTION),
-            HistoryEvent(5, "Camera obstructed", "ROI blocked for 3s", "04:15 PM", "Yesterday", EventType.ALERT),
-            HistoryEvent(6, "Person C detected", "Confidence: 93%", "11:00 AM", "Yesterday", EventType.DETECTION),
-        )
+    val context = LocalContext.current
+    val memory = remember { LongTermMemory.getInstance(context) }
+    var historyItems by remember { mutableStateOf<List<HistoryEvent>>(emptyList()) }
+
+    LaunchedEffect(Unit) {
+        val interactions = memory.getRecentInteractions(60)
+        val alerts = memory.getRecentAlerts(40)
+        
+        val timeFormat = SimpleDateFormat("hh:mm a", Locale.getDefault())
+        val dateFormat = SimpleDateFormat("EEEE, MMM d", Locale.getDefault())
+        val today = dateFormat.format(Date())
+        
+        val interactionEvents = interactions.map {
+            HistoryEvent(
+                id = it.interactionId.hashCode(),
+                title = it.eventType.replace("_", " "),
+                detail = it.aiResponse.take(60) + if(it.aiResponse.length > 60) "..." else "",
+                timestamp = timeFormat.format(Date(it.timestamp)),
+                date = if(dateFormat.format(Date(it.timestamp)) == today) "Today" else dateFormat.format(Date(it.timestamp)),
+                type = EventType.DETECTION,
+                rawTimestamp = it.timestamp
+            )
+        }
+        
+        val alertEvents = alerts.map {
+            HistoryEvent(
+                id = it.alertId.hashCode(),
+                title = it.alertType.replace("_", " "),
+                detail = it.contactName.ifBlank { "Unknown person" },
+                timestamp = timeFormat.format(Date(it.triggeredAt)),
+                date = if(dateFormat.format(Date(it.triggeredAt)) == today) "Today" else dateFormat.format(Date(it.triggeredAt)),
+                type = EventType.ALERT,
+                rawTimestamp = it.triggeredAt
+            )
+        }
+        
+        historyItems = (interactionEvents + alertEvents).sortedByDescending { it.rawTimestamp }
     }
 
-    val grouped = events.groupBy { it.date }
+    val grouped = historyItems.groupBy { it.date }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+    val haptic = LocalHapticFeedback.current
 
     SidePanelDrawer(
         navController = navController,
@@ -57,19 +98,33 @@ fun HistoryScreen(navController: NavController) {
         Scaffold(
             containerColor = BackgroundDark,
             topBar = {
-                CenterAlignedTopAppBar(
-                    title = {
-                        Text("ACTIVITY HISTORY", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AccentCyan)
+                Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = { 
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        scope.launch { drawerState.open() } 
                     },
-                    navigationIcon = {
-                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(Icons.Default.Menu, "Menu", tint = Color.White)
-                        }
-                    },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
-                )
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(SurfaceDark.copy(alpha = 0.4f))
+                        .border(1.dp, Color.White.copy(alpha = 0.05f), CircleShape)
+                ) {
+                    Icon(Icons.Default.Menu, "Menu", tint = Color.White, modifier = Modifier.size(20.dp))
+                }
+                
+                Spacer(Modifier.width(16.dp))
+                
+                Text("ACTIVITY HISTORY", fontSize = 15.sp, fontWeight = FontWeight.Black, color = AccentCyan, fontFamily = FontFamily.Monospace, letterSpacing = 1.sp)
             }
-        ) { padding ->
+        }
+    ) { padding ->
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
@@ -106,23 +161,41 @@ private fun DateHeader(date: String) {
 private fun HistoryEventRow(event: HistoryEvent) {
     val (icon, iconColor) = when (event.type) {
         EventType.DETECTION -> Pair(Icons.Default.Person, AccentCyan)
-        EventType.ALERT     -> Pair(Icons.Default.Notifications, Color(0xFFFF5C5C))
-        EventType.SYSTEM    -> Pair(Icons.Default.Settings, TextSecondary)
+        EventType.ALERT     -> Pair(Icons.Default.Notifications, ErrorRed)
+        EventType.SYSTEM    -> Pair(Icons.Default.Settings, SuccessGreen)
     }
 
-    Row(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .background(SurfaceDark, RoundedCornerShape(10.dp))
-            .padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(vertical = 4.dp),
+        color = SurfaceDark.copy(alpha = 0.4f),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
     ) {
-        Icon(icon, null, tint = iconColor, modifier = Modifier.size(22.dp))
-        Spacer(modifier = Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(event.title, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
-            Text(event.detail, fontSize = 11.sp, color = TextSecondary)
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(iconColor.copy(alpha = 0.1f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, null, tint = iconColor, modifier = Modifier.size(20.dp))
+            }
+            
+            Spacer(modifier = Modifier.width(16.dp))
+            
+            Column(modifier = Modifier.weight(1f)) {
+                Text(event.title, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(event.detail, fontSize = 12.sp, color = TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            
+            Text(event.timestamp, fontSize = 10.sp, color = TextSecondary.copy(alpha = 0.6f), fontFamily = FontFamily.Monospace)
         }
-        Text(event.timestamp, fontSize = 11.sp, color = TextSecondary)
     }
 }

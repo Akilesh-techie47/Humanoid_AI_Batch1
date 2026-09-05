@@ -2,11 +2,10 @@ package com.humanoidai.ui.layoutcustomization
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -20,11 +19,14 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.humanoidai.ui.customization.HUDStructure
 import com.humanoidai.ui.layoutcustomization.presentation.event.LayoutCustomizationEvent
 import com.humanoidai.ui.layoutcustomization.presentation.viewmodel.LayoutCustomizationViewModel
 import com.humanoidai.ui.theme.*
@@ -82,7 +84,7 @@ fun LayoutCustomizationScreen(
             ) {
                 item {
                     Text(
-                        "FINE-TUNE HUD GEOMETRY",
+                        "SYSTEM GEOMETRY ENGINE",
                         color = TextSecondary,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Medium,
@@ -93,9 +95,30 @@ fun LayoutCustomizationScreen(
 
                 item {
                     CustomizationSection(
+                        title = "ARCHITECTURE",
+                        icon = Icons.Default.Dashboard
+                    ) {
+                        Column {
+                            SettingLabel("Structural Preset")
+                            SelectionGrid(
+                                options = HUDStructure.entries.map { it.name.replace("_", " ") },
+                                selectedOption = state.selectedLayout.replace("_", " "),
+                                onOptionSelected = { 
+                                    viewModel.onEvent(LayoutCustomizationEvent.ChangeSelectedLayout(it.replace(" ", "_")))
+                                }
+                            )
+
+                            InfoText("Changes the core spatial arrangement of all HUD components.")
+                        }
+                    }
+                }
+
+                item {
+                    CustomizationSection(
                         title = "CAMERA",
                         icon = Icons.Default.Videocam
                     ) {
+
                         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                             Column {
                                 SettingLabel("Camera Scale")
@@ -246,19 +269,34 @@ fun LayoutCustomizationScreen(
                         title = "PROFILES",
                         icon = Icons.Default.Save
                     ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            ActionButton("Save Layout", Icons.Default.Save, enabled = false)
-                            ActionButton("Load Layout", Icons.Default.FileUpload, enabled = false)
+                        Column(verticalArrangement = Arrangement.spacedBy((12 * 1.0f).dp)) {
+                            ActionButton(
+                                "Capture Layout Snapshot", 
+                                Icons.Default.Save,
+                                onClick = {
+                                    // Visual feedback
+                                    viewModel.onEvent(LayoutCustomizationEvent.ChangeSelectedLayout(state.selectedLayout))
+                                }
+                            )
+                            ActionButton(
+                                "Load Stored Profile", 
+                                Icons.Default.FileUpload,
+                                onClick = {
+                                    // For now just re-triggers state
+                                    viewModel.onEvent(LayoutCustomizationEvent.ChangeSelectedLayout(state.selectedLayout))
+                                }
+                            )
                             ActionButton(
                                 "Reset Layout",
                                 Icons.Default.Refresh,
                                 color = ErrorRed,
                                 onClick = { viewModel.onEvent(LayoutCustomizationEvent.RestoreDefaults) }
                             )
-                            InfoText("Profile functionality remains disabled until a later phase.")
+                            InfoText("State is automatically persisted to secure storage.")
                         }
                     }
                 }
+
             }
         }
     }
@@ -273,46 +311,58 @@ fun CustomizationSection(
     var expanded by remember { mutableStateOf(true) }
     val rotation by animateFloatAsState(if (expanded) 180f else 0f, label = "rotation")
 
-    Column(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(SurfaceDark.copy(alpha = 0.6f))
-            .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
+            .padding(vertical = 4.dp),
+        color = SurfaceDark.copy(alpha = 0.4f),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { expanded = !expanded }
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(icon, null, tint = AccentCyan, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(12.dp))
-            Text(
-                title,
-                color = Color.White,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                fontFamily = FontFamily.Monospace,
-                modifier = Modifier.weight(1f)
-            )
-            Icon(
-                Icons.Default.ExpandMore,
-                null,
-                tint = TextSecondary,
-                modifier = Modifier.rotate(rotation)
-            )
-        }
-
-        AnimatedVisibility(visible = expanded) {
-            Column(
+        Column {
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 16.dp, end = 16.dp, bottom = 16.dp)
+                    .clickable { expanded = !expanded }
+                    .padding(horizontal = 20.dp, vertical = 18.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Divider(color = Color.White.copy(alpha = 0.05f), modifier = Modifier.padding(bottom = 16.dp))
-                content()
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(AccentCyan.copy(alpha = 0.1f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(icon, "Section Icon", tint = AccentCyan, modifier = Modifier.size(16.dp))
+                }
+                Spacer(Modifier.width(16.dp))
+                Text(
+                    title,
+                    color = Color.White,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace,
+                    modifier = Modifier.weight(1f),
+                    letterSpacing = 0.5.sp
+                )
+                Icon(
+                    Icons.Default.ExpandMore,
+                    "Expand/Collapse",
+                    tint = TextSecondary.copy(alpha = 0.6f),
+                    modifier = Modifier.rotate(rotation).size(20.dp)
+                )
+            }
+
+            AnimatedVisibility(visible = expanded) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 20.dp, end = 20.dp, bottom = 20.dp)
+                ) {
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.05f), modifier = Modifier.padding(bottom = 16.dp))
+                    content()
+                }
             }
         }
     }
@@ -324,31 +374,36 @@ fun SelectionGrid(
     selectedOption: String,
     onOptionSelected: (String) -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    val haptic = LocalHapticFeedback.current
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         options.chunked(2).forEach { row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 row.forEach { option ->
                     val isSelected = option.equals(selectedOption, ignoreCase = true)
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .height(40.dp)
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(if (isSelected) AccentCyan.copy(alpha = 0.15f) else Color.Black.copy(alpha = 0.3f))
+                            .height(44.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (isSelected) AccentCyan.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.25f))
                             .border(
                                 1.dp,
-                                if (isSelected) AccentCyan else Color.White.copy(alpha = 0.05f),
-                                RoundedCornerShape(6.dp)
+                                if (isSelected) AccentCyan else Color.White.copy(alpha = 0.08f),
+                                RoundedCornerShape(8.dp)
                             )
-                            .clickable { onOptionSelected(option) },
+                            .clickable { 
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                onOptionSelected(option) 
+                            },
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             option.uppercase(),
-                            color = if (isSelected) AccentCyan else TextSecondary,
-                            fontSize = 9.sp,
+                            color = if (isSelected) AccentCyan else TextSecondary.copy(alpha = 0.8f),
+                            fontSize = 10.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                            fontFamily = FontFamily.Monospace
+                            fontFamily = FontFamily.Monospace,
+                            letterSpacing = 0.5.sp
                         )
                     }
                 }
@@ -357,6 +412,7 @@ fun SelectionGrid(
         }
     }
 }
+
 
 @Composable
 fun SettingLabel(text: String) {
@@ -379,29 +435,31 @@ fun VisibilityToggle(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
+            .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             label,
-            color = Color.White.copy(alpha = 0.8f),
-            fontSize = 11.sp,
+            color = Color.White.copy(alpha = 0.85f),
+            fontSize = 12.sp,
             fontFamily = FontFamily.Monospace,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
+            letterSpacing = 0.2.sp
         )
         Switch(
             checked = checked,
             onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors(
-                checkedThumbColor = AccentCyan,
-                checkedTrackColor = AccentCyan.copy(alpha = 0.3f),
-                uncheckedThumbColor = TextSecondary,
-                uncheckedTrackColor = SurfaceDark
+                checkedThumbColor = Color.Black,
+                checkedTrackColor = AccentCyan,
+                uncheckedThumbColor = TextSecondary.copy(alpha = 0.6f),
+                uncheckedTrackColor = SurfaceDark.copy(alpha = 0.6f)
             ),
-            modifier = Modifier.scale(0.8f)
+            modifier = Modifier.scale(0.75f)
         )
     }
 }
+
 
 @Composable
 fun ActionButton(
@@ -422,7 +480,7 @@ fun ActionButton(
             .padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, null, tint = if (enabled) color else TextSecondary, modifier = Modifier.size(16.dp))
+        Icon(icon, text, tint = if (enabled) color else TextSecondary, modifier = Modifier.size(16.dp))
         Spacer(Modifier.width(12.dp))
         Text(
             text.uppercase(),

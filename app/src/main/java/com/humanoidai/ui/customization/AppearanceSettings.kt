@@ -14,13 +14,14 @@ data class AppearanceSettings(
     val uiScale: UIScale = UIScale.MEDIUM,
     
     // ── Theme ────────────────────────────────────────────────────────────────
-    val colorTheme: String = "cyan_jarvis", // cyan_jarvis, blue_ai, green_matrix, orange_tactical, purple_neon, white_minimal, red_security, amoled_black
-    val accentColor: Long = 0xFF00D4FF,
+    val themeId: String = "t1", // t1..t10 — the 10 camera-home visual personalities
+    val colorTheme: String = "core_monolith", // legacy, superseded by themeId
+    val accentColor: Long = 0xFFD1D5DB,
     val backgroundOpacity: Float = 0.95f,
-    val cardTransparency: Float = 0.4f,
-    val glassBlurStrength: Dp = 8.dp,
-    val cornerRadius: Dp = 16.dp,
-    val hudGlowIntensity: Float = 0.6f,
+    val cardTransparency: Float = 0.5f,
+    val glassBlurStrength: Dp = 12.dp,
+    val cornerRadius: Dp = 20.dp,
+    val hudGlowIntensity: Float = 0.8f,
     val glowEnabled: Boolean = true,
     val maxRoi: Int = 3,
     

@@ -1,0 +1,20 @@
+-- The C compiler identification is Clang 21.0.0
+-- The C compiler identification is Clang 21.0.0
+-- The CXX compiler identification is Clang 21.0.0
+-- The CXX compiler identification is Clang 21.0.0
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: D:/adSDK/ndk/30.0.14904198/toolchains/llvm/prebuilt/windows-x86_64/bin/clang.exe - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Configuring incomplete, errors occurred!
+See also "D:/Projects(ASC)/opencv/.cxx/RelWithDebInfo/265553a3/x86/CMakeFiles/CMakeOutput.log".
+See also "D:/Projects(ASC)/opencv/.cxx/RelWithDebInfo/265553a3/x86/CMakeFiles/CMakeError.log".
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - failed
+-- Check for working CXX compiler: D:/adSDK/ndk/30.0.14904198/toolchains/llvm/prebuilt/windows-x86_64/bin/clang++.exe
+-- Check for working CXX compiler: D:/adSDK/ndk/30.0.14904198/toolchains/llvm/prebuilt/windows-x86_64/bin/clang++.exe - broken
+-- Configuring incomplete, errors occurred!
+See also "D:/Projects(ASC)/opencv/.cxx/RelWithDebInfo/265553a3/x86/CMakeFiles/CMakeOutput.log".
+See also "D:/Projects(ASC)/opencv/.cxx/RelWithDebInfo/265553a3/x86/CMakeFiles/CMakeError.log".

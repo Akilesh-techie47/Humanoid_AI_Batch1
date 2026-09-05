@@ -18,8 +18,8 @@ class BeliefEngine {
         beliefs["social_opportunity"] = Belief("social_opportunity", context.visiblePeople.isNotEmpty())
 
         // 3. System Beliefs
-        beliefs["battery_low"] = Belief("battery_low", context.batteryPercent in 1..20)
-        beliefs["system_healthy"] = Belief("system_healthy", context.batteryPercent > 20)
+        beliefs["battery_low"] = Belief("battery_low", context.batteryPercent in 1..15)
+        beliefs["system_healthy"] = Belief("system_healthy", context.batteryPercent > 15)
 
         // 4. Environment Beliefs
         beliefs["is_quiet"] = Belief("is_quiet", context.noiseLevel < 40f)

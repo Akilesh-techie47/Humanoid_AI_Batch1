@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.kotlinCompose)
     alias(libs.plugins.googleServices)
     alias(libs.plugins.ksp)
+    id("kotlin-parcelize")
 }
 
 val localProperties = Properties()
@@ -18,6 +19,7 @@ val geminiApiKey = localProperties.getProperty("GEMINI_API_KEY") ?: ""
 android {
     namespace = "com.humanoidai"
     compileSdk = 35
+    ndkVersion = "30.0.14904198-beta1"
 
     defaultConfig {
         applicationId = "com.humanoidai"
@@ -31,6 +33,11 @@ android {
             "GEMINI_API_KEY",
             "\"$geminiApiKey\""
         )
+        externalNativeBuild {
+            cmake {
+                arguments("-DANDROID_STL=c++_shared")
+            }
+        }
         ndk {
             abiFilters.add("armeabi-v7a")
             abiFilters.add("arm64-v8a")
@@ -76,8 +83,12 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
         jniLibs {
-            useLegacyPackaging = false
+            useLegacyPackaging = true
         }
+    }
+
+    testOptions {
+        unitTests.isReturnDefaultValues = true
     }
 }
 

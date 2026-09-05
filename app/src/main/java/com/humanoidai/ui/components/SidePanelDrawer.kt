@@ -11,6 +11,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -48,7 +50,7 @@ fun SidePanelDrawer(
                     ) {
                         Icon(
                             imageVector = Icons.Default.SmartToy,
-                            contentDescription = null,
+                            contentDescription = "Humanoid AI Logo",
                             tint = AccentCyan,
                             modifier = Modifier.size(32.dp)
                         )
@@ -65,19 +67,29 @@ fun SidePanelDrawer(
                     HorizontalDivider(color = Color.White.copy(alpha = 0.1f), modifier = Modifier.padding(bottom = 16.dp))
 
                     // Menu Items
+                    NavItem(Icons.Default.Dashboard, "Dashboard", NavRoutes.DASHBOARD, navController, drawerState)
                     NavItem(Icons.Default.CameraAlt, "Camera Home", NavRoutes.ENVIRONMENT, navController, drawerState)
                     
                     NavItem(Icons.Default.Notifications, "Alerts", NavRoutes.ALERTS, navController, drawerState, badge = unreadCount)
                     NavItem(Icons.Default.AutoAwesome, "AI Assistant", NavRoutes.ASSISTANT, navController, drawerState)
+                    NavItem(Icons.Default.Forum, "Communication Intel", NavRoutes.COMMUNICATION_ACCESS, navController, drawerState)
+                    NavItem(Icons.Default.QuestionAnswer, "What Did I Miss?", NavRoutes.COMMUNICATION_BRIEFING, navController, drawerState)
                     NavItem(Icons.Default.Face, "Face Recognition", NavRoutes.RECOGNITION, navController, drawerState)
                     NavItem(Icons.Default.PersonAdd, "Face Enrollment", NavRoutes.ENROLLMENT, navController, drawerState)
                     
                     Spacer(Modifier.height(16.dp))
-                    Text("HISTORY & ANALYTICS", fontSize = 11.sp, color = TextSecondary, modifier = Modifier.padding(start = 12.dp, bottom = 8.dp))
+                    Text("MONITORING", fontSize = 11.sp, color = TextSecondary, modifier = Modifier.padding(start = 12.dp, bottom = 8.dp))
                     
                     NavItem(Icons.Default.History, "Activity History", NavRoutes.HISTORY, navController, drawerState)
                     NavItem(Icons.Default.BarChart, "Security Analytics", NavRoutes.ANALYTICS, navController, drawerState)
                     
+                    Spacer(Modifier.height(16.dp))
+                    Text("DIAGNOSTICS", fontSize = 11.sp, color = TextSecondary, modifier = Modifier.padding(start = 12.dp, bottom = 8.dp))
+                    
+                    NavItem(Icons.Default.Memory, "Runtime Inspector", NavRoutes.RUNTIME_INSPECTOR, navController, drawerState)
+                    NavItem(Icons.Default.PrivacyTip, "Privacy Gateway", NavRoutes.PRIVACY_DASHBOARD, navController, drawerState)
+                    NavItem(Icons.Default.OutlinedFlag, "AI Goal Plan", NavRoutes.GOAL_INSPECTOR, navController, drawerState)
+
                     Spacer(Modifier.weight(1f))
                     
                     HorizontalDivider(color = Color.White.copy(alpha = 0.1f), modifier = Modifier.padding(vertical = 16.dp))
@@ -102,11 +114,13 @@ private fun NavItem(
 ) {
     val isSelected = navController.currentDestination?.route == route
     val scope = rememberCoroutineScope()
+    val haptic = LocalHapticFeedback.current
     
     NavigationDrawerItem(
         label = { Text(label, fontSize = 14.sp) },
         selected = isSelected,
         onClick = {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
             scope.launch { drawerState.close() }
             if (!isSelected) {
                 navController.navigate(route) {

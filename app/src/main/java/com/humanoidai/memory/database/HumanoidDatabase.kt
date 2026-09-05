@@ -20,9 +20,10 @@ import com.humanoidai.recovery.model.GapEventEntity
         InteractionEntity::class,
         AlertHistoryEntity::class,
         ContextLogEntity::class,
-        GapEventEntity::class
+        GapEventEntity::class,
+        AuditLogEntity::class
     ],
-    version = 2,
+    version = 4,
     exportSchema = false
 )
 abstract class HumanoidDatabase : RoomDatabase() {
@@ -32,6 +33,7 @@ abstract class HumanoidDatabase : RoomDatabase() {
     abstract fun alertHistoryDao(): AlertHistoryDao
     abstract fun contextLogDao(): ContextLogDao
     abstract fun gapEventDao(): GapEventDao
+    abstract fun auditLogDao(): AuditLogDao
 
     companion object {
         @Volatile
@@ -59,6 +61,33 @@ abstract class HumanoidDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE users ADD COLUMN label TEXT NOT NULL DEFAULT 'Unknown'")
+                db.execSQL("ALTER TABLE users ADD COLUMN viewpointsJson TEXT")
+            }
+        }
+
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // 1. Add password fields to users
+                db.execSQL("ALTER TABLE users ADD COLUMN passwordHash TEXT")
+                db.execSQL("ALTER TABLE users ADD COLUMN passwordSalt TEXT")
+
+                // 2. Create audit_logs table
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS audit_logs (
+                        logId INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        timestamp INTEGER NOT NULL,
+                        category TEXT NOT NULL,
+                        action TEXT NOT NULL,
+                        status TEXT NOT NULL,
+                        details TEXT NOT NULL
+                    )
+                """.trimIndent())
+            }
+        }
+
         fun getInstance(context: Context): HumanoidDatabase {
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: buildDatabase(context).also { INSTANCE = it }
@@ -77,7 +106,7 @@ abstract class HumanoidDatabase : RoomDatabase() {
                 "humanoid_memory_v2.db"
             )
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .build()
         }
 

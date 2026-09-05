@@ -114,9 +114,11 @@ object NotificationHelper {
         }
 
         try {
+            android.util.Log.i("NotificationHelper", "[NOTIFICATION_TRIGGER] priority=${alert.priority}, title=${alert.title}")
             NotificationManagerCompat.from(context).notify(notificationId++, builder.build())
         } catch (_: SecurityException) {
             // Notification permission not granted — silently ignore
         }
+
     }
 }

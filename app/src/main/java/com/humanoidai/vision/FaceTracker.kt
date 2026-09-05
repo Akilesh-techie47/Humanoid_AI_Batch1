@@ -13,9 +13,9 @@ class FaceTracker {
     private var nextTrackId = 1
     
     companion object {
-        private const val IOU_THRESHOLD = 0.4f
-        private const val MAX_AGE_MS = 1000L // Remove track if not seen for 1s
-        private const val SMOOTHING_WINDOW = 8 // Frames to average over
+        private const val IOU_THRESHOLD = 0.35f // Slightly more lenient tracking
+        private const val MAX_AGE_MS = 1500L // Keep identity alive for 1.5s after frame loss
+        private const val SMOOTHING_WINDOW = 12 // Increased for better stability
     }
 
     data class Track(
@@ -29,15 +29,19 @@ class FaceTracker {
             lastBounds = bounds
             lastSeen = System.currentTimeMillis()
             
-            nameHistory.add(name)
-            if (nameHistory.size > SMOOTHING_WINDOW) nameHistory.removeAt(0)
+            if (name != "STABLE" && name != "ANALYZING" && name != "IDENTIFYING") {
+                nameHistory.add(name)
+                if (nameHistory.size > SMOOTHING_WINDOW) nameHistory.removeAt(0)
+            }
             
-            confidenceHistory.add(confidence)
-            if (confidenceHistory.size > SMOOTHING_WINDOW) confidenceHistory.removeAt(0)
+            if (confidence >= 0f) {
+                confidenceHistory.add(confidence)
+                if (confidenceHistory.size > SMOOTHING_WINDOW) confidenceHistory.removeAt(0)
+            }
         }
 
         fun getSmoothedIdentity(): Pair<String, Float> {
-            if (nameHistory.isEmpty()) return "UNKNOWN" to 0f
+            if (nameHistory.isEmpty()) return "IDENTIFYING" to 0f
             
             // Majority vote for name
             val nameCounts = nameHistory.groupingBy { it }.eachCount()

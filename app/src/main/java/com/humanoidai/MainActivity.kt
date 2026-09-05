@@ -14,8 +14,13 @@ import com.humanoidai.navigation.NavGraph
 import com.humanoidai.navigation.NavRoutes
 import com.humanoidai.recovery.engine.ContextLogTimestampAdapter
 import com.humanoidai.recovery.engine.GapDetector
+import com.humanoidai.recovery.model.GapEventEntity
+import com.humanoidai.recovery.model.RecoveryTier
 import com.humanoidai.runtime.AIRuntimeManager
 import com.humanoidai.security.TrustFramework
+import com.humanoidai.security.IntegrityChecker
+import com.humanoidai.security.SecurityCategory
+import com.humanoidai.security.SecurityStatus
 import com.humanoidai.ui.screens.AuthViewModel
 import com.humanoidai.ui.theme.HumanoidAITheme
 import kotlinx.coroutines.launch
@@ -24,19 +29,46 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         android.util.Log.i("HumanoidMain", "MainActivity: onCreate")
+
+        val trust = TrustFramework.getInstance(this)
+        trust.initialize()
+
+        // Security Integrity Check
+        if (!IntegrityChecker.isDeviceSecure(this)) {
+            trust.auditLogger.log(
+                SecurityCategory.INTEGRITY,
+                "Device Compromised",
+                SecurityStatus.VIOLATION,
+                "Root or Emulator detected"
+            )
+            // In a real app, we might block access here
+        }
         
         // Initialize Runtime Manager
-        AIRuntimeManager.getInstance(this).initialize()
+        lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val trust = com.humanoidai.security.TrustFramework.getInstance(this@MainActivity)
+            trust.initialize()
+            com.humanoidai.runtime.SystemReadiness.markReady("TRUST")
 
-        // Initialize Trust Framework
-        TrustFramework.getInstance(this).initialize()
+            com.humanoidai.runtime.AIRuntimeManager.getInstance(this@MainActivity).initialize()
+            com.humanoidai.runtime.SystemReadiness.markReady("RUNTIME")
 
-        try {
-            FisheyeCorrector.initOpenCV()
-            net.sqlcipher.database.SQLiteDatabase.loadLibs(this)
-            android.util.Log.d("HumanoidMain", "Libraries loaded successfully")
-        } catch (e: Exception) {
-            android.util.Log.e("HumanoidMain", "Library Load Error: ${e.message}")
+            try {
+                com.humanoidai.ml.FisheyeCorrector.initOpenCV()
+            } catch (e: Exception) {
+                android.util.Log.e("HumanoidMain", "OpenCV Load Error: ${e.message}")
+            } finally {
+                com.humanoidai.runtime.SystemReadiness.markReady("OPENCV")
+            }
+
+            try {
+                net.sqlcipher.database.SQLiteDatabase.loadLibs(this@MainActivity)
+            } catch (e: Exception) {
+                android.util.Log.e("HumanoidMain", "SQLCipher Load Error: ${e.message}")
+            } finally {
+                com.humanoidai.runtime.SystemReadiness.markReady("SQLITE")
+            }
+
         }
 
         enableEdgeToEdge()
@@ -77,12 +109,31 @@ class MainActivity : ComponentActivity() {
             val gapDetector = GapDetector(adapter)
             
             val detectedGap = gapDetector.checkForGap()
-            detectedGap?.let { gap ->
+            if (detectedGap != null) {
                 android.util.Log.d(
                     "GapDetection",
-                    "Gap detected: ${gap.cause}, ${(gap.gapEnd - gap.gapStart) / 60000} min"
+                    "Gap detected: ${detectedGap.cause}, ${(detectedGap.gapEnd - detectedGap.gapStart) / 60000} min"
                 )
-                // TODO: Store GapEventEntity and hand off to RecoveryEngine UI
+                
+                // Path B: Persist the gap event
+                try {
+                    val entity = GapEventEntity(
+                        gapId = detectedGap.gapId,
+                        gapStart = detectedGap.gapStart,
+                        gapEnd = detectedGap.gapEnd,
+                        cause = detectedGap.cause.name,
+                        lastKnownContextJson = null,
+                        eventsDuringGapJson = "[]",
+                        reconstructedSummary = "System was offline for ${(detectedGap.gapEnd - detectedGap.gapStart) / 60000} minutes due to ${detectedGap.cause}.",
+                        tier = RecoveryTier.PARTIAL_DATA.name
+                    )
+                    db.gapEventDao().insert(entity)
+                    android.util.Log.i("GapDetection", "Gap event persisted: ${detectedGap.gapId}")
+                } catch (e: Exception) {
+                    android.util.Log.e("GapDetection", "Failed to persist gap: ${e.message}")
+                }
+            } else {
+                android.util.Log.d("GapDetection", "No gap detected on resume.")
             }
         }
     }

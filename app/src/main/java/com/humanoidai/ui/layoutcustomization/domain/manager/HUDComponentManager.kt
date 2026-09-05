@@ -76,11 +76,18 @@ class HUDComponentManager {
         val defaults = listOf(
             HUDComponentRegistry.CAMERA,
             HUDComponentRegistry.PRIMARY_ROI,
+            HUDComponentRegistry.SECONDARY_ROI,
             HUDComponentRegistry.ASSISTANT,
             HUDComponentRegistry.BOTTOM_DOCK,
+            HUDComponentRegistry.STATUS_BAR,
             HUDComponentRegistry.ALERTS,
+            HUDComponentRegistry.NOTIFICATIONS,
             HUDComponentRegistry.FPS_COUNTER,
-            HUDComponentRegistry.AI_THINKING
+            HUDComponentRegistry.RECORDING_INDICATOR,
+            HUDComponentRegistry.AI_THINKING,
+            HUDComponentRegistry.QUICK_ACTIONS,
+            HUDComponentRegistry.RADAR,
+            HUDComponentRegistry.STATUS_INDICATORS
         ).associateWith { HUDComponentRegistry.getComponentDefaults(it) }
         
         _components.value = defaults

@@ -23,4 +23,6 @@ object NavRoutes {
     const val BEHAVIOR_INSPECTOR = "behavior_inspector"
     const val EMBODIMENT_INSPECTOR = "embodiment_inspector"
     const val COORDINATION_INSPECTOR = "coordination_inspector"
+    const val COMMUNICATION_ACCESS = "communication_access"
+    const val COMMUNICATION_BRIEFING = "communication_briefing"
 }

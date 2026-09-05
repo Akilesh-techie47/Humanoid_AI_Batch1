@@ -15,28 +15,36 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.annotation.SuppressLint
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.window.Dialog
 import androidx.camera.view.PreviewView
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.core.*
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.humanoidai.ui.components.WithCameraPermission
 import java.util.concurrent.Executors
 import com.humanoidai.ml.FaceEmbeddingHelper
 import androidx.navigation.NavController
-import com.google.firebase.auth.FirebaseAuth
+import com.humanoidai.hearing.SpeechRecognizerManager
 import com.humanoidai.ml.OwnerEnrollmentManager
+import com.humanoidai.navigation.NavRoutes
 import com.humanoidai.ui.components.SidePanelDrawer
 import com.humanoidai.ui.theme.*
 import kotlinx.coroutines.launch
@@ -44,7 +52,7 @@ import com.humanoidai.ui.customization.AppearanceViewModel
 import com.humanoidai.ui.customization.HUDStructure
 import com.humanoidai.ui.customization.UIScale
 
-enum class SecurityMethod { PASSWORD, FACE_SCAN }
+enum class SecurityMethod { PASSWORD, FACE_SCAN, UPDATE_PASSWORD }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -54,9 +62,11 @@ fun SettingsScreen(
     recognitionManager: com.humanoidai.ml.FaceRecognitionManager,
     voiceEngine: com.humanoidai.voice.VoiceEngine,
     appearanceViewModel: AppearanceViewModel,
-    microphoneManager: com.humanoidai.hearing.SpeechRecognizerManager
+    microphoneManager: SpeechRecognizerManager,
+    authViewModel: AuthViewModel = viewModel()
 ) {
     val settings by appearanceViewModel.settings.collectAsState()
+    val haptic = LocalHapticFeedback.current
     
     // UI State
     var aiName by remember { mutableStateOf(ownerManager.getAiName()) }
@@ -73,19 +83,30 @@ fun SettingsScreen(
     var showSecurityPrompt by remember { mutableStateOf(false) }
     var securityMethod by remember { mutableStateOf<SecurityMethod?>(null) }
 
-    val currentUser = FirebaseAuth.getInstance().currentUser
+    val ownerName = ownerManager.getOwnerName()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
     if (showSecurityPrompt) {
-        SecurityAccessDialog(
-            method = securityMethod ?: SecurityMethod.PASSWORD,
-            onDismiss = { showSecurityPrompt = false },
-            onAuthenticated = {
-                showSecurityPrompt = false
-                navController.navigate("owner_enrollment")
-            }
-        )
+        if (securityMethod == SecurityMethod.UPDATE_PASSWORD) {
+            UpdatePasswordDialog(
+                authViewModel = authViewModel,
+                onDismiss = { showSecurityPrompt = false }
+            )
+        } else {
+            SecurityAccessDialog(
+                method = securityMethod ?: SecurityMethod.PASSWORD,
+                onDismiss = { showSecurityPrompt = false },
+                onAuthenticated = {
+                    showSecurityPrompt = false
+                    if (securityMethod == SecurityMethod.FACE_SCAN) {
+                        navController.navigate("owner_enrollment")
+                    } else if (securityMethod == SecurityMethod.PASSWORD) {
+                        // This was for "Update Password" but now we use UPDATE_PASSWORD state
+                    }
+                }
+            )
+        }
     }
 
     SidePanelDrawer(
@@ -95,19 +116,32 @@ fun SettingsScreen(
         Scaffold(
             containerColor = BackgroundDark,
             topBar = {
-                CenterAlignedTopAppBar(
-                    title = {
-                        Text("SETTINGS", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AccentCyan)
+                Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = { 
+                        scope.launch { drawerState.open() } 
                     },
-                    navigationIcon = {
-                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(Icons.Default.Menu, "Menu", tint = Color.White)
-                        }
-                    },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
-                )
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(SurfaceDark.copy(alpha = 0.4f))
+                        .border(1.dp, Color.White.copy(alpha = 0.05f), CircleShape)
+                ) {
+                    Icon(Icons.Default.Menu, "Menu", tint = Color.White, modifier = Modifier.size(20.dp))
+                }
+                
+                Spacer(Modifier.width(16.dp))
+                
+                Text("SETTINGS", fontSize = 15.sp, fontWeight = FontWeight.Black, color = AccentCyan, fontFamily = FontFamily.Monospace, letterSpacing = 1.sp)
             }
-        ) { padding ->
+        }
+    ) { padding ->
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -141,50 +175,59 @@ fun SettingsScreen(
                 // ---- HUD Customization ----
                 SectionHeader("HUD Customization")
                 
-                ActionRow(Icons.Default.Palette, "Advanced Appearance", AccentCyan) {
-                    navController.navigate(com.humanoidai.navigation.NavRoutes.APPEARANCE)
-                }
-                
-                Spacer(modifier = Modifier.height(12.dp))
+                SettingsItem(
+                    icon = Icons.Default.Palette,
+                    title = "Advanced Appearance",
+                    subtitle = "Themes, colors and global scale",
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        navController.navigate(NavRoutes.APPEARANCE)
+                    }
+                )
 
-                // 1. Max ROI Count (Linked to Settings)
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(SurfaceDark, RoundedCornerShape(10.dp))
-                        .clickable { 
-                            val current = settings.maxRoi
-                            appearanceViewModel.setMaxRoi(if (current >= 5) 1 else current + 1)
-                        }
-                        .padding(horizontal = 14.dp, vertical = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(Icons.Default.Groups, null, tint = AccentCyan, modifier = Modifier.size(20.dp))
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text("Max ROI Count", fontSize = 14.sp, color = TextPrimary, modifier = Modifier.weight(1f))
-                    Text("${settings.maxRoi}", fontSize = 13.sp, color = AccentCyan, fontWeight = FontWeight.Bold)
-                }
-                Spacer(modifier = Modifier.height(6.dp))
+                SettingsItem(
+                    icon = Icons.Default.Groups,
+                    title = "Max ROI Count",
+                    subtitle = "Face detection limit",
+                    onClick = { 
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        val current = settings.maxRoi
+                        appearanceViewModel.setMaxRoi(if (current >= 5) 1 else current + 1)
+                    },
+                    trailingContent = {
+                        Text(
+                            "${settings.maxRoi}", 
+                            fontSize = 14.sp, 
+                            color = AccentCyan, 
+                            fontWeight = FontWeight.Black,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                )
 
                 // 2. HUD Structure (Replaces Layout Preset for more impact)
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(SurfaceDark, RoundedCornerShape(10.dp))
-                        .clickable { 
-                            val structures = HUDStructure.values()
-                            val nextIndex = (settings.hudStructure.ordinal + 1) % structures.size
-                            appearanceViewModel.setStructure(structures[nextIndex])
-                        }
-                        .padding(horizontal = 14.dp, vertical = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(Icons.Default.DashboardCustomize, null, tint = AccentCyan, modifier = Modifier.size(20.dp))
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text("System HUD Structure", fontSize = 14.sp, color = TextPrimary, modifier = Modifier.weight(1f))
-                    Text(settings.hudStructure.name.replace("_", " "), fontSize = 13.sp, color = AccentCyan, fontWeight = FontWeight.Bold)
-                }
-                Spacer(modifier = Modifier.height(6.dp))
+                SettingsItem(
+                    icon = Icons.Default.DashboardCustomize,
+                    title = "System HUD Structure",
+                    subtitle = "Spatial arrangement of AI components",
+                    onClick = { 
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        val structures = HUDStructure.entries
+                        val nextIndex = (settings.hudStructure.ordinal + 1) % structures.size
+                        appearanceViewModel.setStructure(structures[nextIndex])
+                    },
+                    trailingContent = {
+                        Text(
+                            settings.hudStructure.name.replace("_", " "), 
+                            fontSize = 11.sp, 
+                            color = AccentCyan, 
+                            fontWeight = FontWeight.Black,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
 
                 // 4. Show Sensors
                 ToggleRow(Icons.Default.Analytics, "Show Sensor Status", settings.showSensorStatus) { 
@@ -214,28 +257,83 @@ fun SettingsScreen(
                 // ---- Account ----
                 Spacer(modifier = Modifier.height(20.dp))
                 SectionHeader("Account")
-                InfoRow(Icons.Default.Person, "Signed in as", currentUser?.email ?: currentUser?.phoneNumber ?: "Unknown")
                 
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                ActionRow(Icons.Default.RecordVoiceOver, "Update Biometrics", AccentPurple) {
-                    securityMethod = SecurityMethod.FACE_SCAN
-                    showSecurityPrompt = true
-                }
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                ActionRow(Icons.Default.ExitToApp, "Sign Out", Color(0xFFFF5C5C)) {
-                    FirebaseAuth.getInstance().signOut()
-                    ownerManager.clearOwner()
-                    navController.navigate("login") {
-                        popUpTo(0) { inclusive = true }
+                SettingsItem(
+                    icon = Icons.Default.Person,
+                    title = "Profile Identity",
+                    subtitle = "Signed in as $ownerName",
+                    onClick = { /* No-op */ }
+                )
+
+                SettingsItem(
+                    icon = Icons.Default.Password,
+                    title = "Update Password",
+                    subtitle = "Change your account access key",
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        securityMethod = SecurityMethod.UPDATE_PASSWORD
+                        showSecurityPrompt = true
                     }
-                }
+                )
+                
+                SettingsItem(
+                    icon = Icons.Default.RecordVoiceOver,
+                    title = "Update Biometrics",
+                    subtitle = "Re-scan face and voice fingerprints",
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        securityMethod = SecurityMethod.FACE_SCAN
+                        showSecurityPrompt = true
+                    }
+                )
+                
+                SettingsItem(
+                    icon = Icons.Default.ExitToApp,
+                    title = "Sign Out",
+                    subtitle = "Securely end this AI session",
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        ownerManager.clearOwner()
+                        navController.navigate("login") {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    },
+                    trailingContent = {
+                        Icon(Icons.Default.Logout, null, tint = ErrorRed.copy(alpha = 0.6f))
+                    }
+                )
 
                 // ---- Assistant ----
                 Spacer(modifier = Modifier.height(20.dp))
                 SectionHeader("Assistant")
+                
+                SettingsItem(
+                    icon = Icons.Default.Translate,
+                    title = "System Language",
+                    subtitle = preferredLanguage,
+                    onClick = { 
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        val next = when(preferredLanguage) {
+                            "Automatic" -> "English"
+                            "English" -> "Tamil"
+                            else -> "Automatic"
+                        }
+                        preferredLanguage = next
+                        val code = when(next) {
+                            "English" -> "en"
+                            "Tamil" -> "ta"
+                            else -> "auto"
+                        }
+                        ownerManager.setPreferredLanguage(code)
+                        microphoneManager.setLanguage(code)
+                    },
+                    trailingContent = {
+                        Icon(Icons.Default.Language, null, tint = AccentCyan.copy(alpha = 0.5f))
+                    }
+                )
+
+                Spacer(Modifier.height(12.dp))
+
                 ToggleRow(Icons.Default.Warning, "Show Alert Banners", settings.showAlertBanner) { 
                     appearanceViewModel.toggleComponent("alerts", it) 
                 }
@@ -243,46 +341,153 @@ fun SettingsScreen(
                     appearanceViewModel.toggleComponent("context", it)
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
-                
-                // Language Selection
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(SurfaceDark, RoundedCornerShape(10.dp))
-                        .clickable { 
-                            val next = when(preferredLanguage) {
-                                "Automatic" -> "English"
-                                "English" -> "Tamil"
-                                else -> "Automatic"
-                            }
-                            preferredLanguage = next
-                            val code = when(next) {
-                                "English" -> "en"
-                                "Tamil" -> "ta"
-                                else -> "auto"
-                            }
-                            ownerManager.setPreferredLanguage(code)
-                            microphoneManager.setLanguage(code)
-                        }
-                        .padding(horizontal = 14.dp, vertical = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(Icons.Default.Translate, null, tint = AccentCyan, modifier = Modifier.size(20.dp))
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text("Interaction Language", fontSize = 14.sp, color = TextPrimary, modifier = Modifier.weight(1f))
-                    Text(preferredLanguage, fontSize = 13.sp, color = AccentCyan, fontWeight = FontWeight.Bold)
-                }
-
                 // ---- About ----
                 Spacer(modifier = Modifier.height(20.dp))
                 SectionHeader("About")
-                InfoRow(Icons.Default.Info, "App Version", "1.2.0 (CEA)")
-                InfoRow(Icons.Default.Build, "Build", "CEA v1.4-Custom")
+                
+                SettingsItem(
+                    icon = Icons.Default.Info,
+                    title = "App Version",
+                    subtitle = "1.2.0 (Production Assembly)",
+                    onClick = {}
+                )
+                
+                SettingsItem(
+                    icon = Icons.Default.Build,
+                    title = "Build Identity",
+                    subtitle = "CEA v1.5-Assembly",
+                    onClick = {}
+                )
 
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(48.dp))
             }
         }
+    }
+}
+
+@Composable
+fun UpdatePasswordDialog(
+    authViewModel: AuthViewModel,
+    onDismiss: () -> Unit
+) {
+    var currentPassword by remember { mutableStateOf("") }
+    var newPassword by remember { mutableStateOf("") }
+    var confirmPassword by remember { mutableStateOf("") }
+    var passwordVisible by remember { mutableStateOf(false) }
+    val authState by authViewModel.authState.collectAsState()
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = SurfaceDark,
+            border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.5f))
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Icon(Icons.Default.LockReset, null, tint = AccentCyan, modifier = Modifier.size(48.dp))
+                Spacer(Modifier.height(16.dp))
+                Text("Update Password", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Text("Verify your identity and set a new key", color = TextSecondary, fontSize = 13.sp, textAlign = TextAlign.Center)
+                
+                Spacer(Modifier.height(24.dp))
+
+                OutlinedTextField(
+                    value = currentPassword,
+                    onValueChange = { currentPassword = it },
+                    label = { Text("Current Password") },
+                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedBorderColor = AccentCyan,
+                        unfocusedBorderColor = TextSecondary,
+                        cursorColor = AccentCyan
+                    )
+                )
+
+                Spacer(Modifier.height(12.dp))
+                
+                OutlinedTextField(
+                    value = newPassword,
+                    onValueChange = { newPassword = it },
+                    label = { Text("New Password") },
+                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth(),
+                    trailingIcon = {
+                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                            Icon(if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff, null, tint = AccentCyan)
+                        }
+                    },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedBorderColor = AccentCyan,
+                        unfocusedBorderColor = TextSecondary,
+                        cursorColor = AccentCyan
+                    )
+                )
+
+                Spacer(Modifier.height(12.dp))
+
+                OutlinedTextField(
+                    value = confirmPassword,
+                    onValueChange = { confirmPassword = it },
+                    label = { Text("Confirm New Password") },
+                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedBorderColor = AccentCyan,
+                        unfocusedBorderColor = TextSecondary,
+                        cursorColor = AccentCyan
+                    )
+                )
+
+                if (newPassword.isNotEmpty() && confirmPassword.isNotEmpty() && newPassword != confirmPassword) {
+                    Text("Passwords do not match", color = ErrorRed, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp))
+                }
+
+                AuthStatusText(authState)
+
+                Spacer(Modifier.height(24.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = onDismiss) { Text("Cancel", color = TextSecondary) }
+                    Button(
+                        onClick = {
+                            if (newPassword == confirmPassword) {
+                                authViewModel.updateAccountPassword(newPassword) {
+                                    onDismiss()
+                                }
+                            }
+                        },
+                        enabled = currentPassword.isNotBlank() && newPassword.isNotBlank() && newPassword == confirmPassword && authState !is AuthState.Loading,
+                        colors = ButtonDefaults.buttonColors(containerColor = AccentCyan)
+                    ) {
+                        Text("Update", color = Color.Black)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AuthStatusText(state: AuthState) {
+    when (state) {
+        is AuthState.Error -> {
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+                text = state.message,
+                color = ErrorRed,
+                fontSize = 12.sp,
+                textAlign = TextAlign.Center
+            )
+        }
+        else -> {}
     }
 }
 
@@ -440,69 +645,95 @@ fun FaceAuthScan(onAuthenticated: () -> Unit) {
 @Composable
 private fun SectionHeader(title: String) {
     Text(
-        title,
-        fontSize = 12.sp,
-        fontWeight = FontWeight.SemiBold,
-        color = AccentCyan,
-        modifier = Modifier.padding(bottom = 8.dp)
+        title.uppercase(),
+        fontSize = 11.sp,
+        fontWeight = FontWeight.Bold,
+        color = AccentCyan.copy(alpha = 0.8f),
+        letterSpacing = 0.5.sp,
+        modifier = Modifier.padding(top = 24.dp, bottom = 12.dp)
     )
 }
 
 @Composable
+private fun SettingsItem(
+    icon: ImageVector,
+    title: String,
+    subtitle: String? = null,
+    onClick: () -> Unit,
+    trailingContent: @Composable () -> Unit = { Icon(Icons.Default.ChevronRight, null, tint = TextSecondary.copy(alpha = 0.5f)) }
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        color = SurfaceDark.copy(alpha = 0.4f),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
+    ) {
+        Row(
+            modifier = Modifier
+                .clickable(onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(AccentCyan.copy(alpha = 0.1f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, null, tint = AccentCyan, modifier = Modifier.size(18.dp))
+            }
+            
+            Spacer(Modifier.width(16.dp))
+            
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                if (subtitle != null) {
+                    Text(subtitle, color = TextSecondary, fontSize = 11.sp)
+                }
+            }
+            
+            trailingContent()
+        }
+    }
+}
+
+@Composable
 private fun ToggleRow(icon: ImageVector, label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
-    Row(
+    val haptic = LocalHapticFeedback.current
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .background(SurfaceDark, RoundedCornerShape(10.dp))
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(vertical = 4.dp),
+        color = SurfaceDark.copy(alpha = 0.4f),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
     ) {
-        Icon(icon, null, tint = TextSecondary, modifier = Modifier.size(20.dp))
-        Spacer(modifier = Modifier.width(12.dp))
-        Text(label, fontSize = 14.sp, color = TextPrimary, modifier = Modifier.weight(1f))
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = Color.Black,
-                checkedTrackColor = AccentCyan,
-                uncheckedThumbColor = TextSecondary,
-                uncheckedTrackColor = SurfaceDark
+        Row(
+            modifier = Modifier
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(icon, null, tint = TextSecondary, modifier = Modifier.size(20.dp))
+            Spacer(modifier = Modifier.width(16.dp))
+            Text(label, fontSize = 14.sp, color = TextPrimary, modifier = Modifier.weight(1f))
+            Switch(
+                checked = checked,
+                onCheckedChange = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onCheckedChange(it)
+                },
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color.Black,
+                    checkedTrackColor = AccentCyan,
+                    uncheckedThumbColor = TextSecondary.copy(alpha = 0.5f),
+                    uncheckedTrackColor = SurfaceDark.copy(alpha = 0.4f)
+                ),
+                modifier = Modifier.scale(0.85f)
             )
-        )
+        }
     }
-    Spacer(modifier = Modifier.height(6.dp))
 }
 
-@Composable
-private fun InfoRow(icon: ImageVector, label: String, value: String) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(SurfaceDark, RoundedCornerShape(10.dp))
-            .padding(horizontal = 14.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(icon, null, tint = TextSecondary, modifier = Modifier.size(20.dp))
-        Spacer(modifier = Modifier.width(12.dp))
-        Text(label, fontSize = 14.sp, color = TextPrimary, modifier = Modifier.weight(1f))
-        Text(value, fontSize = 13.sp, color = TextSecondary)
-    }
-    Spacer(modifier = Modifier.height(6.dp))
-}
-
-@Composable
-private fun ActionRow(icon: ImageVector, label: String, color: Color, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(SurfaceDark, RoundedCornerShape(10.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(icon, null, tint = color, modifier = Modifier.size(20.dp))
-        Spacer(modifier = Modifier.width(12.dp))
-        Text(label, fontSize = 14.sp, color = color, fontWeight = FontWeight.SemiBold)
-    }
-}

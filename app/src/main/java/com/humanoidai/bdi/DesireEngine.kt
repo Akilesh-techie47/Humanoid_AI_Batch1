@@ -13,16 +13,16 @@ class DesireEngine {
             desires.add(Desire.MAINTAIN_SECURITY to 100)
         }
 
-        // Priority 2: System Health
-        if (beliefs["battery_low"]?.value == true) {
-            desires.add(Desire.SYSTEM_MAINTENANCE to 80)
-        }
-
-        // Priority 3: Social
+        // Priority 2: Social
         if (beliefs["owner_present"]?.value == true) {
-            desires.add(Desire.SOCIAL_INTERACTION to 60)
+            desires.add(Desire.SOCIAL_INTERACTION to 90) // Increased priority
         } else if (beliefs["unknown_presence"]?.value == true) {
             desires.add(Desire.MAINTAIN_SECURITY to 50)
+        }
+
+        // Priority 3: System Health
+        if (beliefs["battery_low"]?.value == true) {
+            desires.add(Desire.SYSTEM_MAINTENANCE to 80)
         }
 
         // Priority 4: Monitoring

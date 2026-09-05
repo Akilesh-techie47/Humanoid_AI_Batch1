@@ -1,6 +1,7 @@
 package com.humanoidai.runtime
 
 import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.PriorityQueue
@@ -14,6 +15,7 @@ class TaskScheduler(
     
     private val queueMutex = Mutex()
     private val activeTasks = mutableMapOf<String, Job>()
+    private val taskSignal = Channel<Unit>(Channel.CONFLATED)
     
     private var isRunning = false
 
@@ -27,30 +29,35 @@ class TaskScheduler(
         isRunning = false
         activeTasks.values.forEach { it.cancel() }
         activeTasks.clear()
+        taskSignal.close()
     }
 
     suspend fun submit(task: AITask) {
         queueMutex.withLock {
-            // Merge logic: if a task with the same name and category exists, replace it
             val existing = taskQueue.find { it.name == task.name && it.category == task.category }
             if (existing != null) {
                 taskQueue.remove(existing)
             }
             taskQueue.add(task)
         }
+        taskSignal.trySend(Unit)
     }
 
     private fun processQueue() {
         scope.launch {
-            while (isRunning) {
-                val nextTask = queueMutex.withLock {
-                    if (taskQueue.isNotEmpty()) taskQueue.poll() else null
-                }
+            for (signal in taskSignal) {
+                if (!isRunning) break
+                
+                while (true) {
+                    val nextTask = queueMutex.withLock {
+                        if (taskQueue.isNotEmpty()) taskQueue.poll() else null
+                    }
 
-                if (nextTask != null) {
-                    executeTask(nextTask)
-                } else {
-                    delay(10) // Small delay to prevent tight loop when empty
+                    if (nextTask != null) {
+                        executeTask(nextTask)
+                    } else {
+                        break
+                    }
                 }
             }
         }

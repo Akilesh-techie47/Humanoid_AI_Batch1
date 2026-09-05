@@ -20,41 +20,49 @@ import com.humanoidai.planning.Goal
 import com.humanoidai.planning.GoalStatus
 import com.humanoidai.planning.StepStatus
 import com.humanoidai.ui.theme.AccentCyan
+import com.humanoidai.ui.theme.BackgroundDark
 import com.humanoidai.ui.theme.SuccessGreen
+import com.humanoidai.ui.theme.TextPrimary
 
 @Composable
 fun GoalInspectorScreen(viewModel: GoalInspectorViewModel) {
     val goals by viewModel.activeGoals.collectAsState()
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = BackgroundDark
     ) {
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
         ) {
-            Text("AI Goal Inspector", style = MaterialTheme.typography.headlineMedium)
-            Button(onClick = { viewModel.clearCompleted() }) {
-                Text("Clear Done")
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("AI Goal Inspector", style = MaterialTheme.typography.headlineMedium, color = TextPrimary)
+                Button(onClick = { viewModel.clearCompleted() }, colors = ButtonDefaults.buttonColors(containerColor = AccentCyan)) {
+                    Text("Clear Done", color = Color.Black)
+                }
             }
-        }
-        
-        Spacer(Modifier.height(16.dp))
+            
+            Spacer(Modifier.height(16.dp))
 
-        LazyColumn(modifier = Modifier.fillMaxSize()) {
-            items(
-                goals.values.asSequence()
-                    .sortedByDescending { it.creationTime }
-                    .toList()
-            ) { goal ->
-                GoalCard(goal) { viewModel.cancelGoal(goal.id) }
+            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                items(
+                    goals.values.asSequence()
+                        .sortedByDescending { it.creationTime }
+                        .toList()
+                ) { goal ->
+                    GoalCard(goal) { viewModel.cancelGoal(goal.id) }
+                }
             }
         }
     }
 }
+
 
 @Composable
 fun GoalCard(goal: Goal, onCancel: () -> Unit) {

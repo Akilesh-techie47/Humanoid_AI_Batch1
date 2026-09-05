@@ -7,6 +7,8 @@ import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import com.humanoidai.ui.layoutcustomization.domain.model.*
 import com.humanoidai.ui.layoutcustomization.presentation.state.LayoutCustomizationState
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
@@ -51,7 +53,13 @@ class LayoutCustomizationRepository(private val context: Context) {
         
         // Adaptive Category
         val ADAPTIVE_ENABLED = booleanPreferencesKey("adaptive.enabled")
+        
+        // Visibility Map (JSON)
+        val WIDGET_VISIBILITY = stringPreferencesKey("widget.visibility_map")
     }
+
+    private val gson = Gson()
+    private val mapType = object : TypeToken<Map<String, Boolean>>() {}.type
 
     val state: Flow<LayoutCustomizationState> = context.layoutCustomizationDataStore.data
         .catch { exception ->
@@ -82,7 +90,11 @@ class LayoutCustomizationRepository(private val context: Context) {
                 ),
                 widget = WidgetSettings(
                     density = prefs[Keys.WIDGET_DENSITY] ?: "Balanced",
-                    arrangement = prefs[Keys.WIDGET_ARRANGEMENT] ?: "Balanced"
+                    arrangement = prefs[Keys.WIDGET_ARRANGEMENT] ?: "Balanced",
+                    visibilityMap = try {
+                        val json = prefs[Keys.WIDGET_VISIBILITY]
+                        if (json != null) gson.fromJson(json, mapType) else emptyMap()
+                    } catch (_: Exception) { emptyMap() }
                 ),
                 motion = MotionSettings(
                     profile = prefs[Keys.MOTION_PROFILE] ?: "professional"
@@ -109,6 +121,7 @@ class LayoutCustomizationRepository(private val context: Context) {
             prefs[Keys.ROI_AUTO_RESIZE] = state.roi.autoResize
             prefs[Keys.WIDGET_DENSITY] = state.widget.density
             prefs[Keys.WIDGET_ARRANGEMENT] = state.widget.arrangement
+            prefs[Keys.WIDGET_VISIBILITY] = gson.toJson(state.widget.visibilityMap)
             prefs[Keys.MOTION_PROFILE] = state.motion.profile
             prefs[Keys.ADAPTIVE_ENABLED] = state.adaptive.isEnabled
         }

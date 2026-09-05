@@ -7,14 +7,14 @@ import androidx.compose.ui.unit.dp
  * Priorities for layout resolution. Higher priority widgets get their preferred zones first.
  */
 object LayoutPriority {
-    const val CAMERA = 100
-    const val ALERT_PANEL = 95
-    const val PRIMARY_ROI = 90
-    const val ASSISTANT = 80
-    const val NOTIFICATIONS = 70
-    const val SECONDARY_ROI = 60
-    const val STATUS_INDICATORS = 50
+    const val CAMERA = 0 // Background layer
+    const val PRIMARY_ROI = 5 // Background vision overlay
+    const val SECONDARY_ROI = 8
     const val DECORATIVE = 10
+    const val STATUS_INDICATORS = 50
+    const val NOTIFICATIONS = 70
+    const val ASSISTANT = 80
+    const val ALERT_PANEL = 95
 }
 
 /**

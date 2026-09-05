@@ -77,14 +77,14 @@ fun RoiCard(
         if (showLabels) {
             Text(
                 person.name, 
-                color = Color.White, 
+                color = com.humanoidai.ui.theme.TextPrimary, 
                 fontSize = 11.sp, 
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(top = 4.dp)
             )
             Text(
                 String.format("%.2f", person.confidence),
-                color = color.copy(alpha = 0.7f),
+                color = color.copy(alpha = 0.85f),
                 fontSize = 9.sp,
                 fontFamily = FontFamily.Monospace
             )

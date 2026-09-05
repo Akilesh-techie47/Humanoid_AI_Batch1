@@ -1,5 +1,6 @@
 package com.humanoidai.behavior.ui
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -18,7 +19,11 @@ import com.humanoidai.behavior.CommunicationLevel
 import com.humanoidai.behavior.InteractionTurnState
 import com.humanoidai.behavior.PersonalityProfile
 import com.humanoidai.ui.theme.AccentCyan
+import com.humanoidai.ui.theme.BackgroundDark
+import com.humanoidai.ui.theme.SurfaceDark
 import com.humanoidai.ui.theme.SuccessGreen
+import com.humanoidai.ui.theme.TextPrimary
+import com.humanoidai.ui.theme.TextSecondary
 
 @Composable
 fun BehaviorInspectorScreen(viewModel: BehaviorInspectorViewModel) {
@@ -27,81 +32,101 @@ fun BehaviorInspectorScreen(viewModel: BehaviorInspectorViewModel) {
     val turnState by viewModel.turnState.collectAsState()
     val history by viewModel.history.collectAsState()
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = BackgroundDark
     ) {
-        Text("AI Behavior Inspector", style = MaterialTheme.typography.headlineMedium)
-        Spacer(modifier = Modifier.height(16.dp))
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+        ) {
+            Text("AI Behavior Inspector", style = MaterialTheme.typography.headlineMedium, color = TextPrimary)
+            Spacer(modifier = Modifier.height(16.dp))
 
-        // Interaction State
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp)) {
-                Text("Current Turn State", style = MaterialTheme.typography.titleMedium)
-                Text(
-                    text = turnState.name,
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = when (turnState) {
-                        InteractionTurnState.RESPONDING -> SuccessGreen
-                        InteractionTurnState.LISTENING -> AccentCyan
-                        else -> Color.Gray
-                    },
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Policies
-        Text("Communication Level", style = MaterialTheme.typography.titleSmall)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            CommunicationLevel.entries.forEach { l ->
-                FilterChip(
-                    selected = level == l,
-                    onClick = { viewModel.setLevel(l) },
-                    label = { Text(l.name) }
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text("Personality Profile", style = MaterialTheme.typography.titleSmall)
-        Row(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), horizontalArrangement = Arrangement.SpaceBetween) {
-            PersonalityProfile.entries.forEach { p ->
-                FilterChip(
-                    selected = personality == p,
-                    onClick = { viewModel.setPersonality(p) },
-                    label = { Text(p.name) }
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // History
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text("Interaction History", style = MaterialTheme.typography.titleMedium)
-            TextButton(onClick = { viewModel.clearHistory() }) {
-                Text("Clear")
-            }
-        }
-        
-        LazyColumn(modifier = Modifier.weight(1f)) {
-            items(history.reversed()) { turn ->
-                Column(Modifier.padding(vertical = 4.dp)) {
+            // Interaction State
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = SurfaceDark)
+            ) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("Current Turn State", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
                     Text(
-                        text = turn.userText ?: "[SYSTEM/AUTONOMOUS]",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = AccentCyan
+                        text = turnState.name,
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = when (turnState) {
+                            InteractionTurnState.RESPONDING -> SuccessGreen
+                            InteractionTurnState.LISTENING -> AccentCyan
+                            else -> Color.Gray
+                        },
+                        fontWeight = FontWeight.Bold
                     )
-                    Text(
-                        text = turn.aiResponse,
-                        style = MaterialTheme.typography.bodyMedium
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Policies
+            Text("Communication Level", style = MaterialTheme.typography.titleSmall, color = TextPrimary)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                CommunicationLevel.entries.forEach { l ->
+                    FilterChip(
+                        selected = level == l,
+                        onClick = { viewModel.setLevel(l) },
+                        label = { Text(l.name) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = AccentCyan.copy(alpha = 0.2f),
+                            selectedLabelColor = AccentCyan
+                        )
                     )
-                    HorizontalDivider(modifier = Modifier.padding(top = 4.dp), thickness = 0.5.dp)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text("Personality Profile", style = MaterialTheme.typography.titleSmall, color = TextPrimary)
+            Row(
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                PersonalityProfile.entries.forEach { p ->
+                    FilterChip(
+                        selected = personality == p,
+                        onClick = { viewModel.setPersonality(p) },
+                        label = { Text(p.name) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = AccentCyan.copy(alpha = 0.2f),
+                            selectedLabelColor = AccentCyan
+                        )
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // History
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("Interaction History", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+                TextButton(onClick = { viewModel.clearHistory() }) {
+                    Text("Clear", color = AccentCyan)
+                }
+            }
+            
+            LazyColumn(modifier = Modifier.weight(1f)) {
+                items(history.reversed()) { turn ->
+                    Column(Modifier.padding(vertical = 4.dp)) {
+                        Text(
+                            text = turn.userText ?: "[SYSTEM/AUTONOMOUS]",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = AccentCyan
+                        )
+                        Text(
+                            text = turn.aiResponse,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextPrimary
+                        )
+                        HorizontalDivider(modifier = Modifier.padding(top = 4.dp), thickness = 0.5.dp, color = Color.White.copy(alpha = 0.1f))
+                    }
                 }
             }
         }

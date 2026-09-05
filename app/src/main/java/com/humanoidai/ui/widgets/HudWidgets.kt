@@ -207,10 +207,12 @@ fun GlassPanel(
 ) {
     Surface(
         modifier = modifier,
-        color = Color.Black.copy(alpha = settings.cardTransparency),
+        color = com.humanoidai.ui.theme.SurfaceDark.copy(alpha = settings.cardTransparency),
         shape = RoundedCornerShape(settings.cornerRadius),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f))
     ) {
+        // Apply blur if strength > 0 (requires API 31+ for RenderEffect, or simplified here)
         Box(modifier = Modifier.padding(12.dp), content = content)
     }
 }
+

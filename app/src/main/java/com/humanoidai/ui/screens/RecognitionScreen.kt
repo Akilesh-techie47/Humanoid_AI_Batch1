@@ -1,7 +1,6 @@
 package com.humanoidai.ui.screens
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,6 +14,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -37,6 +39,7 @@ fun RecognitionScreen(
     var showDeleteDialog by remember { mutableStateOf<EnrolledPerson?>(null) }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+    val haptic = LocalHapticFeedback.current
 
     SidePanelDrawer(
         navController = navController,
@@ -45,24 +48,42 @@ fun RecognitionScreen(
         Scaffold(
             containerColor = BackgroundDark,
             topBar = {
-                CenterAlignedTopAppBar(
-                    title = {
-                        Text("RECOGNITION", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AccentCyan)
+                Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = { 
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        scope.launch { drawerState.open() } 
                     },
-                    navigationIcon = {
-                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(Icons.Default.Menu, "Menu", tint = Color.White)
-                        }
-                    },
-                    actions = {
-                        IconButton(onClick = { navController.navigate("enrollment") }) {
-                            Icon(Icons.Default.PersonAdd, "Add Person", tint = Color.White)
-                        }
-                    },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
-                )
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(SurfaceDark.copy(alpha = 0.4f))
+                        .border(1.dp, Color.White.copy(alpha = 0.05f), CircleShape)
+                ) {
+                    Icon(Icons.Default.Menu, "Open Menu", tint = Color.White, modifier = Modifier.size(20.dp))
+                }
+                
+                Spacer(Modifier.width(16.dp))
+                
+                Text("RECOGNITION", fontSize = 15.sp, fontWeight = FontWeight.Black, color = AccentCyan, fontFamily = FontFamily.Monospace, letterSpacing = 1.sp)
+                
+                Spacer(Modifier.weight(1f))
+
+                IconButton(onClick = { 
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    navController.navigate("enrollment") 
+                }) {
+                    Icon(Icons.Default.PersonAdd, "Add Person", tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(20.dp))
+                }
             }
-        ) { padding ->
+        }
+    ) { padding ->
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -124,7 +145,11 @@ fun RecognitionScreen(
                         items(people) { person ->
                             EnrolledPersonCard(
                                 person = person,
-                                onDelete = { showDeleteDialog = person }
+                                onDelete = { showDeleteDialog = person },
+                                onTogglePriority = {
+                                    enrollmentManager.toggleCriticalStatus(person.name)
+                                    people = enrollmentManager.getAllPersons()
+                                }
                             )
                         }
                     }
@@ -159,52 +184,82 @@ fun RecognitionScreen(
 }
 
 @Composable
-private fun EnrolledPersonCard(person: EnrolledPerson, onDelete: () -> Unit) {
+private fun EnrolledPersonCard(person: EnrolledPerson, onDelete: () -> Unit, onTogglePriority: () -> Unit) {
+    val haptic = LocalHapticFeedback.current
     val labelColor = when (person.label) {
-        "Family"    -> Color(0xFF66BB6A)
-        "Colleague" -> Color(0xFF42A5F5)
-        "Neighbor"  -> Color(0xFFFFA726)
-        "Friend"    -> Color(0xFFAB47BC)
+        "Family"    -> SuccessGreen
+        "Colleague" -> AccentCyan
+        "Neighbor"  -> WarningOrange
+        "Friend"    -> AccentPurple
         else        -> TextSecondary
     }
 
-    Row(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .background(SurfaceDark, RoundedCornerShape(12.dp))
-            .padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(vertical = 4.dp),
+        color = SurfaceDark.copy(alpha = 0.4f),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
     ) {
-        Box(
-            modifier = Modifier
-                .size(44.dp)
-                .clip(CircleShape)
-                .background(AccentCyan.copy(alpha = 0.15f))
-                .border(1.5.dp, AccentCyan, CircleShape),
-            contentAlignment = Alignment.Center
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Default.Person, null, tint = AccentCyan, modifier = Modifier.size(24.dp))
-        }
-
-        Spacer(modifier = Modifier.width(12.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
-            Text(person.name, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
-            Spacer(modifier = Modifier.height(3.dp))
             Box(
                 modifier = Modifier
-                    .background(labelColor.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
-                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(AccentCyan.copy(alpha = 0.1f))
+                    .border(1.dp, AccentCyan.copy(alpha = 0.3f), CircleShape),
+                contentAlignment = Alignment.Center
             ) {
-                Text(person.label, fontSize = 10.sp, color = labelColor, fontWeight = FontWeight.SemiBold)
+                Icon(Icons.Default.Person, null, tint = AccentCyan, modifier = Modifier.size(24.dp))
             }
-        }
 
-        IconButton(onClick = onDelete) {
-            Icon(Icons.Default.Delete, "Remove", tint = Color(0xFFFF5C5C).copy(alpha = 0.7f), modifier = Modifier.size(20.dp))
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(person.name, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Spacer(modifier = Modifier.height(4.dp))
+                Surface(
+                    color = labelColor.copy(alpha = 0.1f),
+                    shape = RoundedCornerShape(4.dp),
+                    border = BorderStroke(0.5.dp, labelColor.copy(alpha = 0.3f))
+                ) {
+                    Text(
+                        person.label.uppercase(), 
+                        fontSize = 9.sp, 
+                        color = labelColor, 
+                        fontWeight = FontWeight.Black,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        letterSpacing = 0.5.sp
+                    )
+                }
+            }
+
+            IconButton(onClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                onTogglePriority()
+            }) {
+                Icon(
+                    if (person.isCritical) Icons.Default.Star else Icons.Default.StarBorder,
+                    "Priority",
+                    tint = if (person.isCritical) WarningOrange else TextSecondary.copy(alpha = 0.5f),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            IconButton(onClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                onDelete()
+            }) {
+                Icon(Icons.Default.Delete, "Remove", tint = ErrorRed.copy(alpha = 0.7f), modifier = Modifier.size(18.dp))
+            }
         }
     }
 }
+
 
 @Composable
 private fun StatChip(label: String, value: String, color: Color, modifier: Modifier = Modifier) {

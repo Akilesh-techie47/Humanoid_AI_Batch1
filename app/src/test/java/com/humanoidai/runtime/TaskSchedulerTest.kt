@@ -1,22 +1,18 @@
 package com.humanoidai.runtime
 
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Test
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class TaskSchedulerTest {
 
     @Test
     fun testTaskPriorityOrdering() = runTest {
-        val testScope = this
-        val scheduler = TaskScheduler(testScope)
+        val scheduler = TaskScheduler(this)
         val results = mutableListOf<String>()
-        val latch = CountDownLatch(3)
 
         val lowTask = AITask(
             name = "Low",
@@ -24,7 +20,6 @@ class TaskSchedulerTest {
             category = TaskCategory.SYSTEM,
             execution = {
                 results.add("Low")
-                latch.countDown()
             }
         )
 
@@ -34,7 +29,6 @@ class TaskSchedulerTest {
             category = TaskCategory.VISION,
             execution = {
                 results.add("Critical")
-                latch.countDown()
             }
         )
 
@@ -44,7 +38,6 @@ class TaskSchedulerTest {
             category = TaskCategory.AUDIO,
             execution = {
                 results.add("High")
-                latch.countDown()
             }
         )
 
@@ -55,8 +48,8 @@ class TaskSchedulerTest {
 
         scheduler.start()
         
-        // Give some time for processing
-        latch.await(2, TimeUnit.SECONDS)
+        // Advance virtual time to allow processing
+        advanceUntilIdle()
         
         assertEquals("Critical", results[0])
         assertEquals("High", results[1])

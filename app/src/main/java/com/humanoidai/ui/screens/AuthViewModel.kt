@@ -1,8 +1,6 @@
 package com.humanoidai.ui.screens
 
 import android.app.Activity
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModel
 import com.google.firebase.FirebaseException
 import com.google.firebase.auth.FirebaseAuth
@@ -26,13 +24,8 @@ sealed class AuthState {
 // -----------------------------------------------------------------
 // AuthViewModel
 // -----------------------------------------------------------------
-// Wraps Firebase Authentication for:
-//  - Phone OTP (sendOtp / verifyOtp)
-//  - Email/Password (signInWithEmail / signUpWithEmail)
-//
-// NOTE: For Phone Auth you must pass an Activity to PhoneAuthOptions.
-// LoginScreen should be hosted inside MainActivity so LocalContext
-// resolves to an Activity (see usage notes below).
+// Wraps Firebase Authentication for Humanoid AI.
+// Handles Phone OTP and Email/Password flows.
 // -----------------------------------------------------------------
 class AuthViewModel : ViewModel() {
 
@@ -41,8 +34,6 @@ class AuthViewModel : ViewModel() {
     private val _authState = MutableStateFlow<AuthState>(AuthState.Idle)
     val authState: StateFlow<AuthState> = _authState
 
-    // Flag to track if the user JUST successfully logged in manually
-    // This allows us to skip the redundant biometric check for this session.
     private var _justAuthenticated = false
     val justAuthenticated: Boolean get() = _justAuthenticated
 
@@ -57,11 +48,6 @@ class AuthViewModel : ViewModel() {
 
     // ---------------- PHONE OTP ----------------
 
-    /**
-     * Sends OTP to the given phone number.
-     * `activity` is required by Firebase PhoneAuthOptions for reCAPTCHA fallback.
-     * `onCodeSent` is called once the OTP has been dispatched.
-     */
     fun sendOtp(
         phoneNumber: String,
         activity: Activity? = null,
@@ -77,7 +63,6 @@ class AuthViewModel : ViewModel() {
 
         val callbacks = object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
             override fun onVerificationCompleted(credential: PhoneAuthCredential) {
-                // Auto-retrieval: sign in directly without manual OTP entry
                 signInWithPhoneCredential(credential, onAutoSignIn)
             }
 
@@ -108,9 +93,6 @@ class AuthViewModel : ViewModel() {
         PhoneAuthProvider.verifyPhoneNumber(optionsBuilder.build())
     }
 
-    /**
-     * Verifies the OTP entered by the user against the stored verificationId.
-     */
     fun verifyOtp(code: String, onSuccess: () -> Unit) {
         val verificationId = storedVerificationId
         if (verificationId == null) {
@@ -184,9 +166,46 @@ class AuthViewModel : ViewModel() {
             }
     }
 
+    fun sendPasswordReset(email: String, onSuccess: () -> Unit) {
+        if (email.isBlank()) {
+            _authState.value = AuthState.Error("Enter your email address")
+            return
+        }
+        _authState.value = AuthState.Loading
+        auth.sendPasswordResetEmail(email)
+            .addOnSuccessListener {
+                _authState.value = AuthState.Idle
+                onSuccess()
+            }
+            .addOnFailureListener { e ->
+                _authState.value = AuthState.Error(e.message ?: "Failed to send reset email")
+            }
+    }
+
+    fun updateAccountPassword(newPassword: String, onSuccess: () -> Unit) {
+        val user = auth.currentUser
+        if (user == null) {
+            _authState.value = AuthState.Error("No authenticated user found")
+            return
+        }
+        if (newPassword.length < 6) {
+            _authState.value = AuthState.Error("New password must be at least 6 characters")
+            return
+        }
+
+        _authState.value = AuthState.Loading
+        user.updatePassword(newPassword)
+            .addOnSuccessListener {
+                _authState.value = AuthState.Idle
+                onSuccess()
+            }
+            .addOnFailureListener { e ->
+                _authState.value = AuthState.Error(e.message ?: "Failed to update password")
+            }
+    }
+
     // ---------------- SESSION CHECK ----------------
 
-    /** Returns true if a user is already signed in (e.g. on app relaunch). */
     fun isUserLoggedIn(): Boolean = auth.currentUser != null
 
     fun clearError() {

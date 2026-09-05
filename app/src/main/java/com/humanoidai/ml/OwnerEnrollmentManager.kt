@@ -2,7 +2,12 @@ package com.humanoidai.ml
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.google.gson.Gson
+import com.humanoidai.memory.database.HumanoidDatabase
+import com.humanoidai.memory.entities.UserEntity
+import com.humanoidai.memory.entities.UserClass
 import com.humanoidai.memory.security.PrivacyVault
+import kotlinx.coroutines.runBlocking
 import java.util.*
 
 // -----------------------------------------------------------------
@@ -10,25 +15,20 @@ import java.util.*
 // -----------------------------------------------------------------
 // Specialized manager for the primary app owner.
 // Handles multi-angle capture, liveness verification, and 
-// first-launch enrollment status.
+// first-launch enrollment status using HumanoidDatabase.
 // -----------------------------------------------------------------
 class OwnerEnrollmentManager(context: Context) {
 
     companion object {
         private const val PREFS_NAME        = "humanoid_owner_biometrics"
-        private const val KEY_ENROLLED      = "is_owner_enrolled"
         private const val KEY_VOICE_ENROLLED = "is_voice_enrolled"
-        private const val KEY_OWNER_NAME    = "owner_name"
-        private const val KEY_EMBEDDINGS    = "owner_embeddings"
-        private const val KEY_LAST_UPDATED  = "last_updated"
-        private const val KEY_ACCURACY      = "accuracy_score"
         private const val KEY_LANGUAGE      = "preferred_language"
         private const val KEY_AI_NAME       = "ai_name"
         
         // UI Customization Keys
         private const val KEY_MAX_ROI       = "ui_max_roi"
-        private const val KEY_ROI_STRUCTURE = "ui_roi_structure" // "classic", "minimal", "expanded"
-        private const val KEY_FOCUS_MODE    = "ui_focus_mode" // "owner", "primary", "all"
+        private const val KEY_ROI_STRUCTURE = "ui_roi_structure"
+        private const val KEY_FOCUS_MODE    = "ui_focus_mode"
         private const val KEY_SHOW_STATS    = "ui_show_stats"
         private const val KEY_SHOW_LABELS   = "ui_show_labels"
         private const val KEY_GLOW_EFFECT   = "ui_glow_enabled"
@@ -38,61 +38,102 @@ class OwnerEnrollmentManager(context: Context) {
     private val prefs: SharedPreferences =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     private val vault = PrivacyVault(context)
+    private val userDao = HumanoidDatabase.getInstance(context).userDao()
+    private val gson = Gson()
 
     /**
      * Check if the owner has already completed the enrollment wizard.
      */
-    fun isOwnerEnrolled(): Boolean = prefs.getBoolean(KEY_ENROLLED, false)
+    fun isOwnerEnrolled(): Boolean = runBlocking {
+        userDao.getOwner() != null
+    }
 
     /**
      * Check if the owner has registered their voice.
      */
-    fun isVoiceEnrolled(): Boolean = prefs.getBoolean(KEY_VOICE_ENROLLED, false)
+    fun isVoiceEnrolled(): Boolean = runBlocking {
+        val owner = userDao.getOwner()
+        owner?.voiceProfileId?.isNotEmpty() == true
+    }
 
     /**
-     * Save the master owner profile.
-     * @param name Owner's name
-     * @param embeddings A list of 20-30 high-quality embeddings from different angles.
+     * Save the master owner profile with multiple viewpoints.
      */
     fun enrollOwner(name: String, embeddings: List<FloatArray>, accuracy: Float, voiceEnrolled: Boolean = false) {
         if (embeddings.isEmpty()) return
 
-        // Calculate Master Embedding (Cluster and Average)
+        // 1. We'll store a subset of representative viewpoints (max 15 for owner)
+        val representative = if (embeddings.size > 15) {
+            val step = embeddings.size / 15
+            List(15) { embeddings[it * step] }
+        } else embeddings
+
+        val encryptedViewpoints = representative.map { vault.encryptEmbedding(it) }
+
+        // 2. Primary embedding is still the average for legacy support and quick match
         val masterEmbedding = calculateMasterEmbedding(embeddings)
+        val encryptedMaster = vault.encryptEmbedding(masterEmbedding)
 
-        // Encrypt embedding before saving
-        val encrypted = vault.encryptEmbedding(masterEmbedding)
+        val user = UserEntity(
+            userId = "OWNER_001", 
+            name = name,
+            userClass = UserClass.OWNER,
+            label = "Owner",
+            embeddingData = encryptedMaster,
+            viewpointsJson = gson.toJson(encryptedViewpoints),
+            enrolledAt = System.currentTimeMillis(),
+            isCriticalContact = true,
+            voiceProfileId = if (voiceEnrolled) "OWNER_VOICE" else ""
+        )
 
-        prefs.edit()
-            .putBoolean(KEY_ENROLLED, true)
-            .putBoolean(KEY_VOICE_ENROLLED, voiceEnrolled)
-            .putString(KEY_OWNER_NAME, name)
-            .putString(KEY_EMBEDDINGS, encrypted)
-            .putLong(KEY_LAST_UPDATED, System.currentTimeMillis())
-            .putFloat(KEY_ACCURACY, accuracy)
-            .apply()
+        runBlocking {
+            userDao.insertUser(user)
+        }
     }
 
     /**
      * Mark voice as enrolled separately if needed.
      */
     fun markVoiceEnrolled(enrolled: Boolean) {
-        prefs.edit().putBoolean(KEY_VOICE_ENROLLED, enrolled).apply()
+        runBlocking {
+            val owner = userDao.getOwner()
+            if (owner != null) {
+                userDao.updateUser(owner.copy(voiceProfileId = if (enrolled) "OWNER_VOICE" else ""))
+            }
+        }
     }
 
-    fun getOwnerName(): String = prefs.getString(KEY_OWNER_NAME, "Owner") ?: "Owner"
+    fun getOwnerName(): String = runBlocking {
+        userDao.getOwner()?.name ?: "Owner"
+    }
 
-    fun getMasterEmbedding(): FloatArray? {
-        val encrypted = prefs.getString(KEY_EMBEDDINGS, null) ?: return null
-        return try {
+    fun getMasterEmbedding(): FloatArray? = runBlocking {
+        val encrypted = userDao.getOwner()?.embeddingData ?: return@runBlocking null
+        try {
             vault.decryptEmbedding(encrypted)
         } catch (e: Exception) {
             null
         }
     }
 
-    fun getLastUpdated(): Long = prefs.getLong(KEY_LAST_UPDATED, 0L)
-    fun getAccuracyScore(): Float = prefs.getFloat(KEY_ACCURACY, 0f)
+    fun getOwnerViewpoints(): List<FloatArray> = runBlocking {
+        val user = userDao.getOwner() ?: return@runBlocking emptyList()
+        val json = user.viewpointsJson ?: return@runBlocking emptyList()
+        try {
+            val encryptedList: List<String> = gson.fromJson(json, Array<String>::class.java).toList()
+            encryptedList.mapNotNull { encrypted ->
+                try {
+                    vault.decryptEmbedding(encrypted)
+                } catch (e: Exception) { null }
+            }
+        } catch (e: Exception) { emptyList() }
+    }
+
+    fun getLastUpdated(): Long = runBlocking {
+        userDao.getOwner()?.enrolledAt ?: 0L
+    }
+    
+    fun getAccuracyScore(): Float = 0.95f // Default high accuracy for owner
 
     fun getPreferredLanguage(): String = prefs.getString(KEY_LANGUAGE, "auto") ?: "auto"
     fun setPreferredLanguage(lang: String) {

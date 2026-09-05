@@ -21,9 +21,9 @@ sealed class HomeLayoutPreset(
 ) {
     object ClassicHud : HomeLayoutPreset(
         id = "classic",
-        name = "Classic HUD",
-        primaryColor = Color(0xFF00D4FF),
-        secondaryColor = Color(0xFFFFFFFF),
+        name = "Core Monolith",
+        primaryColor = Color(0xFFD1D5DB),
+        secondaryColor = Color(0xFF94A3B8),
         roiShape = "circle"
     )
 
@@ -38,9 +38,9 @@ sealed class HomeLayoutPreset(
 
     object DashboardSplit : HomeLayoutPreset(
         id = "split",
-        name = "Dashboard Split",
-        primaryColor = Color(0xFF0055FF),
-        secondaryColor = Color(0xFF00AAFF),
+        name = "Dashboard Dark",
+        primaryColor = Color(0xFF64748B),
+        secondaryColor = Color(0xFF475569),
         roiShape = "circle"
     )
 
@@ -78,17 +78,17 @@ sealed class HomeLayoutPreset(
 
     object FocusPerson : HomeLayoutPreset(
         id = "focus",
-        name = "Focus Primary",
-        primaryColor = Color(0xFF00D4FF),
-        secondaryColor = Color(0xFFB2EBF2),
+        name = "Focus Monotone",
+        primaryColor = Color(0xFFE2E8F0),
+        secondaryColor = Color(0xFF94A3B8),
         roiShape = "circle"
     )
 
     object MultiZone : HomeLayoutPreset(
         id = "zones",
-        name = "Multi-Zone Grid",
-        primaryColor = Color(0xFF00E5FF),
-        secondaryColor = Color(0xFF80DEEA),
+        name = "Multi-Zone Core",
+        primaryColor = Color(0xFFD1D5DB),
+        secondaryColor = Color(0xFF64748B),
         roiShape = "square"
     )
 
@@ -100,8 +100,16 @@ sealed class HomeLayoutPreset(
         roiShape = "hexagon"
     )
 
+    object BlueprintPlus : HomeLayoutPreset(
+        id = "blueprint",
+        name = "Schematic Grey",
+        primaryColor = Color(0xFF94A3B8),
+        secondaryColor = Color(0xFFF1F5F9),
+        roiShape = "circle"
+    )
+
     companion object {
-        fun fromId(id: String): HomeLayoutPreset = when (id) {
+        fun fromId(id: String): HomeLayoutPreset = when (id.lowercase()) {
             "minimal" -> Minimal
             "split" -> DashboardSplit
             "radial" -> RadialJarvis
@@ -111,13 +119,15 @@ sealed class HomeLayoutPreset(
             "focus" -> FocusPerson
             "zones" -> MultiZone
             "chat_first" -> ConversationFirst
+            "blueprint" -> BlueprintPlus
             else -> ClassicHud
         }
 
         val all = listOf(
             ClassicHud, Minimal, DashboardSplit, RadialJarvis,
             CardStack, SecurityNight, CompactWidget, FocusPerson,
-            MultiZone, ConversationFirst
+            MultiZone, ConversationFirst, BlueprintPlus
         )
     }
 }
+

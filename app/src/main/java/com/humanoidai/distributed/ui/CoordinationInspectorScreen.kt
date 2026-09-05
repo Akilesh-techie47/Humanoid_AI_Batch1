@@ -1,5 +1,6 @@
 package com.humanoidai.distributed.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -19,57 +20,70 @@ import com.humanoidai.distributed.AIInstance
 import com.humanoidai.distributed.SyncPolicy
 import com.humanoidai.embodiment.EmbodimentType
 import com.humanoidai.ui.theme.AccentCyan
+import com.humanoidai.ui.theme.BackgroundDark
+import com.humanoidai.ui.theme.SurfaceDark
 import com.humanoidai.ui.theme.SuccessGreen
+import com.humanoidai.ui.theme.TextPrimary
+import com.humanoidai.ui.theme.TextSecondary
 
 @Composable
 fun CoordinationInspectorScreen(viewModel: CoordinationInspectorViewModel) {
     val instances by viewModel.instances.collectAsState()
     val syncPolicy by viewModel.syncPolicy.collectAsState()
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = BackgroundDark
     ) {
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
         ) {
-            Text("Coordination Inspector", style = MaterialTheme.typography.headlineMedium)
-            IconButton(
-                onClick = {
-                    viewModel.addMockInstance(AIInstance(type = EmbodimentType.ROBOT, capabilities = emptySet()))
-                }
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Add Mock Robot")
+                Text("Coordination Inspector", style = MaterialTheme.typography.headlineMedium, color = TextPrimary)
+                IconButton(
+                    onClick = {
+                        viewModel.addMockInstance(AIInstance(type = EmbodimentType.ROBOT, capabilities = emptySet()))
+                    }
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Add Mock Robot", tint = AccentCyan)
+                }
             }
-        }
-        
-        Spacer(Modifier.height(16.dp))
+            
+            Spacer(Modifier.height(16.dp))
 
-        // Sync Policy
-        Text("Synchronization Policy", style = MaterialTheme.typography.titleMedium)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            SyncPolicy.entries.forEach { p ->
-                FilterChip(
-                    selected = syncPolicy == p,
-                    onClick = { viewModel.setSyncPolicy(p) },
-                    label = { Text(p.name.replace("_", " ")) }
-                )
+            // Sync Policy
+            Text("Synchronization Policy", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                SyncPolicy.entries.forEach { p ->
+                    FilterChip(
+                        selected = syncPolicy == p,
+                        onClick = { viewModel.setSyncPolicy(p) },
+                        label = { Text(p.name.replace("_", " ")) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = AccentCyan.copy(alpha = 0.2f),
+                            selectedLabelColor = AccentCyan
+                        )
+                    )
+                }
             }
-        }
 
-        Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(16.dp))
 
-        // Instances
-        Text("Connected Instances (${instances.size})", style = MaterialTheme.typography.titleMedium)
-        LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
-            items(instances.values.toList()) { instance ->
-                InstanceCard(
-                    instance = instance,
-                    isLocal = instance.id == viewModel.localInstanceId,
-                ) { viewModel.removeInstance(instance.id) }
+            // Instances
+            Text("Connected Instances (${instances.size})", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+            LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
+                items(instances.values.toList()) { instance ->
+                    InstanceCard(
+                        instance = instance,
+                        isLocal = instance.id == viewModel.localInstanceId,
+                    ) { viewModel.removeInstance(instance.id) }
+                }
             }
         }
     }
@@ -80,17 +94,19 @@ fun InstanceCard(instance: AIInstance, isLocal: Boolean, onRemove: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isLocal) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
-        )
+            containerColor = if (isLocal) AccentCyan.copy(alpha = 0.1f) else SurfaceDark
+        ),
+        border = if (isLocal) BorderStroke(1.dp, AccentCyan) else null
     ) {
         Column(Modifier.padding(12.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Hub, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.Hub, contentDescription = null, modifier = Modifier.size(16.dp), tint = if (isLocal) AccentCyan else TextSecondary)
                     Spacer(Modifier.width(8.dp))
                     Text(
                         text = if (isLocal) "LOCAL: ${instance.type}" else "REMOTE: ${instance.type}",
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
                     )
                 }
                 if (!isLocal) {
@@ -99,13 +115,13 @@ fun InstanceCard(instance: AIInstance, isLocal: Boolean, onRemove: () -> Unit) {
                     }
                 }
             }
-            Text("ID: ${instance.id}", style = MaterialTheme.typography.labelSmall)
+            Text("ID: ${instance.id}", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
             
             Spacer(Modifier.height(8.dp))
             
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Workload: ${instance.workloadPercent}%", style = MaterialTheme.typography.bodySmall)
-                Text("Battery: ${instance.batteryLevel}%", style = MaterialTheme.typography.bodySmall)
+                Text("Workload: ${instance.workloadPercent}%", style = MaterialTheme.typography.bodySmall, color = TextPrimary)
+                Text("Battery: ${instance.batteryLevel}%", style = MaterialTheme.typography.bodySmall, color = TextPrimary)
             }
         }
     }

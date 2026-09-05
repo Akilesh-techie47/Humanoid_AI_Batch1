@@ -1,13 +1,14 @@
 package com.humanoidai.security
 
 import android.content.Context
+import com.humanoidai.memory.database.HumanoidDatabase
 
 /**
  * The central coordination layer for system security and trust.
  */
 class TrustFramework(private val context: Context) {
 
-    val auditLogger = AuditLogger()
+    val auditLogger = AuditLogger(HumanoidDatabase.getInstance(context).auditLogDao())
     val sessionManager = SessionManager(auditLogger)
     val permissionEngine = PermissionEngine(context, auditLogger)
     val privacyManager = PrivacyManager(auditLogger)

@@ -102,6 +102,18 @@ android {
 
     defaultConfig {
         minSdkVersion 26
+        externalNativeBuild {
+            cmake {
+                arguments "-DANDROID_STL=c++_shared"
+                cppFlags "-std=c++11 -frtti -fexceptions"
+            }
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path "libcxx_helper/CMakeLists.txt"
+        }
     }
 
     compileOptions {
@@ -153,6 +165,7 @@ android {
     testOptions {
         targetSdk 31
     }
+    ndkVersion '30.0.14904198-beta1'
 
 
 }

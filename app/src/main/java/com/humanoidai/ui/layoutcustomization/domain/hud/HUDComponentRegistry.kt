@@ -1,5 +1,6 @@
 package com.humanoidai.ui.layoutcustomization.domain.hud
 
+import androidx.compose.ui.unit.dp
 import com.humanoidai.ui.layoutcustomization.domain.blueprint.*
 
 /**
@@ -39,7 +40,7 @@ object HUDComponentRegistry {
             PRIMARY_ROI -> WidgetBlueprint(
                 id = PRIMARY_ROI,
                 type = "detection",
-                priority = LayoutPriority.PRIMARY_ROI,
+                priority = LayoutPriority.DECORATIVE, // Low priority to prevent touch blocking
                 category = HUDComponentCategory.DETECTION,
                 behaviors = HUDComponentBehavior(canMove = true, canResize = true, canFloat = true),
                 allowedZones = listOf(WidgetZone.CAMERA_Aperture)
@@ -79,17 +80,49 @@ object HUDComponentRegistry {
             AI_THINKING -> WidgetBlueprint(
                 id = AI_THINKING,
                 type = "ai",
+                anchor = WidgetAnchor.TOP_CENTER,
+                offsetY = 120.dp,
                 priority = LayoutPriority.STATUS_INDICATORS,
                 category = HUDComponentCategory.CONTEXT,
-                isVisible = false,
+                isVisible = true, // Transient visibility handled by renderer content
                 allowedZones = listOf(WidgetZone.CAMERA_Aperture)
+            )
+
+            SECONDARY_ROI -> WidgetBlueprint(
+                id = SECONDARY_ROI,
+                type = "detection",
+                anchor = WidgetAnchor.CENTER_START,
+                offsetX = 16.dp,
+                priority = LayoutPriority.SECONDARY_ROI,
+                category = HUDComponentCategory.DETECTION,
+                allowedZones = listOf(WidgetZone.LEFT_UTILITY, WidgetZone.RIGHT_UTILITY)
             )
             RADAR -> WidgetBlueprint(
                 id = RADAR,
                 type = "sensor",
+                anchor = WidgetAnchor.TOP_END,
+                offsetX = (-16).dp,
+                offsetY = 16.dp,
                 priority = LayoutPriority.STATUS_INDICATORS,
                 category = HUDComponentCategory.CONTEXT,
                 allowedZones = listOf(WidgetZone.RIGHT_UTILITY, WidgetZone.LEFT_UTILITY)
+            )
+            NOTIFICATIONS -> WidgetBlueprint(
+                id = NOTIFICATIONS,
+                type = "system",
+                anchor = WidgetAnchor.BOTTOM_START,
+                offsetX = 20.dp,
+                offsetY = (-120).dp,
+                priority = LayoutPriority.NOTIFICATIONS,
+                category = HUDComponentCategory.CONTEXT,
+                allowedZones = listOf(WidgetZone.LEFT_UTILITY, WidgetZone.RIGHT_UTILITY)
+            )
+            QUICK_ACTIONS -> WidgetBlueprint(
+                id = QUICK_ACTIONS,
+                type = "control",
+                priority = LayoutPriority.DECORATIVE,
+                category = HUDComponentCategory.PERMANENT,
+                allowedZones = listOf(WidgetZone.BOTTOM_CONTROL)
             )
             STATUS_INDICATORS -> WidgetBlueprint(
                 id = STATUS_INDICATORS,
@@ -110,4 +143,5 @@ object HUDComponentRegistry {
         }
     }
 }
+
 

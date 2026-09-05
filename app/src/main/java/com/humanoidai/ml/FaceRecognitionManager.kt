@@ -21,8 +21,8 @@ class FaceRecognitionManager {
         private const val TAG = "FaceRecognition"
         
         // Confidence Bands - Optimized for Agent-level speed
-        private const val THRESHOLD_CONFIRMED = 0.78f // Lowered from 0.85f for faster confirmed lock
-        private const val THRESHOLD_PROBABLE  = 0.60f // Lowered from 0.65f
+        private const val THRESHOLD_CONFIRMED = 0.78f // Lowered from 0.87f for better reliability in varying light
+        private const val THRESHOLD_PROBABLE  = 0.60f 
     }
 
     private var ownerName: String? = null
@@ -43,8 +43,8 @@ class FaceRecognitionManager {
      */
     fun registerFace(name: String, embedding: FloatArray) {
         val list = knownFaces.getOrPut(name) { mutableListOf() }
-        // To prevent memory leak if called repeatedly, limit to 10 best viewpoints
-        if (list.size >= 10) list.removeAt(0) 
+        // For owner/primary users, we want more viewpoints (multi-angle robustness)
+        if (list.size >= 50) list.removeAt(0) 
         list.add(embedding)
         Log.d(TAG, "Registered viewpoint for $name. Total viewpoints: ${list.size}")
     }
@@ -55,8 +55,8 @@ class FaceRecognitionManager {
     fun registerFaces(name: String, embeddings: List<FloatArray>) {
         val list = knownFaces.getOrPut(name) { mutableListOf() }
         list.addAll(embeddings)
-        if (list.size > 10) {
-            val kept = list.takeLast(10)
+        if (list.size > 50) {
+            val kept = list.takeLast(50)
             list.clear()
             list.addAll(kept)
         }
@@ -101,12 +101,15 @@ class FaceRecognitionManager {
         knownFaces.forEach { (name, embeddings) ->
             // Check against ALL stored viewpoints for this person
             embeddings.forEach { knownEmbedding ->
-                val similarity = cosineSimilarity(embedding, knownEmbedding)
+                // Optimization: Use simple dot product for normalized vectors (Phase 11)
+                val similarity = dotProduct(embedding, knownEmbedding)
                 if (similarity > bestSimilarity) {
                     bestSimilarity = similarity
                     bestName = name
                 }
             }
+            // Early exit for extremely high confidence matches
+            if (bestSimilarity > 0.96f) return@forEach
         }
 
         return when {
@@ -128,26 +131,19 @@ class FaceRecognitionManager {
     }
 
     // ------------------------------------------------------------
-    // Cosine similarity
+    // Similarity Calculation
     // ------------------------------------------------------------
 
     /**
-     * Cosine similarity between two normalized vectors.
-     * Result: 0.0 (completely different) to 1.0 (identical).
-     * Since embeddings are L2-normalized in FaceEmbeddingHelper,
-     * this reduces to a simple dot product.
+     * Dot product of two L2-normalized vectors.
+     * Equivalent to Cosine Similarity but significantly faster (Phase 11 Optimization).
      */
-    private fun cosineSimilarity(a: FloatArray, b: FloatArray): Float {
+    private fun dotProduct(a: FloatArray, b: FloatArray): Float {
         if (a.size != b.size) return 0f
         var dot = 0f
-        var normA = 0f
-        var normB = 0f
         for (i in a.indices) {
-            dot   += a[i] * b[i]
-            normA += a[i] * a[i]
-            normB += b[i] * b[i]
+            dot += a[i] * b[i]
         }
-        val denom = sqrt(normA) * sqrt(normB)
-        return if (denom > 0f) dot / denom else 0f
+        return dot
     }
 }

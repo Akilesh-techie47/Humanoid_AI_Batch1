@@ -1,35 +1,25 @@
 package com.humanoidai.ml
 
 import android.content.Context
-import android.content.SharedPreferences
+import android.util.Log
+import com.humanoidai.memory.database.HumanoidDatabase
+import com.humanoidai.memory.entities.UserEntity
+import com.humanoidai.memory.entities.UserClass
 import com.humanoidai.memory.security.PrivacyVault
+import com.google.gson.Gson
+import kotlinx.coroutines.runBlocking
 
 // -----------------------------------------------------------------
 // FaceEnrollmentManager
 // -----------------------------------------------------------------
 // Persists known face embeddings across app sessions using
-// SharedPreferences + PrivacyVault (AES-256).
-//
-// Each enrolled person is stored as:
-//   key   → "face_<name>"
-//   value → Encrypted JSON string of averaged embedding
-//
-// On app start, FaceRecognitionManager loads all saved faces
-// via loadAllInto(recognitionManager, ownerManager).
+// HumanoidDatabase (Room + SQLCipher).
 // -----------------------------------------------------------------
 class FaceEnrollmentManager(context: Context) {
 
-    companion object {
-        private const val PREFS_NAME      = "humanoid_faces"
-        private const val KEY_NAMES       = "enrolled_names"
-        private const val FACE_PREFIX     = "face_"
-        private const val LABEL_PREFIX    = "label_"
-        private const val VIEWPOINT_COUNT = "vcount_"
-    }
-
-    private val prefs: SharedPreferences =
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private val userDao = HumanoidDatabase.getInstance(context).userDao()
     private val vault = PrivacyVault(context)
+    private val gson = Gson()
 
     // ------------------------------------------------------------
     // Enrollment
@@ -41,101 +31,126 @@ class FaceEnrollmentManager(context: Context) {
     fun enrollPerson(name: String, label: String, embeddings: List<FloatArray>) {
         if (embeddings.isEmpty()) return
 
-        // We'll store up to 5 representative viewpoints (e.g. from a larger list)
-        val representative = if (embeddings.size > 5) {
-            // Take start, middle-ish, and end of the session to get different angles
-            listOf(embeddings[0], embeddings[embeddings.size/4], embeddings[embeddings.size/2], embeddings[(3 * embeddings.size) / 4], embeddings.last())
+        // We'll store up to 15 representative viewpoints (Phase 11: Multi-Angle Robustness)
+        val representative = if (embeddings.size > 15) {
+            val step = embeddings.size / 15
+            List(15) { embeddings[it * step] }
         } else embeddings
 
-        representative.forEachIndexed { index, emb ->
-            val encrypted = vault.encryptEmbedding(emb)
-            prefs.edit().putString("$FACE_PREFIX${name}_$index", encrypted).apply()
-        }
-        
-        prefs.edit()
-            .putInt("$VIEWPOINT_COUNT$name", representative.size)
-            .putString("$LABEL_PREFIX$name", label)
-            .apply()
+        val encryptedViewpoints = representative.map { vault.encryptEmbedding(it) }
+        val masterEmbedding = encryptedViewpoints[0] // Use first as primary for now
 
-        // Update name registry
-        val names = getEnrolledNames().toMutableSet()
-        names.add(name)
-        prefs.edit().putStringSet(KEY_NAMES, names).apply()
+        val user = UserEntity(
+            userId = name,
+            name = name,
+            userClass = UserClass.FRIEND, // Default to FRIEND for general enrollment
+            label = label,
+            embeddingData = masterEmbedding,
+            viewpointsJson = gson.toJson(encryptedViewpoints),
+            enrolledAt = System.currentTimeMillis()
+        )
+
+        runBlocking {
+            userDao.insertUser(user)
+        }
     }
 
     /**
      * Remove a person from the registry.
      */
     fun removePerson(name: String) {
-        val names = getEnrolledNames().toMutableSet()
-        names.remove(name)
-        
-        val count = prefs.getInt("$VIEWPOINT_COUNT$name", 0)
-        val editor = prefs.edit()
-        for (i in 0 until count) {
-            editor.remove("${FACE_PREFIX}${name}_$i")
+        runBlocking {
+            val user = userDao.getUserById(name)
+            if (user != null) {
+                userDao.deleteUser(user)
+            }
         }
-        
-        editor.putStringSet(KEY_NAMES, names)
-            .remove("$VIEWPOINT_COUNT$name")
-            .remove("$LABEL_PREFIX$name")
-            .apply()
     }
 
     /**
      * Clear all enrolled persons.
      */
     fun clearAll() {
-        prefs.edit().clear().apply()
+        runBlocking {
+            userDao.deleteAllUsers()
+        }
     }
 
     // ------------------------------------------------------------
     // Loading
     // ------------------------------------------------------------
 
-    fun getEnrolledNames(): Set<String> =
-        prefs.getStringSet(KEY_NAMES, emptySet()) ?: emptySet()
-
-    fun getLabel(name: String): String =
-        prefs.getString("$LABEL_PREFIX$name", "Unknown") ?: "Unknown"
-
-    fun getEmbeddings(name: String): List<FloatArray> {
-        val count = prefs.getInt("$VIEWPOINT_COUNT$name", 0)
-        val list = mutableListOf<FloatArray>()
-        for (i in 0 until count) {
-            val encrypted = prefs.getString("${FACE_PREFIX}${name}_$i", null)
-            if (encrypted != null) {
-                try {
-                    list.add(vault.decryptEmbedding(encrypted))
-                } catch (e: Exception) {}
-            }
-        }
-        return list
+    fun getEnrolledNames(): Set<String> = runBlocking {
+        userDao.getAllUsers().filter { it.userClass != UserClass.OWNER }.map { it.name }.toSet()
     }
 
-    /**
-     * Load all saved faces into the FaceRecognitionManager.
-     * Call this on app start. Also loads the Owner if present.
-     */
+    fun getLabel(name: String): String = runBlocking {
+        userDao.getUserById(name)?.label ?: "Unknown"
+    }
+
+    fun getEmbeddings(name: String): List<FloatArray> = runBlocking {
+        val user = userDao.getUserById(name) ?: run {
+            Log.e("FaceEnrollment", "GetEmbeddings failed: User $name not found in DB")
+            return@runBlocking emptyList()
+        }
+        val json = user.viewpointsJson ?: run {
+            android.util.Log.w("FaceEnrollment", "GetEmbeddings: No viewpoints JSON for $name")
+            return@runBlocking emptyList()
+        }
+        
+        try {
+            val encryptedList: List<String> = gson.fromJson(json, Array<String>::class.java).toList()
+            encryptedList.mapNotNull { encrypted ->
+                try {
+                    vault.decryptEmbedding(encrypted)
+                } catch (e: Exception) {
+                    android.util.Log.e("FaceEnrollment", "Decryption failed for $name: ${e.message}")
+                    null
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("FaceEnrollment", "JSON parsing failed for $name: ${e.message}")
+            emptyList()
+        }
+    }
+
     fun loadAllInto(recognitionManager: FaceRecognitionManager, ownerManager: OwnerEnrollmentManager? = null) {
         recognitionManager.clearAll()
+        android.util.Log.d("FaceEnrollment", "Loading known faces into recognition manager...")
         
         // 1. Load Owner first (Primary priority)
         ownerManager?.let { om ->
             if (om.isOwnerEnrolled()) {
                 val name = om.getOwnerName()
                 recognitionManager.setOwner(name)
-                om.getMasterEmbedding()?.let { emb ->
-                    recognitionManager.registerFace(name, emb)
+                
+                // Load all viewpoints for owner if available, otherwise just master
+                val viewpoints = om.getOwnerViewpoints()
+                if (viewpoints.isNotEmpty()) {
+                    recognitionManager.registerFaces(name, viewpoints)
+                    Log.d("FaceEnrollment", "Loaded Owner: $name (${viewpoints.size} viewpoints)")
+                } else {
+                    om.getMasterEmbedding()?.let { emb ->
+                        recognitionManager.registerFace(name, emb)
+                        Log.d("FaceEnrollment", "Loaded Owner: $name (master only)")
+                    }
                 }
+            } else {
+                android.util.Log.w("FaceEnrollment", "Owner not enrolled.")
             }
         }
 
         // 2. Load all other enrolled persons (multiple viewpoints)
-        getEnrolledNames().forEach { name ->
+        val names = getEnrolledNames()
+        android.util.Log.d("FaceEnrollment", "Found ${names.size} enrolled persons.")
+        
+        names.forEach { name ->
             val embeddings = getEmbeddings(name)
             if (embeddings.isNotEmpty()) {
                 recognitionManager.registerFaces(name, embeddings)
+                android.util.Log.d("FaceEnrollment", "Loaded $name (${embeddings.size} viewpoints)")
+            } else {
+                android.util.Log.e("FaceEnrollment", "No embeddings found for $name!")
             }
         }
     }
@@ -143,23 +158,27 @@ class FaceEnrollmentManager(context: Context) {
     /**
      * Get all enrolled persons as EnrolledPerson list for UI display.
      */
-    fun getAllPersons(): List<EnrolledPerson> {
-        return getEnrolledNames().map { name ->
+    fun getAllPersons(): List<EnrolledPerson> = runBlocking {
+        userDao.getAllUsers().filter { it.userClass != UserClass.OWNER }.map {
             EnrolledPerson(
-                name  = name,
-                label = getLabel(name)
+                name  = it.name,
+                label = it.label,
+                isCritical = it.isCriticalContact
             )
         }
     }
 
-    // ------------------------------------------------------------
-    // Helpers
-    // ------------------------------------------------------------
+    fun toggleCriticalStatus(name: String) = runBlocking {
+        userDao.getUserById(name)?.let { user ->
+            userDao.updateUser(user.copy(isCriticalContact = !user.isCriticalContact))
+        }
+    }
 
 }
 
 // Simple UI model
 data class EnrolledPerson(
     val name: String,
-    val label: String
+    val label: String,
+    val isCritical: Boolean = false
 )

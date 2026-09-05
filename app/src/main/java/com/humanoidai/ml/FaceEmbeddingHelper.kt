@@ -32,6 +32,11 @@ class FaceEmbeddingHelper(private val context: Context) {
         Interpreter(loadModelFile())
     }
 
+    // Reuse ByteBuffer to avoid frequent allocations (Phase 11 Optimization)
+    private val inputBuffer = ByteBuffer.allocateDirect(
+        4 * INPUT_SIZE * INPUT_SIZE * 3 // float32, 3 channels
+    ).apply { order(ByteOrder.nativeOrder()) }
+
     // ------------------------------------------------------------
     // Public API
     // ------------------------------------------------------------
@@ -40,10 +45,22 @@ class FaceEmbeddingHelper(private val context: Context) {
      * Takes a face crop bitmap (any size) and returns a 128-dim embedding.
      */
     fun getEmbedding(faceBitmap: Bitmap): FloatArray {
-        val resized  = Bitmap.createScaledBitmap(faceBitmap, INPUT_SIZE, INPUT_SIZE, true)
-        val input    = bitmapToByteBuffer(resized)
-        val output   = Array(1) { FloatArray(EMBEDDING_DIM) }
-        interpreter.run(input, output)
+        // Optimization: Ensure input is exactly what FaceNet expects
+        val resized = if (faceBitmap.width == INPUT_SIZE && faceBitmap.height == INPUT_SIZE) {
+            faceBitmap
+        } else {
+            Bitmap.createScaledBitmap(faceBitmap, INPUT_SIZE, INPUT_SIZE, true)
+        }
+        
+        bitmapToByteBuffer(resized)
+        val output = Array(1) { FloatArray(EMBEDDING_DIM) }
+        interpreter.run(inputBuffer, output)
+        
+        // Clean up temporary scaled bitmap
+        if (resized != faceBitmap) {
+            resized.recycle()
+        }
+        
         return normalize(output[0])
     }
 
@@ -60,12 +77,8 @@ class FaceEmbeddingHelper(private val context: Context) {
         return fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength)
     }
 
-    private fun bitmapToByteBuffer(bitmap: Bitmap): ByteBuffer {
-        val byteBuffer = ByteBuffer.allocateDirect(
-            4 * INPUT_SIZE * INPUT_SIZE * 3  // float32, 3 channels
-        )
-        byteBuffer.order(ByteOrder.nativeOrder())
-
+    private fun bitmapToByteBuffer(bitmap: Bitmap) {
+        inputBuffer.rewind()
         val pixels = IntArray(INPUT_SIZE * INPUT_SIZE)
         bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
 
@@ -73,12 +86,10 @@ class FaceEmbeddingHelper(private val context: Context) {
             val r = ((pixel shr 16) and 0xFF)
             val g = ((pixel shr 8)  and 0xFF)
             val b = (pixel          and 0xFF)
-            byteBuffer.putFloat((r - IMAGE_MEAN) / IMAGE_STD)
-            byteBuffer.putFloat((g - IMAGE_MEAN) / IMAGE_STD)
-            byteBuffer.putFloat((b - IMAGE_MEAN) / IMAGE_STD)
+            inputBuffer.putFloat((r - IMAGE_MEAN) / IMAGE_STD)
+            inputBuffer.putFloat((g - IMAGE_MEAN) / IMAGE_STD)
+            inputBuffer.putFloat((b - IMAGE_MEAN) / IMAGE_STD)
         }
-
-        return byteBuffer
     }
 
     /**

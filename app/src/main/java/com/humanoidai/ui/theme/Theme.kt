@@ -4,34 +4,41 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-// Brand colors - CEA v1.1 Modern HUD
-val BackgroundDark = Color(0xFF0B0F17)
-val SurfaceDark = Color(0xFF151C2C)
-val CardDark = Color(0xFF1E2436)
-val AccentCyan = Color(0xFF00D4FF) // Primary Neon
-val AccentPurple = Color(0xFF7C4DFF) // Ro1 Purple
-val SuccessGreen = Color(0xFF00E676)
-val WarningOrange = Color(0xFFFFA500)
-val ErrorRed = Color(0xFFFF5252)
+// Brand colors - Monochromatic Core Palette
+val BackgroundDark = Color(0xFF0A0A0A) // Near Black
+val SurfaceDark = Color(0xFF171717)    // Dark Grey
+val CardDark = Color(0xFF262626)       // Neutral Grey
+val AccentGrey = Color(0xFFD1D5DB)     // Cool Grey
+val AccentSlate = Color(0xFF64748B)    // Slate Grey
+val SuccessGreen = Color(0xFF4ADE80)   // Mint Green (Kept for status)
+val WarningOrange = Color(0xFFFB923C)  // Bright Amber (Kept for status)
+val ErrorRed = Color(0xFFF87171)      // Vibrant Coral (Kept for status)
 
-// Compatibility Aliases for older screens
-val PrimaryBlue = AccentCyan
+// Compatibility Aliases
+val PrimaryBlue = AccentGrey
+val AccentCyan = AccentGrey
+val AccentPurple = AccentSlate
 val AlertGreen = SuccessGreen
 val AlertOrange = WarningOrange
 val AlertRed = ErrorRed
 
-val TextPrimary = Color(0xFFE8EAF6)
-val TextSecondary = Color(0xFF8892B0)
+// High Contrast Text
+val TextPrimary = Color(0xFFF8FAFC)
+val TextSecondary = Color(0xFF94A3B8)
 
 private val DarkColorScheme = darkColorScheme(
-    primary = AccentCyan,
-    secondary = AccentPurple,
+    primary = AccentGrey,
+    secondary = AccentSlate,
+    tertiary = SuccessGreen,
     background = BackgroundDark,
     surface = SurfaceDark,
     error = ErrorRed,
     onPrimary = Color.Black,
+    onSecondary = Color.White,
     onBackground = TextPrimary,
     onSurface = TextPrimary,
+    surfaceVariant = CardDark,
+    onSurfaceVariant = TextPrimary
 )
 
 @Composable

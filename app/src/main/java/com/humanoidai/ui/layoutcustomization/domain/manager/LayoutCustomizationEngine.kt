@@ -33,18 +33,42 @@ class LayoutCustomizationEngine(
         // 2. Apply user personalization overrides
         candidateWidgets["camera"]?.let { cam ->
             candidateWidgets["camera"] = cam.copy(
-                anchor = mapCoordsToAnchor(customization.roi.primaryPositionX, customization.roi.primaryPositionY),
+                anchor = if (customization.roi.primaryAutoPosition) cam.anchor else mapCoordsToAnchor(customization.roi.primaryPositionX, customization.roi.primaryPositionY),
                 scale = customization.camera.scale,
                 offsetX = customization.camera.offsetX.dp,
                 offsetY = customization.camera.offsetY.dp
             )
         }
         
-        // 3. Apply ROI visibility
         candidateWidgets["secondary_roi"]?.let { roi ->
             candidateWidgets["secondary_roi"] = roi.copy(
+                anchor = if (customization.roi.secondaryAutoPosition) roi.anchor else mapCoordsToAnchor(customization.roi.secondaryPositionX, customization.roi.secondaryPositionY),
                 isVisible = customization.widget.visibilityMap["Secondary ROI"] ?: true
             )
+        }
+
+        // Apply Global Visibility Map
+        candidateWidgets.forEach { (id, widget) ->
+            val settingsKey = mapWidgetIdToSettingsKey(id)
+            if (settingsKey != null) {
+                candidateWidgets[id] = widget.copy(
+                    isVisible = customization.widget.visibilityMap[settingsKey] ?: widget.isVisible
+                )
+            }
+        }
+
+        // Apply Density (Global Scale tweak)
+        val densityScale = when(customization.widget.density.lowercase()) {
+            "minimal" -> 0.7f
+            "compact" -> 0.85f
+            "expanded" -> 1.15f
+            "command center" -> 1.3f
+            else -> 1.0f
+        }
+        candidateWidgets.forEach { (id, widget) ->
+            if (id != "camera") {
+                candidateWidgets[id] = widget.copy(scale = widget.scale * densityScale)
+            }
         }
         
         // 4. Construct candidate blueprint
@@ -55,6 +79,24 @@ class LayoutCustomizationEngine(
         // 5. Resolve Constraints (Phase 1D: Anchor & Priority logic)
         return resolver.resolve(candidateBlueprint)
     }
+
+    private fun mapWidgetIdToSettingsKey(id: String): String? {
+        return when(id) {
+            "primary_roi" -> "Primary ROI"
+            "secondary_roi" -> "Secondary ROI"
+            "assistant" -> "AI Assistant"
+            "status_bar" -> "AI Status"
+            "notifications" -> "Notification Stack"
+            "alerts" -> "Alert Panel"
+            "radar" -> "Distance Indicator"
+            "status_indicators" -> "Emotion Indicator"
+            "object_details" -> "Object Details"
+            else -> null
+        }
+    }
+
+
+
 
     private fun mapCoordsToAnchor(x: Float, y: Float): com.humanoidai.ui.layoutcustomization.domain.blueprint.WidgetAnchor {
         return when {

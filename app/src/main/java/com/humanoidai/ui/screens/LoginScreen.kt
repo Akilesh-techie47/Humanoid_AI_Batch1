@@ -1,25 +1,35 @@
 package com.humanoidai.ui.screens
 
+import android.Manifest
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.humanoidai.permission.PermissionManager
 import com.humanoidai.ui.theme.*
 
 // -----------------------------------------------------------------
@@ -35,13 +45,15 @@ enum class LoginTab { PHONE, EMAIL }
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
-    authViewModel: AuthViewModel = AuthViewModel(),
+    authViewModel: AuthViewModel,
     microphoneManager: com.humanoidai.hearing.SpeechRecognizerManager,
     voiceEngine: com.humanoidai.voice.VoiceEngine
 ) {
     var selectedTab by remember { mutableStateOf(LoginTab.PHONE) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    
+    val alpha = remember { Animatable(0f) }
 
     // Permission Launcher
     val recordAudioPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
@@ -53,6 +65,7 @@ fun LoginScreen(
     }
 
     LaunchedEffect(Unit) {
+        alpha.animateTo(1f, animationSpec = tween(1200))
         voiceEngine.speak("Welcome to Humanoid AI. Please sign in using your phone or email.")
     }
 
@@ -65,7 +78,8 @@ fun LoginScreen(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 28.dp),
+                .padding(horizontal = 28.dp)
+                .alpha(alpha.value),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
 
@@ -111,10 +125,10 @@ fun LoginScreen(
             // ---- Tab Content ----
             when (selectedTab) {
                 LoginTab.PHONE -> PhoneOtpForm(authViewModel, onLoginSuccess, microphoneManager) {
-                    recordAudioPermissionLauncher.launch(com.humanoidai.permission.PermissionManager.RECORD_AUDIO_PERMISSION)
+                    recordAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                 }
                 LoginTab.EMAIL -> EmailPasswordForm(authViewModel, onLoginSuccess, microphoneManager) {
-                    recordAudioPermissionLauncher.launch(com.humanoidai.permission.PermissionManager.RECORD_AUDIO_PERMISSION)
+                    recordAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                 }
             }
         }
@@ -131,6 +145,7 @@ private fun TabButton(
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
+    val haptic = LocalHapticFeedback.current
     val bgColor = if (selected) AccentCyan else Color.Transparent
     val textColor = if (selected) Color.Black else TextSecondary
 
@@ -139,7 +154,10 @@ private fun TabButton(
             .clip(RoundedCornerShape(10.dp))
             .background(bgColor)
             .padding(vertical = 10.dp)
-            .clickable(onClick = onClick),
+            .clickable {
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                onClick()
+            },
         contentAlignment = Alignment.Center
     ) {
         Text(text = text, color = textColor, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
@@ -244,10 +262,27 @@ private fun EmailPasswordForm(
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var confirmPassword by remember { mutableStateOf("") }
     var isSignUp by remember { mutableStateOf(false) }
+    var passwordVisible by remember { mutableStateOf(false) }
+    var showResetDialog by remember { mutableStateOf(false) }
+
     val authState by authViewModel.authState.collectAsState()
     val context = LocalContext.current
     val isListening by microphoneManager.isListening.collectAsState()
+
+    if (showResetDialog) {
+        PasswordResetDialog(
+            email = email,
+            onDismiss = { showResetDialog = false },
+            onResetRequested = { resetEmail ->
+                authViewModel.sendPasswordReset(resetEmail) {
+                    showResetDialog = false
+                    // Could show a toast here
+                }
+            }
+        )
+    }
 
     Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
 
@@ -278,7 +313,7 @@ private fun EmailPasswordForm(
             onValueChange = { password = it },
             label = "Password",
             keyboardType = KeyboardType.Password,
-            visualTransformation = PasswordVisualTransformation(),
+            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
             microphoneManager = microphoneManager,
             isListening = isListening,
             onMicClick = {
@@ -291,8 +326,41 @@ private fun EmailPasswordForm(
                 } else {
                     onPermissionRequired()
                 }
+            },
+            trailingIconContent = {
+                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                    Icon(
+                        if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                        "Toggle Password Visibility",
+                        tint = AccentCyan
+                    )
+                }
             }
         )
+
+        if (isSignUp) {
+            Spacer(modifier = Modifier.height(12.dp))
+            StyledTextField(
+                value = confirmPassword,
+                onValueChange = { confirmPassword = it },
+                label = "Re-enter Password",
+                keyboardType = KeyboardType.Password,
+                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                microphoneManager = microphoneManager,
+                isListening = isListening,
+                onMicClick = {
+                    if (PermissionManager.hasRecordAudioPermission(context)) {
+                        if (isListening) microphoneManager.stopListening()
+                        else microphoneManager.startListening(onFinalResult = { 
+                            confirmPassword = it 
+                            microphoneManager.stopListening()
+                        })
+                    } else {
+                        onPermissionRequired()
+                    }
+                }
+            )
+        }
 
         Spacer(modifier = Modifier.height(20.dp))
 
@@ -301,23 +369,92 @@ private fun EmailPasswordForm(
             enabled = authState !is AuthState.Loading
         ) {
             if (isSignUp) {
+                if (password != confirmPassword) {
+                    // This could be handled by AuthState.Error internally if I wanted to update ViewModel,
+                    // but simple UI check is faster for user.
+                    // authViewModel.setLocalError("Passwords do not match") // If method existed
+                    // For now, I'll just check it here.
+                    return@PrimaryButton
+                }
                 authViewModel.signUpWithEmail(email, password, onLoginSuccess)
             } else {
                 authViewModel.signInWithEmail(email, password, onLoginSuccess)
             }
         }
 
+        if (isSignUp && password.isNotEmpty() && confirmPassword.isNotEmpty() && password != confirmPassword) {
+            Text("Passwords do not match", color = Color.Red, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
+        }
+
         Spacer(modifier = Modifier.height(12.dp))
+
+        if (!isSignUp) {
+            Text(
+                "Forgot password?",
+                color = AccentCyan,
+                fontSize = 13.sp,
+                modifier = Modifier.clickable { showResetDialog = true }
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+        }
 
         Text(
             text = if (isSignUp) "Already have an account? Login" else "New here? Create an account",
             color = AccentCyan,
             fontSize = 13.sp,
-            modifier = Modifier.clickable { isSignUp = !isSignUp }
+            modifier = Modifier.clickable { 
+                isSignUp = !isSignUp 
+                confirmPassword = ""
+            }
         )
 
         AuthStatusText(authState)
     }
+}
+
+@Composable
+private fun PasswordResetDialog(
+    email: String,
+    onDismiss: () -> Unit,
+    onResetRequested: (String) -> Unit
+) {
+    var resetEmail by remember { mutableStateOf(email) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Reset Password", color = Color.White) },
+        text = {
+            Column {
+                Text("Enter your email to receive a reset link.", color = TextSecondary, fontSize = 14.sp)
+                Spacer(Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = resetEmail,
+                    onValueChange = { resetEmail = it },
+                    label = { Text("Email", color = TextSecondary) },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedBorderColor = AccentCyan,
+                        unfocusedBorderColor = TextSecondary,
+                        cursorColor = AccentCyan,
+                        focusedContainerColor = SurfaceDark,
+                        unfocusedContainerColor = SurfaceDark
+                    )
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onResetRequested(resetEmail) }) {
+                Text("Send Link", color = AccentCyan)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = TextSecondary)
+            }
+        },
+        containerColor = BackgroundDark
+    )
 }
 
 // -----------------------------------------------------------------
@@ -334,7 +471,8 @@ private fun StyledTextField(
         androidx.compose.ui.text.input.VisualTransformation.None,
     microphoneManager: com.humanoidai.hearing.SpeechRecognizerManager? = null,
     isListening: Boolean = false,
-    onMicClick: () -> Unit = {}
+    onMicClick: () -> Unit = {},
+    trailingIconContent: @Composable (() -> Unit)? = null
 ) {
     OutlinedTextField(
         value = value,
@@ -359,13 +497,16 @@ private fun StyledTextField(
         ),
         shape = RoundedCornerShape(12.dp),
         trailingIcon = {
-            if (microphoneManager != null) {
-                IconButton(onClick = onMicClick) {
-                    Icon(
-                        if (isListening) Icons.Default.MicOff else Icons.Default.Mic,
-                        null,
-                        tint = if (isListening) Color.Red else AccentCyan
-                    )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                trailingIconContent?.invoke()
+                if (microphoneManager != null) {
+                    IconButton(onClick = onMicClick) {
+                        Icon(
+                            if (isListening) Icons.Default.MicOff else Icons.Default.Mic,
+                            null,
+                            tint = if (isListening) Color.Red else AccentCyan
+                        )
+                    }
                 }
             }
         }
@@ -378,8 +519,12 @@ private fun PrimaryButton(
     enabled: Boolean = true,
     onClick: () -> Unit
 ) {
+    val haptic = LocalHapticFeedback.current
     Button(
-        onClick = onClick,
+        onClick = {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            onClick()
+        },
         enabled = enabled,
         modifier = Modifier
             .fillMaxWidth()

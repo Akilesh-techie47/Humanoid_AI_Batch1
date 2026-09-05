@@ -1,0 +1,17 @@
+[
+{
+  "message": "Start JSON generation. Platform version: 26 min SDK version: x86_64",
+  "file": "D:\\Projects(ASC)\\opencv\\libcxx_helper\\CMakeLists.txt",
+  "tag": "debug|x86_64"
+},
+{
+  "message": "JSON \u0027D:\\Projects(ASC)\\opencv\\.cxx\\Debug\\592j6558\\x86_64\\android_gradle_build.json\u0027 was up-to-date",
+  "file": "D:\\Projects(ASC)\\opencv\\libcxx_helper\\CMakeLists.txt",
+  "tag": "debug|x86_64"
+},
+{
+  "message": "JSON generation completed without problems",
+  "file": "D:\\Projects(ASC)\\opencv\\libcxx_helper\\CMakeLists.txt",
+  "tag": "debug|x86_64"
+}
+]

@@ -56,6 +56,7 @@ fun BiometricVerificationScreen(
     navController: NavController,
     ownerManager: OwnerEnrollmentManager,
     recognitionManager: FaceRecognitionManager,
+    authViewModel: AuthViewModel,
     onAccessGranted: () -> Unit
 ) {
     val context = LocalContext.current
@@ -290,27 +291,27 @@ fun BiometricVerificationScreen(
                     onClick = { showFingerprint() },
                     modifier = Modifier.size(64.dp).background(SurfaceDark, CircleShape).border(1.dp, AccentCyan.copy(alpha = 0.3f), CircleShape)
                 ) {
-                    Icon(Icons.Default.Fingerprint, null, tint = AccentCyan, modifier = Modifier.size(32.dp))
+                    Icon(Icons.Default.Fingerprint, "Fingerprint Authentication", tint = AccentCyan, modifier = Modifier.size(32.dp))
                 }
                 
                 IconButton(
                     onClick = { showPasswordInput = true },
                     modifier = Modifier.size(64.dp).background(SurfaceDark, CircleShape).border(1.dp, AccentCyan.copy(alpha = 0.3f), CircleShape)
                 ) {
-                    Icon(Icons.Default.Lock, null, tint = AccentCyan, modifier = Modifier.size(24.dp))
+                    Icon(Icons.Default.Lock, "Password Authentication", tint = AccentCyan, modifier = Modifier.size(24.dp))
                 }
 
                 IconButton(
                     onClick = { 
                         // Sign out and go back to login
-                        com.google.firebase.auth.FirebaseAuth.getInstance().signOut()
+                        authViewModel.signOut()
                         navController.navigate(NavRoutes.LOGIN) {
                             popUpTo(0) { inclusive = true }
                         }
                     },
                     modifier = Modifier.size(64.dp).background(SurfaceDark, CircleShape).border(1.dp, Color.Red.copy(alpha = 0.3f), CircleShape)
                 ) {
-                    Icon(Icons.Default.ExitToApp, null, tint = Color.Red, modifier = Modifier.size(24.dp))
+                    Icon(Icons.Default.ExitToApp, "Sign Out", tint = Color.Red, modifier = Modifier.size(24.dp))
                 }
             }
         }
