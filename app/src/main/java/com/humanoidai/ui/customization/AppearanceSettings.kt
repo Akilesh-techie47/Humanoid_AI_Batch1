@@ -16,7 +16,7 @@ data class AppearanceSettings(
     // ── Theme ────────────────────────────────────────────────────────────────
     val themeId: String = "t1", // t1..t10 — the 10 camera-home visual personalities
     val colorTheme: String = "core_monolith", // legacy, superseded by themeId
-    val accentColor: Long = 0xFFD1D5DB,
+    val accentColor: Long = 0xFFFFB300,
     val backgroundOpacity: Float = 0.95f,
     val cardTransparency: Float = 0.5f,
     val glassBlurStrength: Dp = 12.dp,

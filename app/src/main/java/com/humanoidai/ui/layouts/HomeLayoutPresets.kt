@@ -22,8 +22,8 @@ sealed class HomeLayoutPreset(
     object ClassicHud : HomeLayoutPreset(
         id = "classic",
         name = "Core Monolith",
-        primaryColor = Color(0xFFD1D5DB),
-        secondaryColor = Color(0xFF94A3B8),
+        primaryColor = Color(0xFFFFB300),
+        secondaryColor = Color(0xFFF59E0B),
         roiShape = "circle"
     )
 
@@ -79,16 +79,16 @@ sealed class HomeLayoutPreset(
     object FocusPerson : HomeLayoutPreset(
         id = "focus",
         name = "Focus Monotone",
-        primaryColor = Color(0xFFE2E8F0),
-        secondaryColor = Color(0xFF94A3B8),
+        primaryColor = Color(0xFFFFB300),
+        secondaryColor = Color(0xFFF59E0B),
         roiShape = "circle"
     )
 
     object MultiZone : HomeLayoutPreset(
         id = "zones",
         name = "Multi-Zone Core",
-        primaryColor = Color(0xFFD1D5DB),
-        secondaryColor = Color(0xFF64748B),
+        primaryColor = Color(0xFFFFB300),
+        secondaryColor = Color(0xFFB45309),
         roiShape = "square"
     )
 
@@ -102,8 +102,8 @@ sealed class HomeLayoutPreset(
 
     object BlueprintPlus : HomeLayoutPreset(
         id = "blueprint",
-        name = "Schematic Grey",
-        primaryColor = Color(0xFF94A3B8),
+        name = "Schematic Amber",
+        primaryColor = Color(0xFFFFB300),
         secondaryColor = Color(0xFFF1F5F9),
         roiShape = "circle"
     )

@@ -85,14 +85,14 @@ data class HudTheme(
 object HudThemes {
     val all: List<HudTheme> = listOf(
         HudTheme(
-            id = "t1", name = "Core Monolith", subtitle = "Monochromatic command interface",
-            accent = Color(0xFFD1D5DB), text = Color(0xFFF8FAFC), chipText = Color(0xFF94A3B8),
+            id = "t1", name = "Core Monolith", subtitle = "Amber command interface",
+            accent = Color(0xFFFFB300), text = Color(0xFFF8FAFC), chipText = Color(0xFFF59E0B),
             bgTop = Color(0xFF0A0A0A), bgBottom = Color(0xFF000000), monospace = true,
             roiShape = HudShape.CIRCLE, roiGlow = true,
-            chipShape = HudShape.CIRCLE, chipBg = Color(0x1AFFFFFF), chipBorder = Color(0x80FFFFFF),
+            chipShape = HudShape.CIRCLE, chipBg = Color(0x1AFFFF00), chipBorder = Color(0x80FFB300),
             unknownColor = Color(0xFFF87171),
-            panelBg = Color(0xCC0A0A0A), panelBorder = Color(0x66D1D5DB), panelText = Color(0xFFF8FAFC),
-            chatBg = Color(0xE60A0A0A), chatText = Color(0xFFD1D5DB), micColor = Color(0xFFD1D5DB)
+            panelBg = Color(0xCC0A0A0A), panelBorder = Color(0x66FFB300), panelText = Color(0xFFF8FAFC),
+            chatBg = Color(0xE60A0A0A), chatText = Color(0xFFFFB300), micColor = Color(0xFFFFB300)
         ),
         HudTheme(
             id = "t2", name = "Crystal Frost", subtitle = "Pristine glass interface",
@@ -175,14 +175,14 @@ object HudThemes {
             chatBg = Color(0xFF34D399), chatText = Color(0xFF020617), chatFilled = true, micColor = Color(0xFF020617)
         ),
         HudTheme(
-            id = "t10", name = "Schematic Plus", subtitle = "Enhanced grey schematic grid",
-            accent = Color(0xFF94A3B8), text = Color(0xFFF1F5F9), chipText = Color(0xFFE2E8F0),
+            id = "t10", name = "Schematic Plus", subtitle = "Enhanced amber schematic grid",
+            accent = Color(0xFFFFB300), text = Color(0xFFF1F5F9), chipText = Color(0xFFF59E0B),
             bgTop = Color(0xFF0A0A0A), bgBottom = Color(0xFF000000), monospace = true, gridBackground = true,
             roiShape = HudShape.CIRCLE, roiDashed = true,
-            chipShape = HudShape.SQUARE, chipDashed = true, chipBg = Color(0x1A94A3B8), chipBorder = Color(0x8094A3B8),
+            chipShape = HudShape.SQUARE, chipDashed = true, chipBg = Color(0x1AFFFF00), chipBorder = Color(0x80FFB300),
             unknownColor = Color(0xFFCBD5E1),
-            panelBg = Color(0xCC171717), panelBorder = Color(0x8094A3B8), panelText = Color(0xFFF1F5F9),
-            chatBg = Color(0xE6171717), chatText = Color(0xFF94A3B8), micColor = Color(0xFF94A3B8)
+            panelBg = Color(0xCC171717), panelBorder = Color(0x80FFB300), panelText = Color(0xFFF1F5F9),
+            chatBg = Color(0xE6171717), chatText = Color(0xFFFFB300), micColor = Color(0xFFFFB300)
         )
     )
 

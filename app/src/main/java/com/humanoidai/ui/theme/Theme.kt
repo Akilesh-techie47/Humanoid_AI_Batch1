@@ -8,8 +8,8 @@ import androidx.compose.ui.graphics.Color
 val BackgroundDark = Color(0xFF0A0A0A) // Near Black
 val SurfaceDark = Color(0xFF171717)    // Dark Grey
 val CardDark = Color(0xFF262626)       // Neutral Grey
-val AccentGrey = Color(0xFFD1D5DB)     // Cool Grey
-val AccentSlate = Color(0xFF64748B)    // Slate Grey
+val AccentGrey = Color(0xFFFFB300)     // Orangish Yellow
+val AccentSlate = Color(0xFFB45309)    // Dark Amber
 val SuccessGreen = Color(0xFF4ADE80)   // Mint Green (Kept for status)
 val WarningOrange = Color(0xFFFB923C)  // Bright Amber (Kept for status)
 val ErrorRed = Color(0xFFF87171)      // Vibrant Coral (Kept for status)
@@ -24,7 +24,7 @@ val AlertRed = ErrorRed
 
 // High Contrast Text
 val TextPrimary = Color(0xFFF8FAFC)
-val TextSecondary = Color(0xFF94A3B8)
+val TextSecondary = Color(0xFFD6D3D1)
 
 private val DarkColorScheme = darkColorScheme(
     primary = AccentGrey,

@@ -53,7 +53,7 @@ class AppearanceDataStore(private val context: Context) {
                 hudStructure = HUDStructure.valueOf(prefs[Keys.HUD_STRUCTURE] ?: "TOP_APERTURE"),
                 themeId = prefs[Keys.THEME_ID] ?: "t1",
                 colorTheme = prefs[Keys.COLOR_THEME] ?: "cyan_jarvis",
-                accentColor = prefs[Keys.ACCENT_COLOR] ?: 0xFFD1D5DB,
+                accentColor = prefs[Keys.ACCENT_COLOR] ?: 0xFFFFB300,
                 backgroundOpacity = prefs[Keys.BG_OPACITY] ?: 0.95f,
                 cardTransparency = prefs[Keys.CARD_TRANSPARENCY] ?: 0.4f,
                 hudGlowIntensity = prefs[Keys.GLOW_INTENSITY] ?: 0.6f,
