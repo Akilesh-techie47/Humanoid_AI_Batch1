@@ -7,7 +7,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
 
 /**
- * The 10 camera-home visual personalities from the Humanoid AI design spec
+ * The 10 camera-home visual personalities from the Aura 360° design spec
  * (Cyan Tactical -> Blueprint). These are the single source of truth for HUD
  * theme colors, shapes and panel styling.
  */
@@ -49,17 +49,17 @@ data class HudTheme(
     val id: String,
     val name: String,
     val subtitle: String,
-    val accent: Color,
+    val accent: Color = Color.White,
     val accent2: Color? = null,
-    val text: Color,
-    val chipText: Color,
-    val bgTop: Color,
-    val bgBottom: Color,
+    val text: Color = TextPrimary,
+    val chipText: Color = TextPrimary,
+    val bgTop: Color = Color(0xFF050505),
+    val bgBottom: Color = Color.Black,
     val monospace: Boolean = false,
     // Primary ROI
     val roiShape: HudShape = HudShape.CIRCLE,
     val roiDashed: Boolean = false,
-    val roiGlow: Boolean = false,
+    val roiGlow: Boolean = true,
     val roiDoubleRing: Boolean = false,
     val roiThick: Boolean = false,
     val roiGradient: Boolean = false,
@@ -67,17 +67,17 @@ data class HudTheme(
     val chipShape: HudShape = HudShape.CIRCLE,
     val chipDashed: Boolean = false,
     val chipGlass: Boolean = false,
-    val chipBg: Color = Color(0x00FFFFFF),
-    val chipBorder: Color = Color(0x33FFFFFF),
-    val unknownColor: Color = Color(0xFFFF5A5A),
+    val chipBg: Color = Color(0x1AFF7A00),
+    val chipBorder: Color = Color(0xFF252525),
+    val unknownColor: Color = ErrorRed,
     // Panels
-    val panelBg: Color = Color(0x991E293B),
-    val panelBorder: Color = Color(0x4DFFFFFF),
-    val panelText: Color = Color(0xFFF8FAFC),
-    val chatBg: Color = Color(0xE61E293B),
-    val chatText: Color = Color(0xFFF8FAFC),
+    val panelBg: Color = Color(0xFF0B0B0B).copy(alpha = 0.85f),
+    val panelBorder: Color = Color(0xFF252525),
+    val panelText: Color = TextPrimary,
+    val chatBg: Color = Color(0xFF0B0B0B).copy(alpha = 0.9f),
+    val chatText: Color = TextPrimary,
     val chatFilled: Boolean = false,
-    val micColor: Color = Color(0xFFFFFFFF),
+    val micColor: Color = Color.White,
     val grayscale: Boolean = false,
     val gridBackground: Boolean = false
 )
@@ -85,14 +85,14 @@ data class HudTheme(
 object HudThemes {
     val all: List<HudTheme> = listOf(
         HudTheme(
-            id = "t1", name = "Core Monolith", subtitle = "Amber command interface",
-            accent = Color(0xFFFFB300), text = Color(0xFFF8FAFC), chipText = Color(0xFFF59E0B),
-            bgTop = Color(0xFF0A0A0A), bgBottom = Color(0xFF000000), monospace = true,
-            roiShape = HudShape.CIRCLE, roiGlow = true,
-            chipShape = HudShape.CIRCLE, chipBg = Color(0x1AFFFF00), chipBorder = Color(0x80FFB300),
+            id = "t1", name = "Core Monolith", subtitle = "Monochromatic command interface",
+            accent = Color(0xFFFFFFFF), text = Color(0xFFFFFFFF), chipText = Color(0xFFFFFFFF),
+            bgTop = Color(0xFF101010), bgBottom = Color(0xFF000000), monospace = true,
+            roiShape = HudShape.CIRCLE, roiGlow = false,
+            chipShape = HudShape.CIRCLE, chipBg = Color(0x1AFFFFFF), chipBorder = Color(0xFF252525),
             unknownColor = Color(0xFFF87171),
-            panelBg = Color(0xCC0A0A0A), panelBorder = Color(0x66FFB300), panelText = Color(0xFFF8FAFC),
-            chatBg = Color(0xE60A0A0A), chatText = Color(0xFFFFB300), micColor = Color(0xFFFFB300)
+            panelBg = Color(0xCC101010), panelBorder = Color(0xFF252525), panelText = Color(0xFFFFFFFF),
+            chatBg = Color(0xE6101010), chatText = Color(0xFFFFFFFF), micColor = Color(0xFFFFFFFF)
         ),
         HudTheme(
             id = "t2", name = "Crystal Frost", subtitle = "Pristine glass interface",

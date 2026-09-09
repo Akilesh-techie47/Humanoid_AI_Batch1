@@ -20,9 +20,7 @@ import com.humanoidai.planning.Goal
 import com.humanoidai.planning.GoalStatus
 import com.humanoidai.planning.StepStatus
 import com.humanoidai.ui.theme.AccentCyan
-import com.humanoidai.ui.theme.BackgroundDark
 import com.humanoidai.ui.theme.SuccessGreen
-import com.humanoidai.ui.theme.TextPrimary
 
 @Composable
 fun GoalInspectorScreen(viewModel: GoalInspectorViewModel) {
@@ -30,7 +28,7 @@ fun GoalInspectorScreen(viewModel: GoalInspectorViewModel) {
 
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = BackgroundDark
+        color = MaterialTheme.colorScheme.background
     ) {
         Column(
             modifier = Modifier
@@ -42,7 +40,7 @@ fun GoalInspectorScreen(viewModel: GoalInspectorViewModel) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("AI Goal Inspector", style = MaterialTheme.typography.headlineMedium, color = TextPrimary)
+                Text("AI Goal Inspector", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onBackground)
                 Button(onClick = { viewModel.clearCompleted() }, colors = ButtonDefaults.buttonColors(containerColor = AccentCyan)) {
                     Text("Clear Done", color = Color.Black)
                 }

@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.humanoidai.ai.AIManager
 import com.humanoidai.voice.VoiceEngine
+import com.humanoidai.voice.TranscriptValidator
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -54,45 +55,60 @@ class CompanionEngine(
             startCompanionLoop()
             
             // Start Passive Listening (Hotword Detection)
-            microphoneManager.startPassiveListening(
-                onDetected = {
-                    Log.i("HumanoidEngine", "[VOICE] WAKE_WORD_DETECTED (via CompanionEngine)")
-                    voiceEngine.stop()
-                    _state.value = CompanionState.LISTENING
-                    
-                    voiceEngine.speak("I'm listening.") {
-                        // After speaking "I'm listening", start active listening for the command
-                        microphoneManager.startListening(
-                            onPartialResult = { /* UI update handled by flow */ },
-                            onFinalResult = { command ->
-                                if (command.isNotBlank() && command != "RETRY_PROMPT") {
-                                    ask(command, "Owner", "Home")
-                                } else {
-                                    // Back to passive
-                                    _state.value = CompanionState.OBSERVING
-                                    wake() // Re-init wake word
-                                }
-                            }
-                        )
-                    }
-                },
-                onSpeechStarted = {
-                    // Interaction 2.0: Barge-in
-                    if (_state.value == CompanionState.SPEAKING) {
-                        Log.i("HumanoidEngine", "[VOICE] BARGE_IN_DETECTED (User spoke during AI speech)")
-                        voiceEngine.stop()
-                        _state.value = CompanionState.LISTENING
-                    }
-                }
-            )
+            startPassiveListening()
             
             // Initial Greeting
-            voiceEngine.speak("Systems initialized. Humanoid AI is online.")
+            voiceEngine.speak("Systems initialized. Aura 360 is online.")
+        }
+    }
+
+    private fun startPassiveListening() {
+        microphoneManager.startPassiveListening(
+            onDetected = { handleWakeWordDetected() },
+            onSpeechStarted = { handleBargeIn() }
+        )
+    }
+
+    private fun handleWakeWordDetected() {
+        Log.i("Aura360Engine", "[VOICE_PIPELINE] WAKE_WORD_MATCHED")
+        voiceEngine.stop()
+        _state.value = CompanionState.LISTENING
+        
+        voiceEngine.speak("I'm listening.") {
+            // After speaking "I'm listening", start active listening for the command
+            microphoneManager.startListening(
+                onPartialResult = { /* UI updates handled via MicrophoneManager.partialTranscript Flow */ },
+                onFinalResult = { command ->
+                    if (TranscriptValidator.isValid(command)) {
+                        val repaired = TranscriptValidator.normalize(command)
+                        ask(repaired, "Owner", "Home")
+                    } else {
+                        Log.d("Aura360Engine", "[VOICE_PIPELINE] TRANSCRIPT_VALIDATION_FAILED: \"$command\"")
+                        // Back to passive
+                        _state.value = CompanionState.OBSERVING
+                        startPassiveListening()
+                    }
+                },
+                onError = { error ->
+                    Log.e("Aura360Engine", "[VOICE_PIPELINE] STT_ERROR: $error")
+                    _state.value = CompanionState.OBSERVING
+                    startPassiveListening()
+                }
+            )
+        }
+    }
+
+    private fun handleBargeIn() {
+        // Interaction 2.0: Barge-in
+        if (_state.value == CompanionState.SPEAKING || _state.value == CompanionState.THINKING) {
+            Log.i("Aura360Engine", "[VOICE_PIPELINE] BARGE_IN_DETECTED (User spoke during AI activity)")
+            voiceEngine.stop()
+            _state.value = CompanionState.LISTENING
         }
     }
 
     private fun startCompanionLoop() {
-        android.util.Log.i("HumanoidEngine", "Companion Loop: Starting")
+        Log.i("Aura360Engine", "Companion Loop: Starting")
         loopJob?.cancel()
         loopJob = scope.launch(Dispatchers.Default) {
             while (isActive) {
@@ -108,10 +124,10 @@ class CompanionEngine(
                     
                     // 3. ACT (Stub)
                     if (intention != null) {
-                        android.util.Log.d("HumanoidEngine", "Loop: Intention formed - ${intention}")
+                        Log.d("Aura360Engine", "Loop: Intention formed - ${intention}")
                     }
                 } catch (e: Exception) {
-                    android.util.Log.e("HumanoidEngine", "Loop Error: ${e.message}")
+                    Log.e("Aura360Engine", "Loop Error: ${e.message}")
                 }
                 delay(2000)
             }
@@ -131,33 +147,19 @@ class CompanionEngine(
         scope.launch {
             _state.value = CompanionState.THINKING
             
-            // Interaction 2.0: AI response streaming start
-            // The vocalization happens inside aiManager.ask via speakStream
-            // We need a way to know when speaking starts.
-            
             aiManager.ask(question, ownerName, screen) {
                 _state.value = CompanionState.OBSERVING
                 onComplete()
                 
                 // Restart passive listening
-                microphoneManager.startPassiveListening(
-                    onDetected = {
-                        _state.value = CompanionState.LISTENING
-                        voiceEngine.speak("I'm listening.")
-                    },
-                    onSpeechStarted = {
-                        if (_state.value == CompanionState.SPEAKING) {
-                            voiceEngine.stop()
-                            _state.value = CompanionState.LISTENING
-                        }
-                    }
-                )
+                startPassiveListening()
             }
         }
     }
 
     fun shutdown() {
         sleep()
+        microphoneManager.stopListening()
         voiceEngine.shutdown()
     }
 }

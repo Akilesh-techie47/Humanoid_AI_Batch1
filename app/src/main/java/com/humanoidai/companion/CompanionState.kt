@@ -1,7 +1,7 @@
 package com.humanoidai.companion
 
 /**
- * Defines the operational states of the Humanoid AI Companion.
+ * Defines the operational states of the Aura 360° Companion.
  * All modules read and write to this state.
  */
 sealed class CompanionState(val label: String) {

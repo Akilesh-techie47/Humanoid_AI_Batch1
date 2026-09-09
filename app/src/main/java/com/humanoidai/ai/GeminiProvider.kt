@@ -1,6 +1,11 @@
 package com.humanoidai.ai
 
+import android.graphics.BitmapFactory
+import android.util.Log
 import com.google.ai.client.generativeai.GenerativeModel
+import com.google.ai.client.generativeai.type.InvalidAPIKeyException
+import com.google.ai.client.generativeai.type.ResponseStoppedException
+import com.google.ai.client.generativeai.type.content
 import com.google.ai.client.generativeai.type.generationConfig
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
@@ -11,7 +16,18 @@ import kotlinx.coroutines.flow.mapNotNull
  * Optimized for high-speed responsiveness (Flash 1.5).
  */
 class GeminiProvider(private val apiKey: String) : AIProvider {
-    override val id: String = "Gemini 1.5 Flash"
+    override val id: String = "gemini-1.5-flash"
+    override val name: String = "Google Gemini 1.5 Flash"
+    override val capabilities: Set<AICapability> = setOf(
+        AICapability.TEXT,
+        AICapability.STREAMING,
+        AICapability.VISION,
+        AICapability.CLOUD
+    )
+
+    override suspend fun isAvailable(): Boolean {
+        return apiKey.isNotBlank() && apiKey.startsWith("AIza")
+    }
     
     private var model: GenerativeModel? = null
 
@@ -22,26 +38,30 @@ class GeminiProvider(private val apiKey: String) : AIProvider {
         maxOutputTokens = 512 // Increased from 120 to allow detailed technical/educational responses
     }
 
-    override suspend fun initialize() {
-        try {
-            if (model == null) {
-                if (apiKey.isBlank() || !apiKey.startsWith("AIza")) {
-                    android.util.Log.e("GeminiProvider", "CRITICAL: Invalid API Key format. Expected a key starting with 'AIza'. Current starts with: ${apiKey.take(4)}...")
+    private fun ensureInitialized() {
+        if (model == null) {
+            try {
+                if (!apiKey.startsWith("AIza")) {
+                    Log.e("GeminiProvider", "CRITICAL: Invalid API Key format.")
                 }
                 model = GenerativeModel(
-                    modelName = "gemini-1.5-flash-001", // Explicitly use a stable version
+                    modelName = "gemini-1.5-flash-001",
                     apiKey = apiKey,
                     generationConfig = config
                 )
+            } catch (e: Exception) {
+                Log.e("GeminiProvider", "Failed to init GenerativeModel: ${e.message}")
             }
-        } catch (e: Exception) {
-            android.util.Log.e("GeminiProvider", "Failed to init GenerativeModel: ${e.message}")
         }
+    }
+
+    override suspend fun initialize() {
+        ensureInitialized()
     }
 
     override suspend fun generate(request: AIRequest): AIResponse {
         val startTime = System.currentTimeMillis()
-        initialize() // Ensure initialized
+        ensureInitialized()
         
         var retryCount = 0
         val maxRetries = 2
@@ -55,7 +75,27 @@ class GeminiProvider(private val apiKey: String) : AIProvider {
                 }
                 
                 val responseStartTime = System.currentTimeMillis()
-                val response = model?.generateContent(request.prompt)
+                
+                // Interaction 2.0: Multi-turn aware request using chat session
+                val history = request.history.map { msg ->
+                    content(if (msg.isUser) "user" else "model") {
+                        text(msg.text)
+                    }
+                }
+                
+                val chat = model?.startChat(history)
+                
+                val response = if (request.imageData != null) {
+                    val bitmap = BitmapFactory.decodeByteArray(request.imageData, 0, request.imageData.size)
+                    val content = content {
+                        image(bitmap)
+                        text(request.prompt)
+                    }
+                    model?.generateContent(content)
+                } else {
+                    chat?.sendMessage(request.prompt)
+                }
+                
                 val text = response?.text ?: ""
                 val responseEndTime = System.currentTimeMillis()
                 
@@ -68,13 +108,26 @@ class GeminiProvider(private val apiKey: String) : AIProvider {
                 return AIResponse(
                     text = text,
                     provider = id,
+                    model = "gemini-1.5-flash-001",
+                    requestId = request.requestId,
                     generationTimeMs = System.currentTimeMillis() - startTime
                 )
             } catch (e: Exception) {
                 lastException = e
                 android.util.Log.w("GeminiProvider", "Generation attempt ${retryCount + 1} failed: ${e.message}")
-                if (e.message?.contains("429") == true || e.message?.contains("Too Many Requests") == true) {
-                    // Rate limit - back off longer
+                
+                // Classify Gemini SDK exceptions
+                if (e is ResponseStoppedException ||
+                    e.message?.contains("SAFETY") == true || 
+                    e.message?.contains("blocked") == true) {
+                    // Content filtered - do not retry
+                    break
+                }
+                
+                if (e.message?.contains("429") == true || 
+                    e.message?.contains("quota") == true || 
+                    e.message?.contains("overloaded") == true) {
+                    // Rate limit or overloaded - back off longer
                     kotlinx.coroutines.delay(2000L * (retryCount + 1))
                 }
                 retryCount++
@@ -82,17 +135,40 @@ class GeminiProvider(private val apiKey: String) : AIProvider {
         }
 
         android.util.Log.e("GeminiProvider", "All generation attempts failed. Last error: ${lastException?.message}")
+        val errorCategory = when {
+            lastException?.message?.contains("429") == true || 
+            lastException?.message?.contains("quota") == true ||
+            lastException?.message?.contains("overloaded") == true -> AIError.RATE_LIMIT
+            lastException?.message?.contains("network") == true -> AIError.NETWORK_ERROR
+            lastException?.message?.contains("auth") == true || 
+            lastException is InvalidAPIKeyException -> AIError.AUTHENTICATION_ERROR
+            else -> AIError.UNKNOWN_ERROR
+        }
+
         return AIResponse(
-            text = "Neural link failed. Please check connection.",
+            text = "Google Gemini link failed.",
             provider = id,
+            requestId = request.requestId,
             error = lastException?.localizedMessage ?: "Unknown error",
+            errorCategory = errorCategory,
             generationTimeMs = System.currentTimeMillis() - startTime
         )
     }
 
 
     override fun stream(request: AIRequest): Flow<String> {
-        return model?.generateContentStream(request.prompt)?.mapNotNull { it.text } ?: emptyFlow()
+        ensureInitialized()
+        
+        return if (request.imageData != null) {
+            val bitmap = BitmapFactory.decodeByteArray(request.imageData, 0, request.imageData.size)
+            val content = content {
+                image(bitmap)
+                text(request.prompt)
+            }
+            model?.generateContentStream(content)?.mapNotNull { it.text } ?: emptyFlow()
+        } else {
+            model?.generateContentStream(request.prompt)?.mapNotNull { it.text } ?: emptyFlow()
+        }
     }
 
     override fun cancel() { }

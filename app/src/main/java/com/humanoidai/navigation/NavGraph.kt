@@ -3,6 +3,7 @@ package com.humanoidai.navigation
 import android.util.Log
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -11,6 +12,8 @@ import com.humanoidai.ai.AIManager
 import com.humanoidai.BuildConfig
 import com.humanoidai.alerts.AlertEngine
 import com.humanoidai.alerts.NotificationHelper
+import com.humanoidai.attention.AttentionManager
+import com.humanoidai.behavior.BehaviorEngine
 import com.humanoidai.ml.FaceEnrollmentManager
 import com.humanoidai.ml.FaceRecognitionManager
 import com.humanoidai.ml.OwnerEnrollmentManager
@@ -36,11 +39,19 @@ import com.humanoidai.behavior.ui.BehaviorInspectorScreen
 import com.humanoidai.behavior.ui.BehaviorInspectorViewModel
 import com.humanoidai.communication.CommunicationIntelligenceEngine
 import com.humanoidai.companion.CompanionEngine
+import com.humanoidai.context.ContextEngine
+import com.humanoidai.context.proactive.ProactiveTriggerEngine
 import com.humanoidai.embodiment.phone.PhoneEmbodiment
 import com.humanoidai.embodiment.ui.EmbodimentInspectorScreen
 import com.humanoidai.embodiment.ui.EmbodimentInspectorViewModel
 import com.humanoidai.distributed.ui.CoordinationInspectorScreen
 import com.humanoidai.distributed.ui.CoordinationInspectorViewModel
+import com.humanoidai.embodiment.EmbodimentManager
+import com.humanoidai.hearing.SpeechRecognizerManager
+import com.humanoidai.memory.ConversationMemory
+import com.humanoidai.memory.LongTermMemory
+import com.humanoidai.ui.customization.AppearanceViewModel
+import com.humanoidai.voice.VoiceEngine
 
 @Composable
 fun NavGraph(navController: NavHostController, startDestination: String = NavRoutes.LOGIN) {
@@ -48,25 +59,27 @@ fun NavGraph(navController: NavHostController, startDestination: String = NavRou
     val appScope = rememberCoroutineScope()
 
     // Context & AI Foundation
-    val contextEngine = remember { com.humanoidai.context.ContextEngine(context, appScope) }
-    val conversationMemory = remember { com.humanoidai.memory.ConversationMemory() }
-    val voiceEngine = remember { com.humanoidai.voice.VoiceEngine(context) }
+    val contextEngine = remember { ContextEngine(context, appScope) }
+    val conversationMemory = remember { ConversationMemory() }
+    val voiceEngine = remember { VoiceEngine(context) }
     val authViewModel = remember { AuthViewModel() }
     
+    // UI Appearance Engine
+    val appearanceViewModel: AppearanceViewModel =
+        viewModel(factory = AppearanceViewModel.Factory(context))
+
     // Shared ML managers
     val enrollmentManager  = remember { FaceEnrollmentManager(context) }
     val ownerManager       = remember { OwnerEnrollmentManager(context) }
     val recognitionManager = remember { FaceRecognitionManager() }
 
-    val microphoneManager = remember { com.humanoidai.hearing.SpeechRecognizerManager(context) }
+    val microphoneManager = remember { SpeechRecognizerManager(context) }
     
-
-
     // Embodiment & Behavior (Phase 6A/5D)
 
-    val embodimentManager = remember { com.humanoidai.embodiment.EmbodimentManager() }
-    val behaviorEngine = remember { 
-        com.humanoidai.behavior.BehaviorEngine(voiceEngine, microphoneManager, embodimentManager) 
+    val embodimentManager = remember { EmbodimentManager() }
+    val behaviorEngine = remember {
+        BehaviorEngine(voiceEngine, microphoneManager, embodimentManager)
     }
 
     // ---- Layout Customization Module (Phase 1B Centralized State) ----
@@ -85,26 +98,33 @@ fun NavGraph(navController: NavHostController, startDestination: String = NavRou
         )
     }
     
-    val layoutCustomizationViewModel: LayoutCustomizationViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+    val layoutCustomizationViewModel: LayoutCustomizationViewModel = viewModel(
         factory = LayoutCustomizationViewModel.Factory(layoutCustomizationManager)
     )
 
     // Masking API Key usage (Phase 7 Security)
-    val aiApiKey = BuildConfig.GEMINI_API_KEY.ifBlank { "MOCK_KEY" }
+    val apiKeys = mapOf(
+        "gemini" to BuildConfig.GEMINI_API_KEY.ifBlank { "MOCK_KEY" },
+        "groq" to BuildConfig.GROQ_API_KEY.ifBlank { "MOCK_KEY" },
+        "openrouter" to BuildConfig.OPENROUTER_API_KEY.ifBlank { "MOCK_KEY" },
+        "cerebras" to BuildConfig.CEREBRAS_API_KEY.ifBlank { "MOCK_KEY" },
+        "mistral" to BuildConfig.MISTRAL_API_KEY.ifBlank { "MOCK_KEY" },
+        "nvidia" to BuildConfig.NVIDIA_API_KEY.ifBlank { "MOCK_KEY" }
+    )
     
     val commIntelEngine = remember { CommunicationIntelligenceEngine(context) }
 
-    val aiManager = remember { AIManager(context, aiApiKey, contextEngine, conversationMemory, voiceEngine, behaviorEngine, commIntelEngine) }
+    val aiManager = remember { AIManager(context, apiKeys, contextEngine, conversationMemory, voiceEngine, behaviorEngine, commIntelEngine, settings = appearanceViewModel.settings) }
     
     LaunchedEffect(aiManager) {
         commIntelEngine.setAIManager(aiManager)
     }
 
-    val attentionManager = remember { com.humanoidai.attention.AttentionManager() }
+    val attentionManager = remember { AttentionManager() }
 
     // Proactive AI (CEA v1.4 Step 5)
-    val proactiveTriggerEngine = remember { 
-        com.humanoidai.context.proactive.ProactiveTriggerEngine(contextEngine, voiceEngine, aiManager, appScope) 
+    val proactiveTriggerEngine = remember {
+        ProactiveTriggerEngine(contextEngine, voiceEngine, aiManager, appScope)
     }
 
     val alertEngine = remember {
@@ -121,7 +141,7 @@ fun NavGraph(navController: NavHostController, startDestination: String = NavRou
                 // Path B Integration: Persist Alert to Long Term Memory
                 appScope.launch {
                     try {
-                        com.humanoidai.memory.LongTermMemory.getInstance(context).logAlert(
+                        LongTermMemory.getInstance(context).logAlert(
                             alertType = alert.type.name,
                             priority = alert.priority.name,
                             contactName = alert.personName,
@@ -131,7 +151,7 @@ fun NavGraph(navController: NavHostController, startDestination: String = NavRou
                             )
                         )
                     } catch (e: Exception) {
-                        android.util.Log.e("NavGraph", "Alert persistence failure: ${e.message}")
+                        Log.e("NavGraph", "Alert persistence failure: ${e.message}")
                     }
                 }
             }
@@ -164,10 +184,6 @@ fun NavGraph(navController: NavHostController, startDestination: String = NavRou
         )
     }
 
-    // UI Appearance Engine
-    val appearanceViewModel: com.humanoidai.ui.customization.AppearanceViewModel = 
-        androidx.lifecycle.viewmodel.compose.viewModel(factory = com.humanoidai.ui.customization.AppearanceViewModel.Factory(context))
-
     NavHost(navController = navController, startDestination = startDestination) {
         navController.addOnDestinationChangedListener { _, destination, _ ->
             Log.i("NavGraph", "Navigated to: ${destination.route}")
@@ -180,9 +196,7 @@ fun NavGraph(navController: NavHostController, startDestination: String = NavRou
                         popUpTo(NavRoutes.LOGIN) { inclusive = true }
                     }
                 },
-                authViewModel = authViewModel,
-                microphoneManager = microphoneManager,
-                voiceEngine = voiceEngine
+                authViewModel = authViewModel
             )
         }
 
@@ -286,7 +300,8 @@ fun NavGraph(navController: NavHostController, startDestination: String = NavRou
                 recognitionManager = recognitionManager,
                 voiceEngine = voiceEngine,
                 appearanceViewModel = appearanceViewModel,
-                microphoneManager = microphoneManager
+                microphoneManager = microphoneManager,
+                aiManager = aiManager
             ) 
         }
 
@@ -301,49 +316,49 @@ fun NavGraph(navController: NavHostController, startDestination: String = NavRou
         composable(NavRoutes.ANALYTICS)    { AnalyticsScreen(navController) }
 
         composable(NavRoutes.RUNTIME_INSPECTOR) {
-            val runtimeViewModel: RuntimeInspectorViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+            val runtimeViewModel: RuntimeInspectorViewModel = viewModel(
                 factory = RuntimeInspectorViewModel.Factory(AIRuntimeManager.getInstance(context))
             )
             RuntimeInspectorScreen(runtimeViewModel)
         }
 
         composable(NavRoutes.PRIVACY_DASHBOARD) {
-            val privacyViewModel: PrivacyDashboardViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+            val privacyViewModel: PrivacyDashboardViewModel = viewModel(
                 factory = PrivacyDashboardViewModel.Factory(TrustFramework.getInstance(context))
             )
             PrivacyDashboardScreen(privacyViewModel)
         }
 
         composable(NavRoutes.SECURITY_INSPECTOR) {
-            val privacyViewModel: PrivacyDashboardViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+            val privacyViewModel: PrivacyDashboardViewModel = viewModel(
                 factory = PrivacyDashboardViewModel.Factory(TrustFramework.getInstance(context))
             )
             SecurityInspectorScreen(privacyViewModel)
         }
 
         composable(NavRoutes.GOAL_INSPECTOR) {
-            val goalViewModel: GoalInspectorViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+            val goalViewModel: GoalInspectorViewModel = viewModel(
                 factory = GoalInspectorViewModel.Factory(layoutCustomizationManager.goalManager)
             )
             GoalInspectorScreen(goalViewModel)
         }
 
         composable(NavRoutes.BEHAVIOR_INSPECTOR) {
-            val behaviorViewModel: BehaviorInspectorViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+            val behaviorViewModel: BehaviorInspectorViewModel = viewModel(
                 factory = BehaviorInspectorViewModel.Factory(layoutCustomizationManager.behaviorEngine!!)
             )
             BehaviorInspectorScreen(behaviorViewModel)
         }
 
         composable(NavRoutes.EMBODIMENT_INSPECTOR) {
-            val embodimentViewModel: EmbodimentInspectorViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+            val embodimentViewModel: EmbodimentInspectorViewModel = viewModel(
                 factory = EmbodimentInspectorViewModel.Factory(layoutCustomizationManager.embodimentManager)
             )
             EmbodimentInspectorScreen(embodimentViewModel)
         }
 
         composable(NavRoutes.COORDINATION_INSPECTOR) {
-            val coordViewModel: CoordinationInspectorViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+            val coordViewModel: CoordinationInspectorViewModel = viewModel(
                 factory = CoordinationInspectorViewModel.Factory(layoutCustomizationManager.coordinationManager)
             )
             CoordinationInspectorScreen(coordViewModel)
@@ -358,4 +373,3 @@ fun NavGraph(navController: NavHostController, startDestination: String = NavRou
         }
     }
 }
-

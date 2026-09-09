@@ -9,8 +9,13 @@ import java.util.*
 class SpeechFormatter {
 
     fun format(rawText: String, tone: SpeechTone): String {
-        // 1. Strip Markdown
-        var clean = rawText.replace(Regex("[*#_~`]"), "")
+        // 1. Strip Markdown for TTS naturalness (Rule 26)
+        var clean = rawText
+            .replace(Regex("(?m)^#+\\s+"), "") // Strip headers
+            .replace(Regex("(?m)^[-*+]\\s+"), "") // Strip bullets
+            .replace(Regex("(?m)^\\d+\\.\\s+"), "") // Strip numbers
+            .replace(Regex("[*#_~`]"), "") // Strip emphasis
+            .replace(Regex("\\[(.*?)]\\((.*?)\\)"), "$1") // Strip links but keep text
         
         // 2. Expand abbreviations and numbers for natural flow
         clean = expandNaturally(clean)
@@ -61,16 +66,23 @@ class SpeechFormatter {
     }
 
     private fun insertPauses(text: String): String {
-        return text.replace(",", ", <break time=\"200ms\"/>")
-                   .replace(".", ". <break time=\"400ms\"/>")
-                   .replace("...", "... <break time=\"600ms\"/>")
+        // Only insert pauses for punctuation that is not part of an abbreviation (e.g. A.I.)
+        // We look for punctuation followed by a space or end of string.
+        return text.replace(Regex("(?<!\\b[A-Z]),\\s?"), ", <break time=\"200ms\"/> ")
+                   .replace(Regex("(?<!\\b[A-Z])\\.\\s?"), ". <break time=\"400ms\"/> ")
+                   .replace("...", "... <break time=\"600ms\"/> ")
     }
 
     private fun expandNaturally(text: String): String {
-        // Example expansions
+        // Enhanced expansions for professional persona (Rule 28)
         return text.replace("AI", "A.I.")
+                   .replace("STT", "S.T.T.")
+                   .replace("TTS", "T.T.S.")
+                   .replace("ARMSUN", "Arm-sun")
                    .replace("etc.", "et cetera")
                    .replace(Regex("(\\d+)%"), "$1 percent")
-                   .replace(Regex("(\\d+)m"), "$1 meters")
+                   .replace(Regex("(\\d+)m "), "$1 meters ")
+                   .replace(Regex("(\\d+)km"), "$1 kilometers")
+                   .replace(Regex("(\\d+)kg"), "$1 kilograms")
     }
 }

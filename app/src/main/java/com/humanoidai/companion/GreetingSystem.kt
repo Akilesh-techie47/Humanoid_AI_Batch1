@@ -21,6 +21,6 @@ class GreetingSystem(private val ownerManager: OwnerEnrollmentManager) {
             else -> "Good evening"
         }
 
-        return "$timeBasedGreeting, $ownerName. Humanoid AI is now active and monitoring your environment."
+        return "$timeBasedGreeting, $ownerName. Aura 360 is now active and monitoring your environment."
     }
 }

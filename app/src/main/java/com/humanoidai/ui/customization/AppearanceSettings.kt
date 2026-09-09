@@ -14,22 +14,22 @@ data class AppearanceSettings(
     val uiScale: UIScale = UIScale.MEDIUM,
     
     // ── Theme ────────────────────────────────────────────────────────────────
-    val themeId: String = "t1", // t1..t10 — the 10 camera-home visual personalities
-    val colorTheme: String = "core_monolith", // legacy, superseded by themeId
-    val accentColor: Long = 0xFFFFB300,
-    val backgroundOpacity: Float = 0.95f,
-    val cardTransparency: Float = 0.5f,
-    val glassBlurStrength: Dp = 12.dp,
-    val cornerRadius: Dp = 20.dp,
-    val hudGlowIntensity: Float = 0.8f,
-    val glowEnabled: Boolean = true,
-    val maxRoi: Int = 3,
+    val themeId: String = "t8", // Changed to t8 (Pure Modern) as default
+    val colorTheme: String = "monochrome",
+    val accentColor: Long = 0xFFFFFFFF,
+    val backgroundOpacity: Float = 0.98f,
+    val cardTransparency: Float = 0.3f,
+    val glassBlurStrength: Dp = 16.dp,
+    val cornerRadius: Dp = 8.dp, // Sharper, cleaner corners as requested
+    val hudGlowIntensity: Float = 0.4f,
+    val glowEnabled: Boolean = false, // Less glow for premium feel
+    val maxRoi: Int = 4,
     
     // ── Structural Geometry (New v1.6) ──────────────────────────────────────
-    val hudStructure: HUDStructure = HUDStructure.TOP_APERTURE, // TOP_APERTURE, SIDE_SPLIT, CORNER_TACTICAL, BOTTOM_FOCUS, CENTRAL_HUB, MINIMAL_FLOATING, DATA_STACK, SYMMETRIC_GRID
+    val hudStructure: HUDStructure = HUDStructure.SYMMETRIC_GRID,
     
     // ── HUD Components ───────────────────────────────────────────────────────
-    val showGrid: Boolean = true,
+    val showGrid: Boolean = false,
     val showRadar: Boolean = true,
     val showHeatmap: Boolean = false,
     val showRoiBox: Boolean = true,
@@ -45,8 +45,24 @@ data class AppearanceSettings(
     // ── Animations ───────────────────────────────────────────────────────────
     val animationProfile: AnimationProfile = AnimationProfile.BALANCED,
     val cameraScanAnim: Boolean = true,
-    val radarSweepEnabled: Boolean = true
+    val radarSweepEnabled: Boolean = true,
+
+    // ── Theme Engine (v1.7) ────────────────────────────────────────────────
+    val isDarkMode: Boolean = true,
+    val masterPassword: String? = null,
+
+    // ── AI Engine (Phase 2 & 3) ──────────────────────────────────────────────
+    val aiMode: AIMode = AIMode.AUTOMATIC,
+    val ollamaEndpoint: String = "http://192.168.43.217:11434",
+    val ollamaModel: String = "phi:latest",
+    val groqModel: String = "openai/gpt-oss-20b",
+    val openrouterModel: String = "google/gemini-flash-1.5",
+    val cloudPriority: List<String> = listOf("ollama-local", "groq-cloud", "gemini-1.5-flash")
 )
+
+enum class AIMode {
+    AUTOMATIC, LOCAL_ONLY, CLOUD_ONLY
+}
 
 enum class UIScale(val factor: Float) {
     SMALL(0.85f), MEDIUM(1.0f), LARGE(1.2f)

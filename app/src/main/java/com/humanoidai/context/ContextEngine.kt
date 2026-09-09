@@ -5,7 +5,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
 import com.humanoidai.context.model.*
-import com.humanoidai.memory.database.HumanoidDatabase
+import com.humanoidai.memory.database.Aura360Database
 import com.humanoidai.memory.entities.ContextLogEntity
 import com.humanoidai.vision.DetectedPerson
 import kotlinx.coroutines.CoroutineScope
@@ -26,7 +26,7 @@ class ContextEngine(
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default)
 ) {
 
-    private val db = HumanoidDatabase.getInstance(context)
+    private val db = Aura360Database.getInstance(context)
 
     // ── CEA v1.4 State ───────────────────────────────────────────────────────
     

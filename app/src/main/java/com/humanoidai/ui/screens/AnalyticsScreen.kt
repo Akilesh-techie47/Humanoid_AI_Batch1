@@ -27,6 +27,8 @@ import com.humanoidai.ui.components.SidePanelDrawer
 import com.humanoidai.ui.theme.*
 import kotlinx.coroutines.launch
 
+import com.humanoidai.ui.components.ArmsunFooter
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AnalyticsScreen(navController: NavController) {
@@ -51,7 +53,7 @@ fun AnalyticsScreen(navController: NavController) {
         drawerState = drawerState
     ) {
         Scaffold(
-            containerColor = BackgroundDark,
+            containerColor = MaterialTheme.colorScheme.background,
             topBar = {
                 Row(
                 modifier = Modifier
@@ -67,94 +69,103 @@ fun AnalyticsScreen(navController: NavController) {
                     },
                     modifier = Modifier
                         .size(44.dp)
-                        .clip(CircleShape)
-                        .background(SurfaceDark.copy(alpha = 0.4f))
-                        .border(1.dp, Color.White.copy(alpha = 0.05f), CircleShape)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.surface)
+                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
                 ) {
-                    Icon(Icons.Default.Menu, "Menu", tint = Color.White, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Default.Menu, "Menu", tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
                 }
                 
                 Spacer(Modifier.width(16.dp))
                 
-                Text("SECURITY ANALYTICS", fontSize = 15.sp, fontWeight = FontWeight.Black, color = AccentCyan, fontFamily = FontFamily.Monospace, letterSpacing = 1.sp)
+                Text(
+                    "SECURITY ANALYTICS", 
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold, 
+                    color = MaterialTheme.colorScheme.primary, 
+                    letterSpacing = 1.sp
+                )
             }
         }
     ) { padding ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp)
-            ) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    SummaryCard("${summary?.totalDetectionsToday ?: 0}", "Today's Detections", Icons.Default.Person, AccentCyan, Modifier.weight(1f))
-                    SummaryCard("${summary?.totalAlertsToday ?: 0}", "Today's Alerts", Icons.Default.Notifications, Color(0xFFFF5C5C), Modifier.weight(1f))
-                }
-                Spacer(modifier = Modifier.height(10.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    SummaryCard("${summary?.registeredUserCount ?: 0}", "Total Enrolled", Icons.Default.CheckCircle, Color(0xFF66BB6A), Modifier.weight(1f))
-                    SummaryCard("Active", "System State", Icons.Default.SmartToy, Color(0xFFFFA726), Modifier.weight(1f))
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-                Text("Weekly Detections", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Box(
+            Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+                Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .background(SurfaceDark, RoundedCornerShape(12.dp))
-                        .padding(16.dp)
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp)
                 ) {
-                    Row(
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        SummaryCard("${summary?.totalDetectionsToday ?: 0}", "Today's Detections", Icons.Default.Person, MaterialTheme.colorScheme.primary, Modifier.weight(1f))
+                        SummaryCard("${summary?.totalAlertsToday ?: 0}", "Today's Alerts", Icons.Default.Notifications, ErrorRed, Modifier.weight(1f))
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        SummaryCard("${summary?.registeredUserCount ?: 0}", "Total Enrolled", Icons.Default.CheckCircle, SuccessGreen, Modifier.weight(1f))
+                        SummaryCard("Active", "System State", Icons.Default.SmartToy, WarningOrange, Modifier.weight(1f))
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Text("Weekly Detections", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onBackground)
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(120.dp),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                        verticalAlignment = Alignment.Bottom
+                            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
+                            .padding(16.dp)
                     ) {
-                        weeklyDetections.forEachIndexed { index, value ->
-                            val barHeightFraction = value / maxVal
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Bottom,
-                                modifier = Modifier.fillMaxHeight()
-                            ) {
-                                Text(value.toString(), fontSize = 10.sp, color = TextSecondary)
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .width(28.dp)
-                                        .fillMaxHeight(barHeightFraction)
-                                        .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
-                                        .background(AccentCyan.copy(alpha = 0.8f))
-                                )
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Text(days[index], fontSize = 11.sp, color = TextSecondary)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(120.dp),
+                            horizontalArrangement = Arrangement.SpaceEvenly,
+                            verticalAlignment = Alignment.Bottom
+                        ) {
+                            weeklyDetections.forEachIndexed { index, value ->
+                                val barHeightFraction = value / maxVal
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Bottom,
+                                    modifier = Modifier.fillMaxHeight()
+                                ) {
+                                    Text(value.toString(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Box(
+                                        modifier = Modifier
+                                            .width(28.dp)
+                                            .fillMaxHeight(barHeightFraction)
+                                            .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.8f))
+                                    )
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text(days[index], style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
                             }
                         }
                     }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Text("Detection Breakdown", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onBackground)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    BreakdownRow("Known Persons", 28, 36, MaterialTheme.colorScheme.primary)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    BreakdownRow("Unknown Persons", 8, 36, ErrorRed)
+
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Text("Alert Breakdown", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onBackground)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    BreakdownRow("High Severity", 3, 8, ErrorRed)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    BreakdownRow("Medium Severity", 2, 8, WarningOrange)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    BreakdownRow("Low Severity", 3, 8, SuccessGreen)
+
+                    Spacer(modifier = Modifier.height(64.dp))
                 }
-
-                Spacer(modifier = Modifier.height(24.dp))
-                Text("Detection Breakdown", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
-                Spacer(modifier = Modifier.height(12.dp))
-                BreakdownRow("Known Persons", 28, 36, AccentCyan)
-                Spacer(modifier = Modifier.height(8.dp))
-                BreakdownRow("Unknown Persons", 8, 36, Color(0xFFFF5C5C))
-
-                Spacer(modifier = Modifier.height(24.dp))
-                Text("Alert Breakdown", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
-                Spacer(modifier = Modifier.height(12.dp))
-                BreakdownRow("High Severity", 3, 8, Color(0xFFFF5C5C))
-                Spacer(modifier = Modifier.height(8.dp))
-                BreakdownRow("Medium Severity", 2, 8, Color(0xFFFFA726))
-                Spacer(modifier = Modifier.height(8.dp))
-                BreakdownRow("Low Severity", 3, 8, Color(0xFF66BB6A))
-
-                Spacer(modifier = Modifier.height(32.dp))
+                
+                ArmsunFooter(modifier = Modifier.align(Alignment.BottomCenter))
             }
         }
     }
@@ -171,8 +182,8 @@ private fun SummaryCard(
     Surface(
         modifier = modifier.padding(vertical = 4.dp),
         shape = RoundedCornerShape(16.dp),
-        color = SurfaceDark.copy(alpha = 0.4f),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.4f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -188,8 +199,8 @@ private fun SummaryCard(
                 Icon(icon, null, tint = color, modifier = Modifier.size(18.dp))
             }
             Spacer(modifier = Modifier.height(12.dp))
-            Text(value, fontSize = 24.sp, fontWeight = FontWeight.Black, color = Color.White)
-            Text(label.uppercase(), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = TextSecondary, letterSpacing = 1.sp)
+            Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onSurface)
+            Text(label.uppercase(), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant, letterSpacing = 1.sp)
         }
     }
 }
@@ -204,13 +215,13 @@ private fun BreakdownRow(label: String, value: Int, total: Int, color: Color) {
             .fillMaxWidth()
             .padding(vertical = 4.dp),
         shape = RoundedCornerShape(12.dp),
-        color = SurfaceDark.copy(alpha = 0.3f),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.02f))
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.3f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(label, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = Color.White.copy(alpha = 0.8f))
-                Text("$value ($percent%)", fontSize = 12.sp, color = color, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f))
+                Text("$value ($percent%)", style = MaterialTheme.typography.bodySmall, color = color, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
             }
             Spacer(modifier = Modifier.height(10.dp))
             Box(
@@ -218,7 +229,7 @@ private fun BreakdownRow(label: String, value: Int, total: Int, color: Color) {
                     .fillMaxWidth()
                     .height(6.dp)
                     .clip(CircleShape)
-                    .background(BackgroundDark)
+                    .background(MaterialTheme.colorScheme.background)
             ) {
                 Box(
                     modifier = Modifier

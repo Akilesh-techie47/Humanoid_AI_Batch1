@@ -34,7 +34,7 @@ fun SidePanelDrawer(
         drawerState = drawerState,
         drawerContent = {
             ModalDrawerSheet(
-                drawerContainerColor = Color(0xFF0F0F1A),
+                drawerContainerColor = MaterialTheme.colorScheme.surface,
                 modifier = Modifier.width(280.dp)
             ) {
                 Column(
@@ -50,26 +50,26 @@ fun SidePanelDrawer(
                     ) {
                         Icon(
                             imageVector = Icons.Default.SmartToy,
-                            contentDescription = "Humanoid AI Logo",
-                            tint = AccentCyan,
+                            contentDescription = "Humanoid Logo",
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(32.dp)
                         )
                         Spacer(Modifier.width(12.dp))
                         Text(
                             "HUMANOID AI",
                             fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White,
+                            fontWeight = FontWeight.Black,
+                            color = MaterialTheme.colorScheme.onSurface,
                             letterSpacing = 1.sp
                         )
                     }
 
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.1f), modifier = Modifier.padding(bottom = 16.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f), modifier = Modifier.padding(bottom = 16.dp))
 
-                    // Menu Items
+                    // PRIMARY
+                    DrawerSectionHeader("PRIMARY")
                     NavItem(Icons.Default.Dashboard, "Dashboard", NavRoutes.DASHBOARD, navController, drawerState)
                     NavItem(Icons.Default.CameraAlt, "Camera Home", NavRoutes.ENVIRONMENT, navController, drawerState)
-                    
                     NavItem(Icons.Default.Notifications, "Alerts", NavRoutes.ALERTS, navController, drawerState, badge = unreadCount)
                     NavItem(Icons.Default.AutoAwesome, "AI Assistant", NavRoutes.ASSISTANT, navController, drawerState)
                     NavItem(Icons.Default.Forum, "Communication Intel", NavRoutes.COMMUNICATION_ACCESS, navController, drawerState)
@@ -78,29 +78,45 @@ fun SidePanelDrawer(
                     NavItem(Icons.Default.PersonAdd, "Face Enrollment", NavRoutes.ENROLLMENT, navController, drawerState)
                     
                     Spacer(Modifier.height(16.dp))
-                    Text("MONITORING", fontSize = 11.sp, color = TextSecondary, modifier = Modifier.padding(start = 12.dp, bottom = 8.dp))
                     
+                    // MONITORING
+                    DrawerSectionHeader("MONITORING")
                     NavItem(Icons.Default.History, "Activity History", NavRoutes.HISTORY, navController, drawerState)
-                    NavItem(Icons.Default.BarChart, "Security Analytics", NavRoutes.ANALYTICS, navController, drawerState)
-                    
-                    Spacer(Modifier.height(16.dp))
-                    Text("DIAGNOSTICS", fontSize = 11.sp, color = TextSecondary, modifier = Modifier.padding(start = 12.dp, bottom = 8.dp))
-                    
-                    NavItem(Icons.Default.Memory, "Runtime Inspector", NavRoutes.RUNTIME_INSPECTOR, navController, drawerState)
-                    NavItem(Icons.Default.PrivacyTip, "Privacy Gateway", NavRoutes.PRIVACY_DASHBOARD, navController, drawerState)
-                    NavItem(Icons.Default.OutlinedFlag, "AI Goal Plan", NavRoutes.GOAL_INSPECTOR, navController, drawerState)
+                    NavItem(Icons.Default.Analytics, "Security Analytics", NavRoutes.ANALYTICS, navController, drawerState)
 
-                    Spacer(Modifier.weight(1f))
-                    
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.1f), modifier = Modifier.padding(vertical = 16.dp))
-                    
+                    Spacer(Modifier.height(16.dp))
+
+                    // DIAGNOSTICS
+                    DrawerSectionHeader("DIAGNOSTICS")
+                    NavItem(Icons.Default.Troubleshoot, "Runtime Inspector", NavRoutes.RUNTIME_INSPECTOR, navController, drawerState)
+                    NavItem(Icons.Default.PrivacyTip, "Privacy Gateway", NavRoutes.PRIVACY_DASHBOARD, navController, drawerState)
+                    NavItem(Icons.Default.TrackChanges, "AI Goal Plan", NavRoutes.GOAL_INSPECTOR, navController, drawerState)
+
+                    Spacer(Modifier.height(16.dp))
+
+                    // SETTINGS
+                    DrawerSectionHeader("SYSTEM")
                     NavItem(Icons.Default.Settings, "Settings", NavRoutes.SETTINGS, navController, drawerState)
+
+                    Spacer(Modifier.height(32.dp))
                 }
             }
         }
     ) {
         content()
     }
+}
+
+@Composable
+private fun DrawerSectionHeader(title: String) {
+    Text(
+        title, 
+        fontSize = 10.sp, 
+        fontWeight = FontWeight.Bold,
+        color = TextMuted, 
+        modifier = Modifier.padding(start = 12.dp, bottom = 8.dp),
+        letterSpacing = 1.sp
+    )
 }
 
 @Composable
@@ -117,7 +133,7 @@ private fun NavItem(
     val haptic = LocalHapticFeedback.current
     
     NavigationDrawerItem(
-        label = { Text(label, fontSize = 14.sp) },
+        label = { Text(label, fontSize = 14.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
         selected = isSelected,
         onClick = {
             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -140,11 +156,11 @@ private fun NavItem(
         },
         colors = NavigationDrawerItemDefaults.colors(
             unselectedContainerColor = Color.Transparent,
-            selectedContainerColor = AccentCyan.copy(alpha = 0.15f),
-            unselectedIconColor = TextSecondary,
-            selectedIconColor = AccentCyan,
-            unselectedTextColor = TextSecondary,
-            selectedTextColor = Color.White
+            selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            selectedIconColor = MaterialTheme.colorScheme.primary,
+            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            selectedTextColor = MaterialTheme.colorScheme.onSurface
         ),
         modifier = Modifier.padding(vertical = 2.dp)
     )

@@ -22,14 +22,16 @@ object PromptBuilder {
     """
 
     private const val CONVERSATIONAL_CONSTRAINT = """
-        - BREVITY: Respond naturally. For simple greetings or facts, be concise. For complex questions or educational topics, provide detailed and comprehensive explanations. Maintain conversational continuity.
+        - BREVITY: Be concise and direct for spoken interaction. Avoid long introductory phrases like "Certainly, I would be delighted to...".
+        - VOICE-FRIENDLY: Use natural spoken language. If asked a simple question, give a short, helpful answer. Only provide long explanations if explicitly requested or for complex topics.
+        - STYLE: Act like a high-end AI assistant. Precise and immediate.
     """
 
     fun build(
         context: CurrentContext,
         history: String,
         userQuestion: String,
-        aiName: String = "Humanoid",
+        aiName: String = "Aura 360",
         isProactive: Boolean = false
     ): String {
         val instruction = SYSTEM_INSTRUCTION_BASE

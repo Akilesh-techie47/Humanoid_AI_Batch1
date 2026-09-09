@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicNone
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -48,12 +49,7 @@ fun CameraHomeHud(
     detectedPersons: List<DetectedPerson>,
     ownerName: String,
     isListening: Boolean,
-    inputText: String,
-    onInputChanged: (String) -> Unit,
-    onSend: () -> Unit,
     onMicToggle: () -> Unit,
-    onMenu: () -> Unit,
-    onSwitchCamera: () -> Unit,
     onAddRoi: () -> Unit,
     previewView: (PreviewView) -> Unit,
     timeText: String = "09:41",
@@ -135,14 +131,13 @@ fun CameraHomeHud(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    timeText, color = theme.text, fontSize = 11.sp,
-                    fontFamily = if (theme.monospace) FontFamily.Monospace else FontFamily.Default,
-                    fontWeight = FontWeight.Medium
+                    timeText, color = theme.text, 
+                    style = MaterialTheme.typography.labelSmall
                 )
                 Text(
-                    statusText, color = theme.text, fontSize = 10.sp,
-                    fontFamily = if (theme.monospace) FontFamily.Monospace else FontFamily.Default,
-                    letterSpacing = 0.8.sp, fontWeight = FontWeight.SemiBold
+                    statusText, color = theme.text, 
+                    style = MaterialTheme.typography.labelSmall,
+                    letterSpacing = 1.sp, fontWeight = FontWeight.Bold
                 )
             }
 
@@ -150,13 +145,12 @@ fun CameraHomeHud(
                 "$totalInFrame PEOPLE IN FRAME",
                 modifier = Modifier.fillMaxWidth(),
                 textAlign = TextAlign.Center,
-                color = theme.text.copy(alpha = 0.95f),
-                fontSize = 10.sp,
-                fontFamily = if (theme.monospace) FontFamily.Monospace else FontFamily.Default,
-                letterSpacing = 0.6.sp
+                color = theme.text.copy(alpha = 0.8f),
+                style = MaterialTheme.typography.labelSmall,
+                letterSpacing = 0.8.sp
             )
 
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(16.dp))
 
             // Primary ROI
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -164,24 +158,23 @@ fun CameraHomeHud(
                     theme = theme,
                     pulse = roiPulse,
                     previewView = previewView,
-                    roiSize = 76.dp
+                    roiSize = 100.dp
                 )
             }
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(12.dp))
 
             Text(
-                "${ownerName.uppercase()} · OWNER",
+                ownerName.uppercase(),
                 modifier = Modifier.fillMaxWidth(),
                 textAlign = TextAlign.Center,
                 color = theme.text,
-                fontSize = 11.sp,
+                style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                letterSpacing = 0.5.sp,
-                fontFamily = if (theme.monospace) FontFamily.Monospace else FontFamily.Default
+                letterSpacing = 1.sp
             )
 
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(16.dp))
 
             Text(
                 "OTHERS DETECTED (${others.size})",
@@ -199,7 +192,6 @@ fun CameraHomeHud(
                 val cfg = gridConfig(others.size)
                 val cols = cfg.first
                 val ring = cfg.second
-                val fontScale = cfg.third
 
                 Column(
                     modifier = Modifier
@@ -222,8 +214,7 @@ fun CameraHomeHud(
                                     GuestChip(
                                         person = person,
                                         theme = theme,
-                                        ringSize = ring,
-                                        fontScale = fontScale
+                                        ringSize = ring
                                     )
                                 }
                             }
@@ -243,70 +234,60 @@ fun CameraHomeHud(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 14.dp)
-                    .height(36.dp)
-                    .clip(RoundedCornerShape(10.dp))
+                    .height(44.dp)
+                    .clip(RoundedCornerShape(12.dp))
                     .background(theme.panelBg)
-                    .border(1.dp, theme.panelBorder, RoundedCornerShape(10.dp))
+                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
                     .clickable { onAddRoi() }
-                    .padding(horizontal = 12.dp),
+                    .padding(horizontal = 16.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        "$knownCount known · $unknownCount unknown",
+                        "$knownCount known · $unknownCount unknown".uppercase(),
                         color = theme.panelText,
-                        fontSize = 10.sp,
-                        fontFamily = if (theme.monospace) FontFamily.Monospace else FontFamily.Default
+                        style = MaterialTheme.typography.labelSmall,
+                        letterSpacing = 1.sp
                     )
                     Text(
-                        "+ ROI", color = theme.panelText, fontSize = 10.sp, fontWeight = FontWeight.Bold,
-                        fontFamily = if (theme.monospace) FontFamily.Monospace else FontFamily.Default,
-                        modifier = Modifier.clickable { onAddRoi() }
+                        "+ ROI", color = MaterialTheme.colorScheme.primary, 
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
 
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(12.dp))
 
             // Chat bar
-            val chatShape = RoundedCornerShape(22.dp)
+            val chatShape = RoundedCornerShape(26.dp)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 14.dp)
                     .navigationBarsPadding()
-                    .padding(bottom = 10.dp)
-                    .height(42.dp)
+                    .padding(bottom = 12.dp)
+                    .height(52.dp)
                     .clip(chatShape)
-                    .background(
-                        if (theme.chatFilled) theme.chatBg
-                        else theme.chatBg
-                    )
-                    .then(
-                        if (!theme.chatFilled) Modifier.border(1.dp, theme.panelBorder, chatShape) else Modifier
-                    )
+                    .background(MaterialTheme.colorScheme.surface)
+                    .border(1.dp, MaterialTheme.colorScheme.outline, chatShape)
                     .clickable { onMicToggle() }
-                    .padding(horizontal = 14.dp),
+                    .padding(horizontal = 18.dp),
                 contentAlignment = Alignment.CenterStart
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier
-                            .size(8.dp)
+                            .size(10.dp)
                             .clip(CircleShape)
                             .background(theme.micColor.copy(alpha = if (isListening) micPulse else 1f))
-                            .then(
-                                if (theme.roiGlow && isListening) Modifier.drawBehind {
-                                    drawCircle(theme.micColor.copy(alpha = 0.18f * micPulse), radius = 14.dp.toPx())
-                                } else Modifier
-                            )
                     )
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(12.dp))
                     Text(
-                        if (isListening) "Listening..." else "Listening...",
+                        if (isListening) "LISTENING..." else "TAP TO SPEAK",
                         color = theme.chatText,
-                        fontSize = 11.sp,
-                        fontFamily = if (theme.monospace) FontFamily.Monospace else FontFamily.Default
+                        style = MaterialTheme.typography.labelMedium,
+                        letterSpacing = 1.sp
                     )
                 }
             }
@@ -403,8 +384,7 @@ private fun PrimaryRoi(
 private fun GuestChip(
     person: DetectedPerson,
     theme: HudTheme,
-    ringSize: Dp,
-    fontScale: Float
+    ringSize: Dp
 ) {
     val isUnknown = person.name == "UNKNOWN" || person.name == "Unknown"
     val ringColor = if (isUnknown) theme.unknownColor else theme.accent
@@ -474,14 +454,13 @@ private fun GuestChip(
         Text(
             text = if (isUnknown) "Unknown" else person.name,
             color = if (isUnknown) theme.chipText.copy(alpha = 0.9f) else theme.chipText,
-            fontSize = fontScale.sp,
-            fontFamily = if (theme.monospace) FontFamily.Monospace else FontFamily.Default,
+            style = MaterialTheme.typography.labelMedium,
             maxLines = 1, textAlign = TextAlign.Center
         )
         Text(
             text = String.format(java.util.Locale.getDefault(), "%.2f", person.confidence),
             color = theme.chipText.copy(alpha = 0.75f),
-            fontSize = (fontScale - 1.2f).coerceAtLeast(6f).sp,
+            style = MaterialTheme.typography.labelSmall,
             fontFamily = FontFamily.Monospace
         )
     }

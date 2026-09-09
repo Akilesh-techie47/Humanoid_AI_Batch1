@@ -6,6 +6,7 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -35,6 +36,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.viewinterop.AndroidView
 import com.humanoidai.ai.ChatMessage
 import com.humanoidai.companion.CompanionState
@@ -98,7 +100,11 @@ fun HUDRenderer(
     val isSpeaking = companionState == CompanionState.SPEAKING
     val isListening = companionState == CompanionState.LISTENING
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .windowInsetsPadding(WindowInsets.safeDrawing) // P0: Ensure safe areas
+    ) {
         // Phase 8: Static Background Elements
         if (settings.showGrid) {
             HudGridOverlay(accent = Color(settings.accentColor))
@@ -119,57 +125,66 @@ fun HUDRenderer(
                 else -> Alignment.Center
             }
 
+            // P0: Structural Separation Logic
+            val topPadding = if (widget.anchor == WidgetAnchor.TOP_CENTER && widget.id != HUDComponentRegistry.STATUS_BAR) {
+                12.dp
+            } else {
+                0.dp
+            }
+
             AnimatedVisibility(
                 visible = widget.isVisible,
                 enter = fadeIn(tween(400)) + scaleIn(tween(400, easing = FastOutSlowInEasing), initialScale = 0.9f),
                 exit = fadeOut(tween(300)) + scaleOut(tween(300), targetScale = 0.9f),
                 modifier = Modifier
                     .align(alignment)
-                    .padding(16.dp)
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .padding(top = topPadding)
                     .offset(x = widget.offsetX, y = widget.offsetY)
+                    .zIndex(widget.priority.toFloat())
                     .graphicsLayer {
                         alpha = widget.alpha
                         scaleX = widget.scale
                         scaleY = widget.scale
                     }
             ) {
-                when (widget.id) {
-                    HUDComponentRegistry.CAMERA -> {
-                        CameraAperture(
-                            size = widget.width,
-                            preset = layoutPreset,
-                            preview = previewView,
-                            scale = scale * widget.scale,
-                            accent = Color(settings.accentColor),
-                            glowEnabled = settings.glowEnabled,
-                            isThinking = isThinking,
-                            isSpeaking = isSpeaking
-                        )
-                    }
-
-                    HUDComponentRegistry.PRIMARY_ROI -> {
-                        if (settings.showRoiBox) {
-                            PrimaryRoiOverlay(
-                                person = detectedPersons.firstOrNull(),
-                                settings = settings,
-                                scale = scale * widget.scale
-                            )
-                        }
-                    }
-                    HUDComponentRegistry.STATUS_BAR -> {
-                        if (settings.showAiStatus) {
-                            HudTopBar(
-                                settings = settings,
-                                status = status,
+                Box(modifier = Modifier.animateContentSize()) {
+                    when (widget.id) {
+                        HUDComponentRegistry.CAMERA -> {
+                            CameraAperture(
+                                size = widget.width.coerceAtMost(320.dp),
+                                preset = layoutPreset,
+                                preview = previewView,
+                                scale = scale * widget.scale,
+                                accent = Color(settings.accentColor),
+                                glowEnabled = settings.glowEnabled,
                                 isThinking = isThinking,
-                                onMenu = onMenu,
-                                onSwitchCamera = onSwitchCamera,
-                                onSettings = { onNavigate(NavRoutes.SETTINGS) }
+                                isSpeaking = isSpeaking
                             )
                         }
-                    }
-                    HUDComponentRegistry.ASSISTANT -> {
-                        Box(modifier = Modifier.animateContentSize()) {
+
+                        HUDComponentRegistry.PRIMARY_ROI -> {
+                            if (settings.showRoiBox) {
+                                PrimaryRoiOverlay(
+                                    person = detectedPersons.firstOrNull(),
+                                    settings = settings,
+                                    scale = scale * widget.scale
+                                )
+                            }
+                        }
+                        HUDComponentRegistry.STATUS_BAR -> {
+                            if (settings.showAiStatus) {
+                                HudTopBar(
+                                    settings = settings,
+                                    status = status,
+                                    isThinking = isThinking,
+                                    onMenu = onMenu,
+                                    onSwitchCamera = onSwitchCamera,
+                                    onSettings = { onNavigate(NavRoutes.SETTINGS) }
+                                )
+                            }
+                        }
+                        HUDComponentRegistry.ASSISTANT -> {
                             SystemControlBar(
                                 settings = settings,
                                 inputText = inputText,
@@ -183,54 +198,48 @@ fun HUDRenderer(
                                 noise = noise
                             )
                         }
-                    }
-                    HUDComponentRegistry.RADAR -> {
-                        if (settings.showRadar) {
-                            Box(modifier = Modifier.graphicsLayer {
-                                rotationZ = if (audioState.sector != CompassSector.UNKNOWN) 5f else 0f
-                            }) {
-                                AudioDirectionRadar(state = audioState)
+                        HUDComponentRegistry.RADAR -> {
+                            if (settings.showRadar) {
+                                Box(modifier = Modifier.graphicsLayer {
+                                    rotationZ = if (audioState.sector != CompassSector.UNKNOWN) 5f else 0f
+                                }) {
+                                    AudioDirectionRadar(state = audioState)
+                                }
                             }
                         }
-                    }
-                    HUDComponentRegistry.ALERTS -> {
-                        if (settings.showAlertBanner) {
-                            AlertBanner(message = latestAlert ?: "SYSTEM STABLE", scale = scale * widget.scale)
+                        HUDComponentRegistry.ALERTS -> {
+                            if (settings.showAlertBanner) {
+                                AlertBanner(message = latestAlert ?: "SYSTEM STABLE", scale = scale * widget.scale)
+                            }
                         }
-                    }
-                    HUDComponentRegistry.FPS_COUNTER -> {
-                        if (settings.showFpsCounter) {
-                            DebugTag("STABLE", color = SuccessGreen)
+                        HUDComponentRegistry.FPS_COUNTER -> {
+                            if (settings.showFpsCounter) {
+                                DebugTag("STABLE", color = SuccessGreen)
+                            }
                         }
-                    }
-                    HUDComponentRegistry.RECORDING_INDICATOR -> {
-                        if (isListening) {
-                            RecordingIndicator(scale = scale * widget.scale)
+                        HUDComponentRegistry.RECORDING_INDICATOR -> {
+                            if (isListening) {
+                                RecordingIndicator(scale = scale * widget.scale)
+                            }
                         }
-                    }
-                    HUDComponentRegistry.STATUS_INDICATORS -> {
-                        if (settings.showSensorStatus) {
-                            SensorStatus(battery = battery, noise = noise, scale = scale * widget.scale)
+                        HUDComponentRegistry.STATUS_INDICATORS -> {
+                            if (settings.showSensorStatus) {
+                                SensorStatus(battery = battery, noise = noise, scale = scale * widget.scale)
+                            }
                         }
-                    }
-                    HUDComponentRegistry.AI_THINKING -> {
-                         // Integrated into HudTopBar (Phase 9 Cleanup)
-                    }
-                    HUDComponentRegistry.QUICK_ACTIONS -> {
-                         // Reserved for future quick action floating menu
-                    }
-                    HUDComponentRegistry.NOTIFICATIONS -> {
-                        if (settings.showLiveContext) {
-                            LiveContextSummary(scale = scale * widget.scale)
+                        HUDComponentRegistry.NOTIFICATIONS -> {
+                            if (settings.showLiveContext) {
+                                LiveContextSummary(scale = scale * widget.scale)
+                            }
                         }
-                    }
-                    HUDComponentRegistry.SECONDARY_ROI -> {
-                        FourRoiContainer(
-                            persons = detectedPersons,
-                            scale = scale * widget.scale,
-                            settings = settings,
-                            cameraSize = components.find { it.id == HUDComponentRegistry.CAMERA }?.width ?: 280.dp
-                        )
+                        HUDComponentRegistry.SECONDARY_ROI -> {
+                            FourRoiContainer(
+                                persons = detectedPersons,
+                                scale = scale * widget.scale,
+                                settings = settings,
+                                cameraSize = components.find { it.id == HUDComponentRegistry.CAMERA }?.width ?: 280.dp
+                            )
+                        }
                     }
                 }
                 
@@ -314,8 +323,6 @@ fun FourRoiContainer(
     settings: AppearanceSettings,
     cameraSize: Dp
 ) {
-    // Phase 10: Mandatory Four ROI System
-    // Arrange positions around the centered camera
     val maxRoi = 4
     val activePersons = persons.take(maxRoi)
     val accent = Color(settings.accentColor)
@@ -324,7 +331,6 @@ fun FourRoiContainer(
 
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         activePersons.forEachIndexed { index, person ->
-            // Calculate offset to place it around the camera
             val offsetX = when (index) {
                 0, 2 -> -offsetDistance
                 1, 3 -> offsetDistance
@@ -358,7 +364,6 @@ fun SidebarBlips(
     scale: Float,
     settings: AppearanceSettings
 ) {
-    // Legacy Sidebar Blips - kept for non-Hero layouts
     Column(
         verticalArrangement = Arrangement.spacedBy((12 * scale).dp),
         modifier = Modifier
@@ -382,30 +387,30 @@ fun AlertBanner(message: String, scale: Float) {
     val isStable = message.contains("STABLE", ignoreCase = true)
     val color = if (isStable) SuccessGreen else ErrorRed
     
-    // Refined High-Impact Alert
+    // P0: Compact HUD alert instead of a giant screen-blocking banner
     Surface(
-        modifier = Modifier.widthIn(max = (280 * scale).dp),
-        color = color.copy(alpha = 0.2f),
-        shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, color.copy(alpha = 0.4f))
+        modifier = Modifier.widthIn(max = (220 * scale).dp),
+        color = color.copy(alpha = 0.15f),
+        shape = RoundedCornerShape(CornerRadiusSmall),
+        border = BorderStroke(BorderWidthThin, color.copy(alpha = 0.3f))
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
         ) {
             Icon(
                 if (isStable) Icons.Default.CheckCircle else Icons.Default.Warning, 
                 null, 
                 tint = color, 
-                modifier = Modifier.size((18 * scale).dp)
+                modifier = Modifier.size((14 * scale).dp)
             )
-            Spacer(Modifier.width(10.dp))
+            Spacer(Modifier.width(8.dp))
             Text(
                 message.uppercase(), 
-                color = Color.White, 
-                fontSize = (10 * scale).sp, 
-                fontWeight = FontWeight.Black,
-                letterSpacing = 0.5.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f), 
+                fontSize = (9 * scale).sp, 
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.sp,
                 fontFamily = FontFamily.Monospace
             )
         }
@@ -414,7 +419,6 @@ fun AlertBanner(message: String, scale: Float) {
 
 @Composable
 fun SensorStatus(battery: Int, noise: Int, scale: Float) {
-    // Redundant if present in control bar, but polished for layouts where it's separate
     Column(
         horizontalAlignment = Alignment.End,
         verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -436,26 +440,28 @@ private fun StatusTag(label: String, value: String, color: Color, scale: Float) 
 
 @Composable
 fun LiveContextSummary(scale: Float) {
+    // P0: Predictable size and controlled wrapping for CES
     Surface(
-        color = SurfaceDark.copy(alpha = 0.4f),
-        shape = RoundedCornerShape(8.dp),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.05f)),
-        modifier = Modifier.width((160 * scale).dp)
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.4f),
+        shape = RoundedCornerShape(CornerRadiusMedium),
+        border = BorderStroke(BorderWidthThin, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+        modifier = Modifier.widthIn(max = (180 * scale).dp)
     ) {
-        Column(Modifier.padding(8.dp)) {
+        Column(Modifier.padding(10.dp)) {
             Text(
                 "CONTEXTUAL ANALYSIS", 
-                color = AccentCyan.copy(alpha = 0.7f), 
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f), 
                 fontSize = (8 * scale).sp, 
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 1.sp
             )
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(6.dp))
             Text(
-                "Stable / Residential / Activity High", 
-                color = Color.White.copy(alpha = 0.5f), 
+                "STABLE / RESIDENTIAL / ACTIVITY HIGH", 
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f), 
                 fontSize = (9 * scale).sp,
-                lineHeight = 12.sp
+                lineHeight = 14.sp,
+                fontFamily = FontFamily.Monospace
             )
         }
     }
@@ -506,7 +512,7 @@ fun WorkspaceDebugTag(
 }
 
 @Composable
-fun DebugTag(text: String, color: Color = AccentCyan) {
+fun DebugTag(text: String, color: Color = MaterialTheme.colorScheme.primary) {
     Text(
         text,
         color = color,
@@ -514,7 +520,7 @@ fun DebugTag(text: String, color: Color = AccentCyan) {
         fontFamily = FontFamily.Monospace,
         fontWeight = FontWeight.Bold,
         modifier = Modifier
-            .background(Color.Black.copy(alpha = 0.8f), RoundedCornerShape(4.dp))
+            .background(MaterialTheme.colorScheme.background.copy(alpha = 0.8f), RoundedCornerShape(4.dp))
             .border(1.dp, color, RoundedCornerShape(4.dp))
             .padding(horizontal = 8.dp, vertical = 4.dp)
     )
@@ -542,7 +548,7 @@ fun HUDComponentWrapper(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp) // Standard Screen Margin
+            .padding(16.dp)
     ) {
         Box(
             modifier = Modifier

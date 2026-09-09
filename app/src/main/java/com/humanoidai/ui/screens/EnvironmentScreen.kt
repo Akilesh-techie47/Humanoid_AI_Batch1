@@ -141,6 +141,7 @@ fun EnvironmentScreen(
     val messages by aiManager.getMessages().collectAsState()
     val micState by microphoneManager.state.collectAsState()
     val isListeningActual by microphoneManager.isListening.collectAsState()
+    val partialTranscript by microphoneManager.partialTranscript.collectAsState()
     
     // Interaction 2.0: Instant feedback for listening
     val isListening = isListeningActual || micState == MicState.STARTING
@@ -158,6 +159,13 @@ fun EnvironmentScreen(
 
     var inputText by remember { mutableStateOf("") }
     var detectedPersons by remember { mutableStateOf<List<DetectedPerson>>(emptyList()) }
+
+    // Interaction 2.0: Sync speech transcript to input field globally
+    LaunchedEffect(partialTranscript) {
+        if (partialTranscript.isNotEmpty()) {
+            inputText = partialTranscript
+        }
+    }
     var previewView by remember { mutableStateOf<PreviewView?>(null) }
     var lensFacing by remember { mutableIntStateOf(CameraSelector.LENS_FACING_FRONT) }
 
@@ -342,8 +350,7 @@ fun EnvironmentScreen(
         Scaffold(
             containerColor = Color.Transparent
         ) { innerPadding ->
-            // innerPadding is used to satisfy Scaffold requirement, but we use absolute positioning for HUD
-            Box(modifier = Modifier.fillMaxSize().padding(innerPadding.run { PaddingValues(0.dp) })) {
+            Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
                 HUDRenderer(
                     components = hudComponents,
                     detectedPersons = detectedPersons,
@@ -371,7 +378,7 @@ fun EnvironmentScreen(
                             microphoneManager.stopListening()
                         } else {
                             microphoneManager.startListening(
-                                onPartialResult = { inputText = it },
+                                onPartialResult = { /* Handled by LaunchedEffect globally */ },
                                 onFinalResult = { final ->
                                     when {
                                         final == "RETRY_PROMPT" -> {
@@ -388,7 +395,8 @@ fun EnvironmentScreen(
                                             }
                                         }
                                     }
-                                }
+                                },
+                                onError = { /* Handled by MicrophoneManager internally */ }
                             )
                         }
                     },
@@ -413,6 +421,8 @@ fun EnvironmentScreen(
                     debugEnabled = false,
                     companionState = companionState
                 )
+                
+                ArmsunFooter(modifier = Modifier.align(Alignment.BottomCenter))
 
             }
         }
@@ -447,7 +457,7 @@ fun HudTopBar(
             onClick = { onMenu() }, 
             modifier = Modifier.size((40 * scale).dp)
         ) {
-            Icon(Icons.Default.Menu, "Menu", tint = Color.White.copy(alpha = 0.8f), modifier = Modifier.size(20.dp))
+            Icon(Icons.Default.Menu, "Menu", tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f), modifier = Modifier.size(20.dp))
         }
         
         Spacer(Modifier.weight(1f))
@@ -455,8 +465,8 @@ fun HudTopBar(
         // Central Identity (No GlassPanel for cleaner look - Phase 10)
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                "HUMANOID AI",
-                color = Color.White,
+                "AURA 360",
+                color = MaterialTheme.colorScheme.onBackground,
                 fontWeight = FontWeight.Black,
                 fontSize = (12 * scale).sp,
                 letterSpacing = 2.sp,
@@ -464,7 +474,7 @@ fun HudTopBar(
             )
             Text(
                 if (isThinking) "THINKING..." else status,
-                color = if (isThinking) WarningOrange else accent.copy(alpha = 0.7f),
+                color = if (isThinking) accent else MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
                 fontSize = (8 * scale).sp,
                 fontWeight = FontWeight.Bold,
                 fontFamily = FontFamily.Monospace
@@ -485,7 +495,7 @@ fun HudTopBar(
                 }, 
                 modifier = Modifier.size((40 * scale).dp)
             ) {
-                Icon(Icons.Default.Cameraswitch, "Switch", tint = Color.White.copy(alpha = 0.6f), modifier = Modifier.size(18.dp))
+                Icon(Icons.Default.Cameraswitch, "Switch", tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), modifier = Modifier.size(18.dp))
             }
 
             IconButton(
@@ -495,7 +505,7 @@ fun HudTopBar(
                 }, 
                 modifier = Modifier.size((40 * scale).dp)
             ) {
-                Icon(Icons.Default.Settings, "Settings", tint = Color.White.copy(alpha = 0.6f), modifier = Modifier.size(18.dp))
+                Icon(Icons.Default.Settings, "Settings", tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), modifier = Modifier.size(18.dp))
             }
         }
     }
@@ -541,14 +551,14 @@ fun SystemControlBar(
                         ) {
                             Text(
                                 if (msg.isUser) "YOU › " else "AI  › ",
-                                color = if (msg.isUser) Color.White.copy(alpha = 0.3f) else accent.copy(alpha = 0.6f),
+                                color = if (msg.isUser) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f) else accent.copy(alpha = 0.6f),
                                 fontSize = (10 * scale).sp,
                                 fontFamily = FontFamily.Monospace,
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
                                 msg.text,
-                                color = if (msg.isUser) Color.White.copy(alpha = 0.8f) else Color.White,
+                                color = if (msg.isUser) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurface,
                                 fontSize = (11 * scale).sp,
                                 fontFamily = FontFamily.Monospace,
                                 lineHeight = 14.sp
@@ -577,10 +587,10 @@ fun SystemControlBar(
                 modifier = Modifier
                     .size((48 * scale).dp)
                     .clip(CircleShape)
-                    .background(SurfaceDark.copy(alpha = 0.4f))
-                    .border(1.dp, Color.White.copy(alpha = 0.05f), CircleShape)
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.4f))
+                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.05f), CircleShape)
             ) {
-                Icon(Icons.Default.Add, "Add Resource", tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(20.dp))
+                Icon(Icons.Default.Add, "Add Resource", tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f), modifier = Modifier.size(20.dp))
             }
             
             // Central Command Panel
@@ -598,7 +608,7 @@ fun SystemControlBar(
                         value = inputText,
                         onValueChange = onInputChanged,
                         textStyle = TextStyle(
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.onSurface,
                             fontSize = (14 * scale).sp,
                             fontFamily = FontFamily.Monospace,
                             letterSpacing = 0.5.sp
@@ -610,7 +620,7 @@ fun SystemControlBar(
                                 if (inputText.isEmpty()) {
                                     Text(
                                         "INITIALIZE COMMAND...",
-                                        color = Color.White.copy(alpha = 0.2f),
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
                                         fontSize = (11 * scale).sp,
                                         fontFamily = FontFamily.Monospace
                                     )
@@ -687,7 +697,7 @@ fun CameraAperture(
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "core_pulse")
     val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.2f,
+        initialValue = 0.3f,
         targetValue = if (isThinking || isSpeaking) 1.0f else (if (glowEnabled) 0.8f else 0.4f),
         animationSpec = infiniteRepeatable(
             animation = tween(if (isThinking) 400 else (if (isSpeaking) 800 else 1500), easing = LinearEasing),
@@ -696,49 +706,57 @@ fun CameraAperture(
         label = "alpha"
     )
     
-    val thinkingRotation by infiniteTransition.animateFloat(
+    val rotation by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
-            animation = tween(if (isThinking) 2000 else 4000, easing = LinearEasing)
+            animation = tween(if (isThinking) 2000 else (if (isSpeaking) 4000 else 6000), easing = LinearEasing)
         ),
         label = "rotation"
     )
 
     Box(contentAlignment = Alignment.Center) {
-        // Outer Prominent Ring
-        if (glowEnabled || isThinking || isSpeaking) {
+        // Enhanced Aura Ring (Phase 11 Update)
+        Box(
+            modifier = Modifier
+                .size(size + (30 * scale).dp)
+                .rotate(rotation)
+                .drawBehind {
+                    val strokeWidth = 2.dp.toPx()
+                    // Primary Arcs
+                    drawArc(
+                        color = accent,
+                        startAngle = 0f, sweepAngle = 70f, useCenter = false,
+                        style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+                    )
+                    drawArc(
+                        color = accent,
+                        startAngle = 180f, sweepAngle = 70f, useCenter = false,
+                        style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+                    )
+                    
+                    // Faint Background Ring
+                    drawCircle(
+                        color = accent.copy(alpha = 0.05f),
+                        style = Stroke(width = 1.dp.toPx())
+                    )
+                }
+        )
+
+        // Inner Pulse
+        if (glowEnabled) {
             Box(
                 modifier = Modifier
-                    .size(size + (20 * scale).dp)
-                    .then(if (isThinking || isSpeaking) Modifier.rotate(thinkingRotation) else Modifier)
+                    .size(size + (10 * scale).dp)
                     .drawBehind {
-                        if (isThinking || isSpeaking) {
-                            drawArc(
-                                color = if (isThinking) WarningOrange else accent,
-                                startAngle = 0f, sweepAngle = 90f, useCenter = false,
-                                style = Stroke(width = (if (isSpeaking) 3.dp else 2.dp).toPx(), cap = StrokeCap.Round)
-                            )
-                            drawArc(
-                                color = if (isThinking) WarningOrange else accent,
-                                startAngle = 180f, sweepAngle = 90f, useCenter = false,
-                                style = Stroke(width = (if (isSpeaking) 3.dp else 2.dp).toPx(), cap = StrokeCap.Round)
-                            )
-                        } else {
-                            drawCircle(
-                                color = accent.copy(alpha = pulseAlpha * 0.2f),
-                                radius = (size.toPx() + (20 * scale).dp.toPx()) / 2
-                            )
-                        }
+                        drawCircle(
+                            color = accent.copy(alpha = pulseAlpha * 0.15f),
+                            radius = size.toPx() / 2 + (5 * scale).dp.toPx()
+                        )
                     }
-                    .border(
-                        width = (1 * scale).dp,
-                        color = if (isThinking) WarningOrange else (if (isSpeaking) accent else accent.copy(alpha = pulseAlpha)),
-                        shape = CircleShape
-                    )
+                    .border(1.dp, accent.copy(alpha = pulseAlpha * 0.3f), CircleShape)
             )
         }
-
         
         val roiShape = when(preset.roiShape) {
             "hexagon" -> HexagonShape()
@@ -746,11 +764,10 @@ fun CameraAperture(
             else -> CircleShape
         }
         
-        Box(modifier = Modifier.size(size).clip(roiShape).border(2.dp, accent, roiShape)) {
+        Box(modifier = Modifier.size(size).clip(roiShape).border(2.dp, accent.copy(alpha = 0.8f), roiShape)) {
             AndroidView(factory = { ctx -> PreviewView(ctx).also(preview) }, modifier = Modifier.fillMaxSize())
-            // Technical metrics removed from camera center to keep vision clear (Phase 10 Cleanup)
         }
-        HudCrosshair(accent.copy(alpha = 0.4f))
+        HudCrosshair(accent.copy(alpha = 0.5f))
     }
 }
 
@@ -784,7 +801,7 @@ fun SecondaryRoiBlip(person: DetectedPerson, scale: Float, accent: Color, showCo
         Spacer(Modifier.height((4 * scale).dp))
         Text(
             text = if (person.name == "UNKNOWN") "UNKNOWN" else person.name.uppercase(),
-            color = Color.White,
+            color = MaterialTheme.colorScheme.onSurface,
             fontSize = (8 * scale).sp,
             fontWeight = FontWeight.Bold,
             maxLines = 1,
@@ -794,7 +811,7 @@ fun SecondaryRoiBlip(person: DetectedPerson, scale: Float, accent: Color, showCo
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = java.lang.String.format(Locale.getDefault(), "%.2f", person.confidence),
-                    color = TextSecondary.copy(alpha = 0.8f),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                     fontSize = (7 * scale).sp,
                     fontFamily = FontFamily.Monospace
                 )
@@ -810,7 +827,7 @@ fun SecondaryRoiBlip(person: DetectedPerson, scale: Float, accent: Color, showCo
             }
             Text(
                 text = person.distanceCategory,
-                color = if (person.distanceCategory == "NEAR") Color.Yellow else TextSecondary.copy(alpha = 0.5f),
+                color = if (person.distanceCategory == "NEAR") SuccessGreen else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                 fontSize = (6 * scale).sp,
                 fontWeight = FontWeight.Bold
             )

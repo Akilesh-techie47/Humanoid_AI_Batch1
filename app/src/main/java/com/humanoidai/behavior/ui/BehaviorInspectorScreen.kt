@@ -19,11 +19,7 @@ import com.humanoidai.behavior.CommunicationLevel
 import com.humanoidai.behavior.InteractionTurnState
 import com.humanoidai.behavior.PersonalityProfile
 import com.humanoidai.ui.theme.AccentCyan
-import com.humanoidai.ui.theme.BackgroundDark
-import com.humanoidai.ui.theme.SurfaceDark
 import com.humanoidai.ui.theme.SuccessGreen
-import com.humanoidai.ui.theme.TextPrimary
-import com.humanoidai.ui.theme.TextSecondary
 
 @Composable
 fun BehaviorInspectorScreen(viewModel: BehaviorInspectorViewModel) {
@@ -34,23 +30,23 @@ fun BehaviorInspectorScreen(viewModel: BehaviorInspectorViewModel) {
 
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = BackgroundDark
+        color = MaterialTheme.colorScheme.background
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp),
         ) {
-            Text("AI Behavior Inspector", style = MaterialTheme.typography.headlineMedium, color = TextPrimary)
+            Text("AI Behavior Inspector", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onBackground)
             Spacer(modifier = Modifier.height(16.dp))
 
             // Interaction State
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = SurfaceDark)
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 Column(Modifier.padding(16.dp)) {
-                    Text("Current Turn State", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+                    Text("Current Turn State", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground)
                     Text(
                         text = turnState.name,
                         style = MaterialTheme.typography.headlineSmall,
@@ -67,7 +63,7 @@ fun BehaviorInspectorScreen(viewModel: BehaviorInspectorViewModel) {
             Spacer(modifier = Modifier.height(16.dp))
 
             // Policies
-            Text("Communication Level", style = MaterialTheme.typography.titleSmall, color = TextPrimary)
+            Text("Communication Level", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onBackground)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 CommunicationLevel.entries.forEach { l ->
                     FilterChip(
@@ -84,7 +80,7 @@ fun BehaviorInspectorScreen(viewModel: BehaviorInspectorViewModel) {
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            Text("Personality Profile", style = MaterialTheme.typography.titleSmall, color = TextPrimary)
+            Text("Personality Profile", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onBackground)
             Row(
                 modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -106,7 +102,7 @@ fun BehaviorInspectorScreen(viewModel: BehaviorInspectorViewModel) {
 
             // History
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text("Interaction History", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+                Text("Interaction History", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground)
                 TextButton(onClick = { viewModel.clearHistory() }) {
                     Text("Clear", color = AccentCyan)
                 }
@@ -123,7 +119,7 @@ fun BehaviorInspectorScreen(viewModel: BehaviorInspectorViewModel) {
                         Text(
                             text = turn.aiResponse,
                             style = MaterialTheme.typography.bodyMedium,
-                            color = TextPrimary
+                            color = MaterialTheme.colorScheme.onBackground
                         )
                         HorizontalDivider(modifier = Modifier.padding(top = 4.dp), thickness = 0.5.dp, color = Color.White.copy(alpha = 0.1f))
                     }

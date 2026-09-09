@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -34,7 +35,7 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 /**
- * Modular high-fidelity widgets for the Humanoid AI OS.
+ * Modular high-fidelity widgets for the Aura 360° OS.
  */
 
 @Composable
@@ -207,7 +208,7 @@ fun GlassPanel(
 ) {
     Surface(
         modifier = modifier,
-        color = com.humanoidai.ui.theme.SurfaceDark.copy(alpha = settings.cardTransparency),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = settings.cardTransparency),
         shape = RoundedCornerShape(settings.cornerRadius),
         border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f))
     ) {

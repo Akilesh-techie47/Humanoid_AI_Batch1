@@ -18,11 +18,7 @@ import androidx.compose.ui.unit.dp
 import com.humanoidai.security.AiPermission
 import com.humanoidai.security.SecurityPolicyProfile
 import com.humanoidai.ui.theme.AccentCyan
-import com.humanoidai.ui.theme.BackgroundDark
 import com.humanoidai.ui.theme.SuccessGreen
-import com.humanoidai.ui.theme.SurfaceDark
-import com.humanoidai.ui.theme.TextPrimary
-import com.humanoidai.ui.theme.TextSecondary
 
 @Composable
 fun PrivacyDashboardScreen(viewModel: PrivacyDashboardViewModel) {
@@ -32,7 +28,7 @@ fun PrivacyDashboardScreen(viewModel: PrivacyDashboardViewModel) {
 
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = BackgroundDark
+        color = MaterialTheme.colorScheme.background
     ) {
         Column(
             modifier = Modifier
@@ -40,16 +36,16 @@ fun PrivacyDashboardScreen(viewModel: PrivacyDashboardViewModel) {
                 .padding(16.dp)
                 .verticalScroll(rememberScrollState())
         ) {
-            Text("Privacy Dashboard", style = MaterialTheme.typography.headlineMedium, color = TextPrimary)
+            Text("Privacy Dashboard", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onBackground)
             Spacer(Modifier.height(16.dp))
 
             // Session Info
             Card(
                 Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = SurfaceDark)
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 Column(Modifier.padding(16.dp)) {
-                    Text("AI Session Status", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+                    Text("AI Session Status", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground)
                     Spacer(Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
@@ -62,11 +58,11 @@ fun PrivacyDashboardScreen(viewModel: PrivacyDashboardViewModel) {
                             text = session?.status?.name ?: "NO ACTIVE SESSION",
                             style = MaterialTheme.typography.bodyLarge,
                             fontWeight = FontWeight.Bold,
-                            color = TextPrimary
+                            color = MaterialTheme.colorScheme.onBackground
                         )
                     }
                     session?.let {
-                        Text("ID: ${it.id}", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                        Text("ID: ${it.id}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
@@ -74,7 +70,7 @@ fun PrivacyDashboardScreen(viewModel: PrivacyDashboardViewModel) {
             Spacer(Modifier.height(16.dp))
 
             // Privacy Policy
-            Text("Security Policy", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+            Text("Security Policy", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 SecurityPolicyProfile.entries.forEach { p ->
                     FilterChip(
@@ -92,8 +88,8 @@ fun PrivacyDashboardScreen(viewModel: PrivacyDashboardViewModel) {
             Spacer(Modifier.height(16.dp))
 
             // Permissions
-            Text("Active Permissions", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
-            HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
+            Text("Active Permissions", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
             permissions.forEach { (perm, granted) ->
                 Row(
                     Modifier
@@ -102,7 +98,7 @@ fun PrivacyDashboardScreen(viewModel: PrivacyDashboardViewModel) {
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(perm.name, color = TextPrimary)
+                    Text(perm.name, color = MaterialTheme.colorScheme.onBackground)
                     Text(
                         text = if (granted) "GRANTED" else "DENIED",
                         color = if (granted) SuccessGreen else Color.Red,

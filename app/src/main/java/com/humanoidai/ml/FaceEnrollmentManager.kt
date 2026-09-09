@@ -2,7 +2,7 @@ package com.humanoidai.ml
 
 import android.content.Context
 import android.util.Log
-import com.humanoidai.memory.database.HumanoidDatabase
+import com.humanoidai.memory.database.Aura360Database
 import com.humanoidai.memory.entities.UserEntity
 import com.humanoidai.memory.entities.UserClass
 import com.humanoidai.memory.security.PrivacyVault
@@ -13,11 +13,11 @@ import kotlinx.coroutines.runBlocking
 // FaceEnrollmentManager
 // -----------------------------------------------------------------
 // Persists known face embeddings across app sessions using
-// HumanoidDatabase (Room + SQLCipher).
+// Aura360Database (Room + SQLCipher).
 // -----------------------------------------------------------------
 class FaceEnrollmentManager(context: Context) {
 
-    private val userDao = HumanoidDatabase.getInstance(context).userDao()
+    private val userDao = Aura360Database.getInstance(context).userDao()
     private val vault = PrivacyVault(context)
     private val gson = Gson()
 

@@ -12,7 +12,20 @@
           "package_name": "com.humanoidai"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "110126190014-1pmthdf5tc51qms0ruel1ssl0gh3h4ij.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.humanoidai",
+            "certificate_hash": "c585a09abfefc659600a6668ba56fa29b63d8fac"
+          }
+        },
+        {
+          "client_id": "110126190014-5tgggqb2vdd8jls8cv85quu95h0ti5h7.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyCjQnZ9fwpF2PUYF6NCOl4DE5AOogOnDuM"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "110126190014-5tgggqb2vdd8jls8cv85quu95h0ti5h7.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

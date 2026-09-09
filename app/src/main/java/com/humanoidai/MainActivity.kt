@@ -1,14 +1,16 @@
 package com.humanoidai
 
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.remember
 import androidx.core.content.edit
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.rememberNavController
-import com.humanoidai.memory.database.HumanoidDatabase
+import com.humanoidai.memory.database.Aura360Database
 import com.humanoidai.ml.FisheyeCorrector
 import com.humanoidai.navigation.NavGraph
 import com.humanoidai.navigation.NavRoutes
@@ -21,14 +23,18 @@ import com.humanoidai.security.TrustFramework
 import com.humanoidai.security.IntegrityChecker
 import com.humanoidai.security.SecurityCategory
 import com.humanoidai.security.SecurityStatus
+import com.humanoidai.ui.customization.AppearanceViewModel
 import com.humanoidai.ui.screens.AuthViewModel
-import com.humanoidai.ui.theme.HumanoidAITheme
+import com.humanoidai.ui.theme.Aura360Theme
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import com.humanoidai.runtime.SystemReadiness
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        android.util.Log.i("HumanoidMain", "MainActivity: onCreate")
+        Log.i("Aura360Main", "MainActivity: onCreate")
 
         val trust = TrustFramework.getInstance(this)
         trust.initialize()
@@ -46,17 +52,17 @@ class MainActivity : ComponentActivity() {
         
         // Initialize Runtime Manager
         lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            val trust = com.humanoidai.security.TrustFramework.getInstance(this@MainActivity)
+            val trust = TrustFramework.getInstance(this@MainActivity)
             trust.initialize()
-            com.humanoidai.runtime.SystemReadiness.markReady("TRUST")
+            SystemReadiness.markReady("TRUST")
 
-            com.humanoidai.runtime.AIRuntimeManager.getInstance(this@MainActivity).initialize()
-            com.humanoidai.runtime.SystemReadiness.markReady("RUNTIME")
+            AIRuntimeManager.getInstance(this@MainActivity).initialize()
+            SystemReadiness.markReady("RUNTIME")
 
             try {
-                com.humanoidai.ml.FisheyeCorrector.initOpenCV()
+                FisheyeCorrector.initOpenCV()
             } catch (e: Exception) {
-                android.util.Log.e("HumanoidMain", "OpenCV Load Error: ${e.message}")
+                Log.e("Aura360Main", "OpenCV Load Error: ${e.message}")
             } finally {
                 com.humanoidai.runtime.SystemReadiness.markReady("OPENCV")
             }
@@ -64,7 +70,7 @@ class MainActivity : ComponentActivity() {
             try {
                 net.sqlcipher.database.SQLiteDatabase.loadLibs(this@MainActivity)
             } catch (e: Exception) {
-                android.util.Log.e("HumanoidMain", "SQLCipher Load Error: ${e.message}")
+                Log.e("Aura360Main", "SQLCipher Load Error: ${e.message}")
             } finally {
                 com.humanoidai.runtime.SystemReadiness.markReady("SQLITE")
             }
@@ -74,7 +80,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         // Path B: Step D - Check for Crash (Dirty Shutdown)
-        val prefs = getSharedPreferences("humanoid_recovery", MODE_PRIVATE)
+        val prefs = getSharedPreferences("aura360_recovery", MODE_PRIVATE)
         val wasCleanShutdown = prefs.getBoolean("clean_shutdown", true)
         if (!wasCleanShutdown) {
             android.util.Log.w("GapDetection", "System detected a dirty shutdown (likely CRASH)")
@@ -82,7 +88,11 @@ class MainActivity : ComponentActivity() {
         prefs.edit { putBoolean("clean_shutdown", false) } // Reset for this session
 
         setContent {
-            HumanoidAITheme {
+            val appearanceViewModel: AppearanceViewModel =
+                viewModel(factory = AppearanceViewModel.Factory(this))
+            val settings by appearanceViewModel.settings.collectAsState()
+
+            Aura360Theme(isDarkMode = settings.isDarkMode) {
                 val navController = rememberNavController()
                 val authViewModel = remember { AuthViewModel() }
 
@@ -104,7 +114,7 @@ class MainActivity : ComponentActivity() {
 
         // Path B: Step C - Gap Detection on Resume
         lifecycleScope.launch {
-            val db = HumanoidDatabase.getInstance(this@MainActivity)
+            val db = Aura360Database.getInstance(this@MainActivity)
             val adapter = ContextLogTimestampAdapter(db.contextLogDao())
             val gapDetector = GapDetector(adapter)
             
@@ -148,7 +158,7 @@ class MainActivity : ComponentActivity() {
         TrustFramework.getInstance(this).sessionManager.closeSession()
         
         // Path B: Step D - Clean Shutdown Marker
-        getSharedPreferences("humanoid_recovery", MODE_PRIVATE).edit {
+        getSharedPreferences("aura360_recovery", MODE_PRIVATE).edit {
             putBoolean("clean_shutdown", true)
         }
     }

@@ -20,11 +20,7 @@ import com.humanoidai.distributed.AIInstance
 import com.humanoidai.distributed.SyncPolicy
 import com.humanoidai.embodiment.EmbodimentType
 import com.humanoidai.ui.theme.AccentCyan
-import com.humanoidai.ui.theme.BackgroundDark
-import com.humanoidai.ui.theme.SurfaceDark
 import com.humanoidai.ui.theme.SuccessGreen
-import com.humanoidai.ui.theme.TextPrimary
-import com.humanoidai.ui.theme.TextSecondary
 
 @Composable
 fun CoordinationInspectorScreen(viewModel: CoordinationInspectorViewModel) {
@@ -33,7 +29,7 @@ fun CoordinationInspectorScreen(viewModel: CoordinationInspectorViewModel) {
 
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = BackgroundDark
+        color = MaterialTheme.colorScheme.background
     ) {
         Column(
             modifier = Modifier
@@ -45,7 +41,7 @@ fun CoordinationInspectorScreen(viewModel: CoordinationInspectorViewModel) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Coordination Inspector", style = MaterialTheme.typography.headlineMedium, color = TextPrimary)
+                Text("Coordination Inspector", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onBackground)
                 IconButton(
                     onClick = {
                         viewModel.addMockInstance(AIInstance(type = EmbodimentType.ROBOT, capabilities = emptySet()))
@@ -58,7 +54,7 @@ fun CoordinationInspectorScreen(viewModel: CoordinationInspectorViewModel) {
             Spacer(Modifier.height(16.dp))
 
             // Sync Policy
-            Text("Synchronization Policy", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+            Text("Synchronization Policy", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 SyncPolicy.entries.forEach { p ->
                     FilterChip(
@@ -76,7 +72,7 @@ fun CoordinationInspectorScreen(viewModel: CoordinationInspectorViewModel) {
             Spacer(Modifier.height(16.dp))
 
             // Instances
-            Text("Connected Instances (${instances.size})", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+            Text("Connected Instances (${instances.size})", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground)
             LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
                 items(instances.values.toList()) { instance ->
                     InstanceCard(
@@ -94,19 +90,19 @@ fun InstanceCard(instance: AIInstance, isLocal: Boolean, onRemove: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isLocal) AccentCyan.copy(alpha = 0.1f) else SurfaceDark
+            containerColor = if (isLocal) AccentCyan.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surface
         ),
         border = if (isLocal) BorderStroke(1.dp, AccentCyan) else null
     ) {
         Column(Modifier.padding(12.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Hub, contentDescription = null, modifier = Modifier.size(16.dp), tint = if (isLocal) AccentCyan else TextSecondary)
+                    Icon(Icons.Default.Hub, contentDescription = null, modifier = Modifier.size(16.dp), tint = if (isLocal) AccentCyan else MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.width(8.dp))
                     Text(
                         text = if (isLocal) "LOCAL: ${instance.type}" else "REMOTE: ${instance.type}",
                         fontWeight = FontWeight.Bold,
-                        color = TextPrimary
+                        color = MaterialTheme.colorScheme.onBackground
                     )
                 }
                 if (!isLocal) {
@@ -115,13 +111,13 @@ fun InstanceCard(instance: AIInstance, isLocal: Boolean, onRemove: () -> Unit) {
                     }
                 }
             }
-            Text("ID: ${instance.id}", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+            Text("ID: ${instance.id}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             
             Spacer(Modifier.height(8.dp))
             
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Workload: ${instance.workloadPercent}%", style = MaterialTheme.typography.bodySmall, color = TextPrimary)
-                Text("Battery: ${instance.batteryLevel}%", style = MaterialTheme.typography.bodySmall, color = TextPrimary)
+                Text("Workload: ${instance.workloadPercent}%", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onBackground)
+                Text("Battery: ${instance.batteryLevel}%", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onBackground)
             }
         }
     }

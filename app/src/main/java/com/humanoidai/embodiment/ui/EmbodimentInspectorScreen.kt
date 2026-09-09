@@ -17,11 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.humanoidai.embodiment.Capability
-import com.humanoidai.ui.theme.BackgroundDark
-import com.humanoidai.ui.theme.SurfaceDark
 import com.humanoidai.ui.theme.SuccessGreen
-import com.humanoidai.ui.theme.TextPrimary
-import com.humanoidai.ui.theme.TextSecondary
 
 @Composable
 fun EmbodimentInspectorScreen(viewModel: EmbodimentInspectorViewModel) {
@@ -31,27 +27,27 @@ fun EmbodimentInspectorScreen(viewModel: EmbodimentInspectorViewModel) {
 
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = BackgroundDark
+        color = MaterialTheme.colorScheme.background
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp),
         ) {
-            Text("Embodiment Inspector", style = MaterialTheme.typography.headlineMedium, color = TextPrimary)
+            Text("Embodiment Inspector", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onBackground)
             Spacer(modifier = Modifier.height(16.dp))
 
             // Active Embodiment Info
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = SurfaceDark)
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 Column(Modifier.padding(16.dp)) {
-                    Text("Active Embodiment", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+                    Text("Active Embodiment", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground)
                     activeEmbodiment?.let {
-                        Text("ID: ${it.profile.id}", fontWeight = FontWeight.Bold, color = TextPrimary)
-                        Text("Type: ${it.profile.type}", color = TextSecondary)
-                        Text("Model: ${it.profile.model} (${it.profile.manufacturer})", color = TextSecondary)
+                        Text("ID: ${it.profile.id}", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
+                        Text("Type: ${it.profile.type}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Model: ${it.profile.model} (${it.profile.manufacturer})", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     } ?: Text("No active embodiment", color = Color.Red)
                 }
             }
@@ -59,7 +55,7 @@ fun EmbodimentInspectorScreen(viewModel: EmbodimentInspectorViewModel) {
             Spacer(modifier = Modifier.height(16.dp))
 
             // Capabilities Grid
-            Text("Hardware Capabilities", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+            Text("Hardware Capabilities", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground)
             LazyVerticalGrid(
                 columns = GridCells.Fixed(2),
                 modifier = Modifier.fillMaxWidth().height(200.dp)
@@ -77,7 +73,7 @@ fun EmbodimentInspectorScreen(viewModel: EmbodimentInspectorViewModel) {
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(Modifier.width(4.dp))
-                        Text(cap.name, style = MaterialTheme.typography.labelSmall, color = TextPrimary)
+                        Text(cap.name, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onBackground)
                     }
                 }
             }
@@ -85,17 +81,17 @@ fun EmbodimentInspectorScreen(viewModel: EmbodimentInspectorViewModel) {
             Spacer(modifier = Modifier.height(16.dp))
 
             // World State Summary
-            Text("World State", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+            Text("World State", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground)
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = SurfaceDark)
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 Column(Modifier.padding(16.dp)) {
                     worldState?.let { ws ->
-                        Text("Objects Detected: ${ws.environment.detectedObjectCount}", color = TextSecondary)
-                        Text("User Present: ${if (ws.environment.activeUserPresent) "YES" else "NO"}", color = TextSecondary)
-                        Text("Thermal Status: ${ws.environment.thermalPressure}", color = TextSecondary)
-                    } ?: Text("World state unavailable", color = TextSecondary)
+                        Text("Objects Detected: ${ws.environment.detectedObjectCount}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("User Present: ${if (ws.environment.activeUserPresent) "YES" else "NO"}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Thermal Status: ${ws.environment.thermalPressure}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    } ?: Text("World state unavailable", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }

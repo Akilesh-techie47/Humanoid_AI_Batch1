@@ -61,7 +61,7 @@ fun WithMicrophonePermission(content: @Composable () -> Unit) {
                     color = TextPrimary
                 )
                 Text(
-                    "Humanoid AI needs the microphone to recognize your unique voice profile.",
+                    "Aura 360° needs the microphone to recognize your unique voice profile.",
                     fontSize = 13.sp,
                     color = TextSecondary
                 )

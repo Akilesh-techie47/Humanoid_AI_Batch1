@@ -61,7 +61,7 @@ fun WithCameraPermission(content: @Composable () -> Unit) {
                     color = TextPrimary
                 )
                 Text(
-                    "Humanoid AI needs the camera to detect people and provide context-aware assistance.",
+                    "Aura 360° needs the camera to detect people and provide context-aware assistance.",
                     fontSize = 13.sp,
                     color = TextSecondary
                 )

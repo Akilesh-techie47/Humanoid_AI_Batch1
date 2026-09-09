@@ -13,6 +13,7 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -20,12 +21,18 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -45,6 +52,7 @@ import com.humanoidai.ml.FisheyeCorrector
 import com.humanoidai.ml.OwnerEnrollmentManager
 import com.humanoidai.vision.FrameEnhancer
 import com.humanoidai.navigation.NavRoutes
+import com.humanoidai.ui.components.ArmsunFooter
 import com.humanoidai.ui.components.WithCameraPermission
 import com.humanoidai.ui.components.WithMicrophonePermission
 import com.humanoidai.ui.theme.*
@@ -57,7 +65,7 @@ import java.util.*
 import java.util.concurrent.Executors
 import kotlin.math.abs
 
-enum class OwnerEnrollStep { WELCOME, FACE_SCANNING, VOICE_SCANNING, PROCESSING, SUCCESS }
+enum class OwnerEnrollStep { WELCOME, FACE_SCANNING, VOICE_SCANNING, PASSWORD_SETUP, PROCESSING, SUCCESS }
 enum class FacePose { FRONT, LEFT, RIGHT, UP, DOWN, NATURAL }
 
 @Composable
@@ -70,6 +78,7 @@ fun OwnerEnrollmentScreen(
 ) {
     var step by remember { mutableStateOf(OwnerEnrollStep.WELCOME) }
     var ownerName by remember { mutableStateOf("") }
+    var ownerPassword by remember { mutableStateOf("") }
     val isListening by microphoneManager.isListening.collectAsState()
 
     var currentPose by remember { mutableStateOf(FacePose.FRONT) }
@@ -90,7 +99,8 @@ fun OwnerEnrollmentScreen(
         } else {
             when(step) {
                 OwnerEnrollStep.WELCOME -> voiceEngine.speak("Welcome. Let's build your profile. Enter your name first.")
-                OwnerEnrollStep.VOICE_SCANNING -> voiceEngine.speak("Face scan complete. Now, let's record your voice. Say the phrase: Humanoid, this is my voice, three times.")
+                OwnerEnrollStep.VOICE_SCANNING -> voiceEngine.speak("Face scan complete. Now, let's record your voice. Say the phrase: Aura 360, this is my voice, three times.")
+                OwnerEnrollStep.PASSWORD_SETUP -> voiceEngine.speak("Voice registered. Finally, set a secure access password.")
                 OwnerEnrollStep.PROCESSING -> voiceEngine.speak("Fusing your biometric data.")
                 OwnerEnrollStep.SUCCESS -> voiceEngine.speak("Setup complete. Welcome, $ownerName.")
                 else -> {}
@@ -103,7 +113,7 @@ fun OwnerEnrollmentScreen(
     val capturedEmbeddings = remember { mutableListOf<FloatArray>() }
     var lastCaptureTime by remember { mutableLongStateOf(0L) }
 
-    Scaffold(containerColor = BackgroundDark) { padding ->
+    Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             AnimatedContent(
                 targetState = step,
@@ -118,13 +128,15 @@ fun OwnerEnrollmentScreen(
                         isListening = isListening,
                         onMicClick = {
                             if (isListening) microphoneManager.stopListening()
-                            else microphoneManager.startListening(onFinalResult = { ownerName = it })
+                            else microphoneManager.startListening(
+                                onFinalResult = { ownerName = it }
+                            )
                         }
                     )
                     OwnerEnrollStep.FACE_SCANNING -> FaceScanningStep(
                         faceProgress = faceProgress,
                         currentPose = currentPose,
-                        onFrameProcessed = { embedding, pose ->
+                        onFrameProcessed = { embedding, pose, isStableFrame ->
                             if (pose == currentPose) {
                                 val now = System.currentTimeMillis()
                                 if (now - lastCaptureTime > 300) {
@@ -152,12 +164,18 @@ fun OwnerEnrollmentScreen(
                         onVoiceSampleDetected = {
                             voiceCount++
                             if (voiceCount >= 3) {
-                                step = OwnerEnrollStep.PROCESSING
+                                step = OwnerEnrollStep.PASSWORD_SETUP
                             }
                         }
                     )
+                    OwnerEnrollStep.PASSWORD_SETUP -> PasswordSetupStep(
+                        password = ownerPassword,
+                        onPasswordChange = { ownerPassword = it },
+                        onComplete = { if(ownerPassword.length >= 4) step = OwnerEnrollStep.PROCESSING }
+                    )
                     OwnerEnrollStep.PROCESSING -> ProcessingStep {
                         ownerManager.enrollOwner(ownerName, capturedEmbeddings, 0.98f, voiceEnrolled = true)
+                        ownerManager.setMasterPassword(ownerPassword)
                         ownerManager.getMasterEmbedding()?.let { recognitionManager.registerFace(ownerName, it) }
                         step = OwnerEnrollStep.SUCCESS
                     }
@@ -168,6 +186,8 @@ fun OwnerEnrollmentScreen(
                     }
                 }
             }
+            
+            ArmsunFooter(modifier = Modifier.align(Alignment.BottomCenter))
         }
     }
 }
@@ -183,8 +203,19 @@ private fun StepContainer(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text(title, color = AccentCyan, fontWeight = FontWeight.Black, fontSize = 22.sp, letterSpacing = 1.sp)
-        Text(subtitle, color = TextSecondary, fontSize = 13.sp, textAlign = TextAlign.Center)
+        Text(
+            title, 
+            color = MaterialTheme.colorScheme.primary, 
+            fontWeight = FontWeight.Black, 
+            fontSize = 22.sp, 
+            letterSpacing = 1.sp
+        )
+        Text(
+            subtitle, 
+            color = MaterialTheme.colorScheme.onSurfaceVariant, 
+            fontSize = 13.sp, 
+            textAlign = TextAlign.Center
+        )
         Spacer(Modifier.height(48.dp))
         content()
     }
@@ -195,7 +226,7 @@ private fun StepContainer(
 fun FaceScanningStep(
     faceProgress: Float,
     currentPose: FacePose,
-    onFrameProcessed: (FloatArray, FacePose) -> Unit
+    onFrameProcessed: (FloatArray, FacePose, Boolean) -> Unit
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -211,6 +242,8 @@ fun FaceScanningStep(
             .build())
     }
 
+    var isCurrentlyStable by remember { mutableStateOf(false) }
+
     DisposableEffect(Unit) {
         onDispose {
             analysisExecutor.shutdown()
@@ -220,21 +253,105 @@ fun FaceScanningStep(
         }
     }
 
+    val infiniteTransition = rememberInfiniteTransition(label = "scanning")
+    val rotation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "rotation"
+    )
+
+    val scannerRotation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1200, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "scanner_rotation"
+    )
+
     StepContainer(
         title = "Face Biometric Scan",
         subtitle = "Follow the pose instructions below"
     ) {
         Box(contentAlignment = Alignment.Center) {
+            // 1. Static Outer Guide
+            Canvas(modifier = Modifier.size(360.dp)) {
+                drawCircle(
+                    color = Color.White.copy(alpha = 0.05f),
+                    style = Stroke(width = 1.dp.toPx())
+                )
+            }
+
+            // 2. Main Rotating Aura Ring (Slow)
+            Canvas(modifier = Modifier.size(340.dp).rotate(rotation)) {
+                val strokeWidth = 3.dp.toPx()
+                drawArc(
+                    color = SuccessGreen,
+                    startAngle = -90f, sweepAngle = 80f, useCenter = false,
+                    style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+                )
+                drawArc(
+                    color = SuccessGreen,
+                    startAngle = 90f, sweepAngle = 80f, useCenter = false,
+                    style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+                )
+            }
+
+            // 3. NEW: Fast Rotating "Scanning Section" (Laser Sweep)
+            Canvas(
+                modifier = Modifier
+                    .size(330.dp)
+                    .rotate(scannerRotation)
+            ) {
+                drawArc(
+                    brush = Brush.sweepGradient(
+                        0f to Color.Transparent,
+                        0.5f to SuccessGreen.copy(alpha = 0.5f),
+                        1f to SuccessGreen
+                    ),
+                    startAngle = 0f,
+                    sweepAngle = 45f,
+                    useCenter = false,
+                    style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round)
+                )
+                
+                // Add a "Lead Laser" point
+                drawCircle(
+                    color = SuccessGreen,
+                    radius = 4.dp.toPx(),
+                    center = Offset(size.width / 2, 0f) // Simplified for the sweep effect
+                )
+            }
+
             CircularProgressIndicator(
                 progress = { faceProgress },
-                modifier = Modifier.size(280.dp),
-                color = AccentCyan,
-                strokeWidth = 4.dp,
-                trackColor = Color.White.copy(alpha = 0.05f)
+                modifier = Modifier.size(360.dp),
+                color = MaterialTheme.colorScheme.primary,
+                strokeWidth = 2.dp,
+                trackColor = Color.White.copy(alpha = 0.02f)
             )
             
             WithCameraPermission {
-                Box(modifier = Modifier.size(240.dp).clip(CircleShape).border(1.dp, Color.White.copy(alpha = 0.1f), CircleShape)) {
+                Box(
+                    modifier = Modifier
+                        .size(320.dp) // Large camera round as requested
+                        .clip(CircleShape)
+                        .border(1.5.dp, Color.White.copy(alpha = 0.15f), CircleShape)
+                        .drawBehind {
+                             val step = 40.dp.toPx()
+                             for(x in 0..(size.width/step).toInt()) {
+                                 drawLine(Color.White.copy(alpha = 0.05f), Offset(x*step, 0f), Offset(x*step, size.height))
+                             }
+                             for(y in 0..(size.height/step).toInt()) {
+                                 drawLine(Color.White.copy(alpha = 0.05f), Offset(0f, y*step), Offset(size.width, y*step))
+                             }
+                        }
+                ) {
                     AndroidView(
                         factory = { ctx ->
                             PreviewView(ctx).also { pv ->
@@ -247,8 +364,9 @@ fun FaceScanningStep(
                                         .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888)
                                         .build()
                                     analysis.setAnalyzer(analysisExecutor) { image ->
-                                        processStepFrame(image, detector, embeddingHelper, fisheyeCorrector, frameEnhancer) { embedding, pose ->
-                                            onFrameProcessed(embedding, pose)
+                                        processStepFrame(image, detector, embeddingHelper, fisheyeCorrector, frameEnhancer) { embedding, pose, isStable ->
+                                            isCurrentlyStable = isStable
+                                            onFrameProcessed(embedding, pose, isStable)
                                         }
                                     }
                                     try {
@@ -262,10 +380,30 @@ fun FaceScanningStep(
                     )
                 }
             }
+
+            if (isCurrentlyStable) {
+                Surface(
+                    color = SuccessGreen.copy(alpha = 0.2f),
+                    shape = RoundedCornerShape(24.dp),
+                    border = BorderStroke(1.dp, SuccessGreen.copy(alpha = 0.5f)),
+                    modifier = Modifier.align(Alignment.TopCenter).offset(y = (-60).dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                    ) {
+                        Icon(Icons.Default.CheckCircle, null, tint = SuccessGreen, modifier = Modifier.size(14.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("STABLE DETECTED", color = SuccessGreen, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                    }
+                }
+            }
         }
         
         Spacer(Modifier.height(40.dp))
-        Text(currentPose.name, fontSize = 24.sp, fontWeight = FontWeight.Black, color = AccentCyan)
+        Text("SCANNING", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+        Spacer(Modifier.height(8.dp))
+        Text(currentPose.name, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary)
         Text(
             when(currentPose) {
                 FacePose.FRONT -> "Look straight at the camera"
@@ -275,16 +413,16 @@ fun FaceScanningStep(
                 FacePose.DOWN -> "Look slightly DOWN"
                 FacePose.NATURAL -> "Natural Expression"
             },
-            color = TextPrimary,
-            fontSize = 16.sp,
+            color = MaterialTheme.colorScheme.onSurface,
+            style = MaterialTheme.typography.bodyLarge,
             fontWeight = FontWeight.SemiBold
         )
         Spacer(Modifier.height(8.dp))
         LinearProgressIndicator(
             progress = { faceProgress },
             modifier = Modifier.width(200.dp).height(4.dp),
-            color = AccentCyan,
-            trackColor = Color.White.copy(alpha = 0.1f)
+            color = MaterialTheme.colorScheme.primary,
+            trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
         )
     }
 }
@@ -304,14 +442,16 @@ fun VoiceScanningStep(
         microphoneManager.startListening(
             onPartialResult = { text ->
                 val phrase = text.lowercase()
-                if (phrase.contains("humanoid") && (phrase.contains("voice") || phrase.contains("this"))) {
+                if (phrase.contains("aura 360") && (phrase.contains("voice") || phrase.contains("this"))) {
                     val now = System.currentTimeMillis()
                     if (now - lastVoiceTriggerTime > 2500) {
                         lastVoiceTriggerTime = now
                         onVoiceSampleDetected()
                     }
                 }
-            }
+            },
+            onFinalResult = { /* Handled via partial results for trigger */ },
+            onError = { /* Handled internally */ }
         )
     }
 
@@ -320,27 +460,27 @@ fun VoiceScanningStep(
 
     StepContainer(
         title = "Voice Biometric Scan",
-        subtitle = "Say \"Humanoid, this is my voice\" three times"
+        subtitle = "Say \"Aura 360, this is my voice\" three times"
     ) {
         WithMicrophonePermission {
             Box(contentAlignment = Alignment.Center) {
-                FrequencyPulseWave(amplitude = voicePulse, color = AccentPurple)
+                FrequencyPulseWave(amplitude = voicePulse, color = MaterialTheme.colorScheme.primary)
                 CircularProgressIndicator(
                     progress = { voiceCount.toFloat() / 3f },
                     modifier = Modifier.size(200.dp),
-                    color = AccentPurple,
+                    color = MaterialTheme.colorScheme.primary,
                     strokeWidth = 6.dp,
-                    trackColor = Color.White.copy(alpha = 0.05f)
+                    trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
                 )
                 IconButton(
                     onClick = { if (isListening) microphoneManager.stopListening() else startScanning() },
-                    modifier = Modifier.size(80.dp).background(if (isListening) Color.Red.copy(alpha = 0.1f) else AccentPurple.copy(alpha = 0.1f), CircleShape).border(2.dp, if (isListening) Color.Red else AccentPurple, CircleShape)
+                    modifier = Modifier.size(80.dp).background(if (isListening) ErrorRed.copy(alpha = 0.1f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), CircleShape).border(2.dp, if (isListening) ErrorRed else MaterialTheme.colorScheme.primary, CircleShape)
                 ) {
-                    Icon(if (isListening) Icons.Default.StopCircle else Icons.Default.Mic, null, tint = if (isListening) Color.Red else AccentPurple, modifier = Modifier.size(40.dp))
+                    Icon(if (isListening) Icons.Default.StopCircle else Icons.Default.Mic, null, tint = if (isListening) ErrorRed else MaterialTheme.colorScheme.primary, modifier = Modifier.size(40.dp))
                 }
             }
             Spacer(Modifier.height(40.dp))
-            Text("SAMPLES: $voiceCount / 3", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            Text("SAMPLES: $voiceCount / 3", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
         }
     }
 }
@@ -367,24 +507,46 @@ fun FrequencyPulseWave(amplitude: Float, color: Color) {
 @Composable
 fun WelcomeStep(name: String, onNameChange: (String) -> Unit, onStart: () -> Unit, isListening: Boolean, onMicClick: () -> Unit) {
     StepContainer(title = "Unified Enrollment", subtitle = "Register your identity across multiple modalities") {
-        OutlinedTextField(
+        AuraTextField(
             value = name, onValueChange = onNameChange,
-            placeholder = { Text("Enter your name", color = TextSecondary) },
+            label = "Enter your name",
             modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            shape = RoundedCornerShape(12.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = Color.White,
-                unfocusedTextColor = Color.White,
-                focusedBorderColor = AccentCyan, 
-                unfocusedBorderColor = SurfaceDark
-            ),
-            trailingIcon = { IconButton(onClick = onMicClick) { Icon(if (isListening) Icons.Default.MicOff else Icons.Default.Mic, null, tint = if (isListening) Color.Red else AccentCyan) } }
+            trailingIcon = { IconButton(onClick = onMicClick) { Icon(if (isListening) Icons.Default.MicOff else Icons.Default.Mic, null, tint = if (isListening) ErrorRed else MaterialTheme.colorScheme.primary) } }
         )
         Spacer(Modifier.height(24.dp))
-        Button(onClick = onStart, enabled = name.isNotBlank(), modifier = Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = AccentCyan)) {
-            Text("START SCANNING", color = Color.Black, fontWeight = FontWeight.Bold)
-        }
+        AuraButton(onClick = onStart, enabled = name.isNotBlank(), text = "START SCANNING")
+    }
+}
+
+@Composable
+fun PasswordSetupStep(
+    password: String,
+    onPasswordChange: (String) -> Unit,
+    onComplete: () -> Unit
+) {
+    StepContainer(
+        title = "System Password",
+        subtitle = "Set a secure password for emergency access"
+    ) {
+        AuraTextField(
+            value = password,
+            onValueChange = onPasswordChange,
+            label = "Master Password",
+            visualTransformation = PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Password
+            ),
+            modifier = Modifier.width(280.dp)
+        )
+        
+        Spacer(Modifier.height(32.dp))
+        
+        AuraButton(
+            text = "Finalize Setup",
+            onClick = onComplete,
+            enabled = password.length >= 6,
+            modifier = Modifier.width(280.dp)
+        )
     }
 }
 
@@ -392,7 +554,7 @@ fun WelcomeStep(name: String, onNameChange: (String) -> Unit, onStart: () -> Uni
 fun ProcessingStep(onComplete: () -> Unit) {
     LaunchedEffect(Unit) { delay(2000); onComplete() }
     StepContainer(title = "Synthesizing", subtitle = "Generating secure biometric hash") {
-        CircularProgressIndicator(color = AccentCyan)
+        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
     }
 }
 
@@ -401,9 +563,7 @@ fun SuccessStep(name: String, onDone: () -> Unit) {
     StepContainer(title = "Securely Enrolled", subtitle = "Welcome, $name. Your AI companion is ready.") {
         Icon(Icons.Default.CheckCircle, null, tint = SuccessGreen, modifier = Modifier.size(80.dp))
         Spacer(Modifier.height(48.dp))
-        Button(onClick = onDone, modifier = Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = AccentCyan)) {
-            Text("LAUNCH HUMANOID AI", color = Color.Black, fontWeight = FontWeight.Bold)
-        }
+        AuraButton(onClick = onDone, text = "LAUNCH AURA 360")
     }
 }
 
@@ -414,7 +574,7 @@ private fun processStepFrame(
     helper: FaceEmbeddingHelper,
     corrector: FisheyeCorrector,
     enhancer: FrameEnhancer,
-    onResult: (FloatArray, FacePose) -> Unit
+    onResult: (FloatArray, FacePose, Boolean) -> Unit
 ) {
     val rotation = image.imageInfo.rotationDegrees
     val original = try {
@@ -466,8 +626,11 @@ private fun processStepFrame(
                 if (isCentered && isSizedRight) {
                     try {
                         val isolated = FacePreprocessor.alignAndIsolate(processedBitmap, face)
-                        onResult(helper.getEmbedding(isolated), pose)
+                        onResult(helper.getEmbedding(isolated), pose, true)
                     } catch (e: Exception) { Log.e("OwnerEnrollment", "Error: ${e.message}") }
+                } else {
+                    // Still notify for UI state even if not capture-worthy
+                    onResult(FloatArray(0), pose, false)
                 }
             }
         }

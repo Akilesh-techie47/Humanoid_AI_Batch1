@@ -11,8 +11,9 @@ espressoCore = "3.6.1"
 navigationCompose = "2.8.5"
 lifecycleViewmodelCompose = "2.8.7"
 composeBom = "2024.12.01"
-googleServices = "4.4.2"
-firebaseBom = "33.7.0"
+googleServices = "4.5.0"
+playServicesAuth = "21.3.0"
+firebaseBom = "34.18.0"
 mlkitFaceDetection = "16.1.7"
 tensorflowLite = "2.16.1"
 gson = "2.10.1"
@@ -20,6 +21,7 @@ generativeai = "0.9.0"
 datastore = "1.1.2"
 ksp = "2.3.6"
 room = "2.8.4"
+okhttp = "4.12.0"
 
 [libraries]
 generativeai = { group = "com.google.ai.client.generativeai", name = "generativeai", version.ref = "generativeai" }
@@ -42,6 +44,8 @@ androidx-navigation-compose = { group = "androidx.navigation", name = "navigatio
 androidx-lifecycle-viewmodel-compose = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-compose", version.ref = "lifecycleViewmodelCompose" }
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-auth = { group = "com.google.firebase", name = "firebase-auth" }
+firebase-analytics = { group = "com.google.firebase", name = "firebase-analytics" }
+play-services-auth = { group = "com.google.android.gms", name = "play-services-auth", version.ref = "playServicesAuth" }
 mlkit-face-detection = { group = "com.google.mlkit", name = "face-detection", version.ref = "mlkitFaceDetection" }
 tensorflow-lite = { group = "org.tensorflow", name = "tensorflow-lite", version.ref = "tensorflowLite" }
 gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
@@ -52,6 +56,7 @@ androidx-room-compiler = { group = "androidx.room", name = "room-compiler", vers
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version = "1.9.0" }
 mockito-core = { group = "org.mockito", name = "mockito-core", version = "5.11.0" }
 mockito-kotlin = { group = "org.mockito.kotlin", name = "mockito-kotlin", version = "5.2.1" }
+okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

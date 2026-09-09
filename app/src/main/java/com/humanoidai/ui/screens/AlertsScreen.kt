@@ -32,6 +32,7 @@ import com.humanoidai.alerts.AlertPriority
 import com.humanoidai.ui.components.SidePanelDrawer
 import com.humanoidai.ui.theme.*
 import kotlinx.coroutines.launch
+import com.humanoidai.ui.components.ArmsunFooter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -59,7 +60,7 @@ fun AlertsScreen(
         unreadCount = unreadCount
     ) {
         Scaffold(
-            containerColor = BackgroundDark,
+            containerColor = MaterialTheme.colorScheme.background,
             topBar = {
                 Row(
                 modifier = Modifier
@@ -75,152 +76,160 @@ fun AlertsScreen(
                     },
                     modifier = Modifier
                         .size(44.dp)
-                        .clip(CircleShape)
-                        .background(SurfaceDark.copy(alpha = 0.4f))
-                        .border(1.dp, Color.White.copy(alpha = 0.05f), CircleShape)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.surface)
+                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
                 ) {
-                    Icon(Icons.Default.Menu, "Open Menu", tint = Color.White, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Default.Menu, "Menu", tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
                 }
                 
                 Spacer(Modifier.width(16.dp))
                 
-                Text("ALERTS CENTER", fontSize = 15.sp, fontWeight = FontWeight.Black, color = AccentCyan, fontFamily = FontFamily.Monospace, letterSpacing = 1.sp)
+                Text(
+                    "ALERTS CENTER", 
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold, 
+                    color = MaterialTheme.colorScheme.primary, 
+                    letterSpacing = 1.sp
+                )
             }
         }
     ) { padding ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-            ) {
-                // ---- Summary Header ----
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+            Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+                Column(
+                    modifier = Modifier.fillMaxSize()
                 ) {
-                    Column {
-                        if (unreadCount > 0) {
-                            Text(
-                                "$unreadCount unread notifications",
-                                fontSize = 12.sp,
-                                color = Color(0xFFFF5C5C)
-                            )
-                        } else {
-                            Text("All alerts reviewed", fontSize = 12.sp, color = AlertGreen)
-                        }
-                    }
-
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (unreadCount > 0) {
-                            TextButton(onClick = { 
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                alertEngine.markAllRead() 
-                            }) {
-                                Text("Mark all read", color = AccentCyan, fontSize = 12.sp)
+                    // ---- Summary Header ----
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            if (unreadCount > 0) {
+                                Text(
+                                    "$unreadCount unread notifications",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color(0xFFFF5C5C)
+                                )
+                            } else {
+                                Text("All alerts reviewed", style = MaterialTheme.typography.bodySmall, color = SuccessGreen)
                             }
                         }
-                        IconButton(onClick = { 
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            alertEngine.clearAll() 
-                        }) {
-                            Icon(Icons.Default.DeleteSweep, "Clear all alerts", tint = TextSecondary)
+
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (unreadCount > 0) {
+                                TextButton(onClick = { 
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    alertEngine.markAllRead() 
+                                }) {
+                                    Text("Mark all read", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp)
+                                }
+                            }
+                            IconButton(onClick = { 
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                alertEngine.clearAll() 
+                            }) {
+                                Icon(Icons.Default.DeleteSweep, "Clear all alerts", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
                         }
                     }
-                }
 
-                // ---- Priority Filter Chips ----
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    FilterChip(
-                        selected = selectedFilter == null,
-                        onClick = { 
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            selectedFilter = null 
-                        },
-                        label = { Text("All (${alerts.size})", fontSize = 12.sp) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = AccentCyan.copy(alpha = 0.2f),
-                            selectedLabelColor = AccentCyan
-                        )
-                    )
-                    FilterChip(
-                        selected = selectedFilter == AlertPriority.CRITICAL,
-                        onClick = { 
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            selectedFilter = if (selectedFilter == AlertPriority.CRITICAL) null else AlertPriority.CRITICAL 
-                        },
-                        label = { Text("Critical", fontSize = 12.sp) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = Color(0xFFFF3B30).copy(alpha = 0.2f),
-                            selectedLabelColor = Color(0xFFFF3B30)
-                        )
-                    )
-                    FilterChip(
-                        selected = selectedFilter == AlertPriority.HIGH,
-                        onClick = { 
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            selectedFilter = if (selectedFilter == AlertPriority.HIGH) null else AlertPriority.HIGH 
-                        },
-                        label = { Text("High", fontSize = 12.sp) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = Color(0xFFFF5C5C).copy(alpha = 0.2f),
-                            selectedLabelColor = Color(0xFFFF5C5C)
-                        )
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // ---- Alert List ----
-                if (filteredAlerts.isEmpty()) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
+                    // ---- Priority Filter Chips ----
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(
-                                Icons.Default.NotificationsNone,
-                                null,
-                                tint = TextSecondary.copy(alpha = 0.4f),
-                                modifier = Modifier.size(56.dp)
+                        FilterChip(
+                            selected = selectedFilter == null,
+                            onClick = { 
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                selectedFilter = null 
+                            },
+                            label = { Text("All (${alerts.size})", fontSize = 12.sp) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+                                selectedLabelColor = MaterialTheme.colorScheme.primary
                             )
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Text(
-                                if (selectedFilter != null) "No ${selectedFilter?.name?.lowercase()} alerts"
-                                else "No alerts yet",
-                                fontSize = 15.sp,
-                                color = TextSecondary
+                        )
+                        FilterChip(
+                            selected = selectedFilter == AlertPriority.CRITICAL,
+                            onClick = { 
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                selectedFilter = if (selectedFilter == AlertPriority.CRITICAL) null else AlertPriority.CRITICAL 
+                            },
+                            label = { Text("Critical", fontSize = 12.sp) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = Color(0xFFFF3B30).copy(alpha = 0.2f),
+                                selectedLabelColor = Color(0xFFFF3B30)
                             )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                "Alerts appear when unknown persons\nare detected by the camera",
-                                fontSize = 13.sp,
-                                color = TextSecondary.copy(alpha = 0.6f),
-                                textAlign = TextAlign.Center
+                        )
+                        FilterChip(
+                            selected = selectedFilter == AlertPriority.HIGH,
+                            onClick = { 
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                selectedFilter = if (selectedFilter == AlertPriority.HIGH) null else AlertPriority.HIGH 
+                            },
+                            label = { Text("High", fontSize = 12.sp) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = ErrorRed.copy(alpha = 0.2f),
+                                selectedLabelColor = ErrorRed
                             )
-                        }
+                        )
                     }
-                } else {
-                    LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
-                    ) {
-                        items(filteredAlerts, key = { it.id }) { alert ->
-                            AlertCard(
-                                alert = alert,
-                                formattedTime = alertEngine.getFormattedTime(alert.timestamp),
-                                onTap = { alertEngine.markRead(alert.id) }
-                            )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // ---- Alert List ----
+                    if (filteredAlerts.isEmpty()) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    Icons.Default.NotificationsNone,
+                                    null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                                    modifier = Modifier.size(56.dp)
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    if (selectedFilter != null) "No ${selectedFilter?.name?.lowercase()} alerts"
+                                    else "No alerts yet",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    "Alerts appear when unknown persons\nare detected by the camera",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+                    } else {
+                        LazyColumn(
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 60.dp)
+                        ) {
+                            items(filteredAlerts, key = { it.id }) { alert ->
+                                AlertCard(
+                                    alert = alert,
+                                    formattedTime = alertEngine.getFormattedTime(alert.timestamp),
+                                    onTap = { alertEngine.markRead(alert.id) }
+                                )
+                            }
                         }
                     }
                 }
+                
+                ArmsunFooter(modifier = Modifier.align(Alignment.BottomCenter))
             }
         }
     }
@@ -239,16 +248,16 @@ private fun AlertCard(
             Color(0xFF1A0505), Icons.Default.Warning
         )
         AlertPriority.HIGH -> Quad(
-            Color(0xFFFF5C5C), Color(0xFFFF5C5C),
+            ErrorRed, ErrorRed,
             Color(0xFF140808), Icons.Default.PersonOff
         )
         AlertPriority.MEDIUM -> Quad(
-            AccentCyan, AccentCyan,
-            Color(0xFF050F0F), Icons.Default.Person
+            MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primary,
+            Color(0xFF0F0F0F), Icons.Default.Person
         )
         AlertPriority.LOW -> Quad(
-            TextSecondary, TextSecondary,
-            SurfaceDark, Icons.Default.Info
+            MaterialTheme.colorScheme.onSurfaceVariant, MaterialTheme.colorScheme.onSurfaceVariant,
+            MaterialTheme.colorScheme.surface, Icons.Default.Info
         )
     }
 
@@ -262,7 +271,7 @@ private fun AlertCard(
                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                 onTap() 
             },
-        color = if (!alert.isRead) bgColor.copy(alpha = 0.6f) else SurfaceDark.copy(alpha = 0.3f),
+        color = if (!alert.isRead) bgColor.copy(alpha = 0.6f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.3f),
         shape = RoundedCornerShape(12.dp),
         border = BorderStroke(if (!alert.isRead) 1.dp else 0.5.dp, borderColor.copy(alpha = if (!alert.isRead) 0.4f else 0.1f))
     ) {
@@ -304,22 +313,21 @@ private fun AlertCard(
                 ) {
                     Text(
                         alert.title,
-                        fontSize = 13.sp,
+                        style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.Bold,
                         color = Color.White.copy(alpha = alpha)
                     )
                     Text(
                         formattedTime,
-                        fontSize = 10.sp,
-                        color = TextSecondary.copy(alpha = alpha),
-                        fontFamily = FontFamily.Monospace
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha)
                     )
                 }
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     alert.description,
-                    fontSize = 12.sp,
-                    color = TextSecondary.copy(alpha = alpha),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha),
                     lineHeight = 16.sp
                 )
                 Spacer(modifier = Modifier.height(8.dp))
@@ -345,14 +353,14 @@ private fun PriorityBadge(priority: AlertPriority, alpha: Float = 1f) {
         AlertPriority.CRITICAL -> Pair(Color(0xFFFF3B30), "CRITICAL")
         AlertPriority.HIGH     -> Pair(Color(0xFFFF5C5C), "HIGH")
         AlertPriority.MEDIUM   -> Pair(AccentCyan, "MEDIUM")
-        AlertPriority.LOW      -> Pair(TextSecondary, "LOW")
+        AlertPriority.LOW      -> Pair(MaterialTheme.colorScheme.onSurfaceVariant, "LOW")
     }
     Box(
         modifier = Modifier
             .background(color.copy(alpha = 0.15f * alpha), RoundedCornerShape(4.dp))
             .padding(horizontal = 6.dp, vertical = 2.dp)
     ) {
-        Text(label, fontSize = 9.sp, color = color.copy(alpha = alpha), fontWeight = FontWeight.Bold)
+        Text(label, style = MaterialTheme.typography.labelSmall, color = color.copy(alpha = alpha), fontWeight = FontWeight.Bold)
     }
 }
 

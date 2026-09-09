@@ -8,7 +8,7 @@ import androidx.compose.ui.unit.dp
 import com.humanoidai.ui.widgets.HexagonShape
 
 /**
- * Definition of the 10 Visual Personalities for Humanoid AI.
+ * Definition of the 10 Visual Personalities for Aura 360°.
  * Each preset maps to specific visual cues found in the design images.
  */
 sealed class HomeLayoutPreset(
@@ -22,8 +22,8 @@ sealed class HomeLayoutPreset(
     object ClassicHud : HomeLayoutPreset(
         id = "classic",
         name = "Core Monolith",
-        primaryColor = Color(0xFFFFB300),
-        secondaryColor = Color(0xFFF59E0B),
+        primaryColor = Color(0xFFFFFFFF),
+        secondaryColor = Color(0xFFD6D6D6),
         roiShape = "circle"
     )
 
@@ -47,8 +47,8 @@ sealed class HomeLayoutPreset(
     object RadialJarvis : HomeLayoutPreset(
         id = "radial",
         name = "Radial JARVIS",
-        primaryColor = Color(0xFFFF9800),
-        secondaryColor = Color(0xFFFFD54F),
+        primaryColor = Color(0xFFFFFFFF),
+        secondaryColor = Color(0xFFD6D6D6),
         roiShape = "hexagon"
     )
 
@@ -63,8 +63,8 @@ sealed class HomeLayoutPreset(
     object SecurityNight : HomeLayoutPreset(
         id = "security",
         name = "Security Night",
-        primaryColor = Color(0xFFFF3D00),
-        secondaryColor = Color(0xFFFF8A65),
+        primaryColor = Color(0xFFF87171),
+        secondaryColor = Color(0xFFFF5C5C),
         roiShape = "hexagon"
     )
 
@@ -79,31 +79,31 @@ sealed class HomeLayoutPreset(
     object FocusPerson : HomeLayoutPreset(
         id = "focus",
         name = "Focus Monotone",
-        primaryColor = Color(0xFFFFB300),
-        secondaryColor = Color(0xFFF59E0B),
+        primaryColor = Color(0xFFFFFFFF),
+        secondaryColor = Color(0xFFD6D6D6),
         roiShape = "circle"
     )
 
     object MultiZone : HomeLayoutPreset(
         id = "zones",
         name = "Multi-Zone Core",
-        primaryColor = Color(0xFFFFB300),
-        secondaryColor = Color(0xFFB45309),
+        primaryColor = Color(0xFFFFFFFF),
+        secondaryColor = Color(0xFFD6D6D6),
         roiShape = "square"
     )
 
     object ConversationFirst : HomeLayoutPreset(
         id = "chat_first",
         name = "Talk with JARVIS",
-        primaryColor = Color(0xFFFFB300),
-        secondaryColor = Color(0xFFFFE082),
+        primaryColor = Color(0xFFFFFFFF),
+        secondaryColor = Color(0xFFD6D6D6),
         roiShape = "hexagon"
     )
 
     object BlueprintPlus : HomeLayoutPreset(
         id = "blueprint",
         name = "Schematic Amber",
-        primaryColor = Color(0xFFFFB300),
+        primaryColor = Color(0xFFFFFFFF),
         secondaryColor = Color(0xFFF1F5F9),
         roiShape = "circle"
     )

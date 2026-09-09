@@ -3,7 +3,7 @@ package com.humanoidai.ml
 import android.content.Context
 import android.content.SharedPreferences
 import com.google.gson.Gson
-import com.humanoidai.memory.database.HumanoidDatabase
+import com.humanoidai.memory.database.Aura360Database
 import com.humanoidai.memory.entities.UserEntity
 import com.humanoidai.memory.entities.UserClass
 import com.humanoidai.memory.security.PrivacyVault
@@ -15,7 +15,7 @@ import java.util.*
 // -----------------------------------------------------------------
 // Specialized manager for the primary app owner.
 // Handles multi-angle capture, liveness verification, and 
-// first-launch enrollment status using HumanoidDatabase.
+// first-launch enrollment status using Aura360Database.
 // -----------------------------------------------------------------
 class OwnerEnrollmentManager(context: Context) {
 
@@ -24,6 +24,7 @@ class OwnerEnrollmentManager(context: Context) {
         private const val KEY_VOICE_ENROLLED = "is_voice_enrolled"
         private const val KEY_LANGUAGE      = "preferred_language"
         private const val KEY_AI_NAME       = "ai_name"
+        private const val KEY_MASTER_PASS   = "master_password"
         
         // UI Customization Keys
         private const val KEY_MAX_ROI       = "ui_max_roi"
@@ -38,7 +39,7 @@ class OwnerEnrollmentManager(context: Context) {
     private val prefs: SharedPreferences =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     private val vault = PrivacyVault(context)
-    private val userDao = HumanoidDatabase.getInstance(context).userDao()
+    private val userDao = Aura360Database.getInstance(context).userDao()
     private val gson = Gson()
 
     /**
@@ -140,9 +141,14 @@ class OwnerEnrollmentManager(context: Context) {
         prefs.edit().putString(KEY_LANGUAGE, lang).apply()
     }
 
-    fun getAiName(): String = prefs.getString(KEY_AI_NAME, "Humanoid") ?: "Humanoid"
+    fun getAiName(): String = prefs.getString(KEY_AI_NAME, "Aura 360") ?: "Aura 360"
     fun setAiName(name: String) {
         prefs.edit().putString(KEY_AI_NAME, name).apply()
+    }
+
+    fun getMasterPassword(): String? = prefs.getString(KEY_MASTER_PASS, null)
+    fun setMasterPassword(password: String) {
+        prefs.edit().putString(KEY_MASTER_PASS, password).apply()
     }
 
     // UI Customization Getters/Setters

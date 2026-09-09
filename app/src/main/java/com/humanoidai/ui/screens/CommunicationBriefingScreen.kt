@@ -49,14 +49,14 @@ fun CommunicationBriefingScreen(navController: NavController, aiManager: AIManag
         scope.launch {
             briefingText = engine.getWhatDidIMissSummary()
             missedCalls = MissedCallDetector(context).getMissedCalls()
-            notifications = HumanoidNotificationListener.notifications.value
+            notifications = Aura360NotificationListener.notifications.value
             isLoading = false
             voiceEngine.speak(briefingText)
         }
     }
 
     Scaffold(
-        containerColor = BackgroundDark,
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             Row(
                 modifier = Modifier
@@ -73,15 +73,15 @@ fun CommunicationBriefingScreen(navController: NavController, aiManager: AIManag
                     modifier = Modifier
                         .size((44).dp)
                         .clip(CircleShape)
-                        .background(SurfaceDark.copy(alpha = 0.4f))
-                        .border(1.dp, Color.White.copy(alpha = 0.05f), CircleShape)
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.4f))
+                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.05f), CircleShape)
                 ) {
-                    Icon(Icons.Default.ArrowBack, "Back", tint = Color.White, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Default.ArrowBack, "Back", tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
                 }
                 
                 Spacer(Modifier.width(16.dp))
                 
-                Text("SYSTEM BRIEFING", fontSize = 15.sp, fontWeight = FontWeight.Black, color = AccentCyan, fontFamily = FontFamily.Monospace, letterSpacing = 1.sp)
+                Text("SYSTEM BRIEFING", fontSize = 15.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary, fontFamily = FontFamily.Monospace, letterSpacing = 1.sp)
             }
         }
     ) { padding ->
@@ -96,22 +96,22 @@ fun CommunicationBriefingScreen(navController: NavController, aiManager: AIManag
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 16.dp),
-                colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 shape = RoundedCornerShape(16.dp)
             ) {
                 Column(Modifier.padding(16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.AutoAwesome, null, tint = AccentCyan, modifier = Modifier.size(20.dp))
+                        Icon(Icons.Default.AutoAwesome, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                         Spacer(Modifier.width(8.dp))
-                        Text("AI BRIEFING", color = AccentCyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text("AI BRIEFING", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                     Spacer(Modifier.height(12.dp))
                     if (isLoading) {
-                        CircularProgressIndicator(modifier = Modifier.size(24.dp), color = AccentCyan, strokeWidth = 2.dp)
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.primary, strokeWidth = 2.dp)
                     } else {
                         Text(
                             briefingText,
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.onSurface,
                             fontSize = 14.sp,
                             lineHeight = 20.sp
                         )
@@ -119,13 +119,13 @@ fun CommunicationBriefingScreen(navController: NavController, aiManager: AIManag
                 }
             }
 
-            Text("DETAILED LOG", color = TextSecondary, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 12.dp))
+            Text("DETAILED LOG", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 12.dp))
 
             LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 item {
                     if (missedCalls.isEmpty() && notifications.isEmpty() && !isLoading) {
                         Box(Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
-                            Text("No recent communications", color = TextSecondary, fontSize = 14.sp)
+                            Text("No recent communications", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                         }
                     }
                 }
@@ -165,9 +165,9 @@ private fun CommItemRow(item: CommunicationItem) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp),
-        color = SurfaceDark.copy(alpha = 0.4f),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.4f),
         shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.05f))
     ) {
         Row(
             modifier = Modifier.padding(14.dp),
@@ -187,8 +187,8 @@ private fun CommItemRow(item: CommunicationItem) {
 
             Column(modifier = Modifier.weight(1f)) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(item.sender, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                    Text(timeStr, color = TextSecondary.copy(alpha = 0.6f), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                    Text(item.sender, color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Text(timeStr, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
                 }
                 Text(
                     item.sourceApp.uppercase(), 
@@ -200,7 +200,7 @@ private fun CommItemRow(item: CommunicationItem) {
                 Spacer(Modifier.height(4.dp))
                 Text(
                     item.contentPreview,
-                    color = TextSecondary,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 12.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis

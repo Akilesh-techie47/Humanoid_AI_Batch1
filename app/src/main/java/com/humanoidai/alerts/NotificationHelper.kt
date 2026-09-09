@@ -25,10 +25,10 @@ import com.humanoidai.MainActivity
 // -----------------------------------------------------------------
 object NotificationHelper {
 
-    private const val CHANNEL_CRITICAL = "humanoid_critical"
-    private const val CHANNEL_HIGH     = "humanoid_high"
-    private const val CHANNEL_MEDIUM   = "humanoid_medium"
-    private const val CHANNEL_LOW      = "humanoid_low"
+    private const val CHANNEL_CRITICAL = "aura_critical"
+    private const val CHANNEL_HIGH     = "aura_high"
+    private const val CHANNEL_MEDIUM   = "aura_medium"
+    private const val CHANNEL_LOW      = "aura_low"
 
     private var notificationId = 1000
 

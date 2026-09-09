@@ -41,7 +41,7 @@ fun LayoutCustomizationScreen(
     val state by viewModel.state.collectAsState()
 
     Scaffold(
-        containerColor = BackgroundDark,
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
@@ -49,13 +49,13 @@ fun LayoutCustomizationScreen(
                         "LAYOUT CUSTOMIZATION",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = AccentCyan,
+                        color = MaterialTheme.colorScheme.primary,
                         fontFamily = FontFamily.Monospace
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, "Back", tint = Color.White)
+                        Icon(Icons.Default.ArrowBack, "Back", tint = MaterialTheme.colorScheme.onSurface)
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
@@ -85,7 +85,7 @@ fun LayoutCustomizationScreen(
                 item {
                     Text(
                         "SYSTEM GEOMETRY ENGINE",
-                        color = TextSecondary,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Medium,
                         fontFamily = FontFamily.Monospace,
@@ -315,9 +315,9 @@ fun CustomizationSection(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp),
-        color = SurfaceDark.copy(alpha = 0.4f),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.4f),
         shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.05f))
     ) {
         Column {
             Row(
@@ -331,15 +331,15 @@ fun CustomizationSection(
                     modifier = Modifier
                         .size(32.dp)
                         .clip(CircleShape)
-                        .background(AccentCyan.copy(alpha = 0.1f)),
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(icon, "Section Icon", tint = AccentCyan, modifier = Modifier.size(16.dp))
+                    Icon(icon, "Section Icon", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                 }
                 Spacer(Modifier.width(16.dp))
                 Text(
                     title,
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace,
@@ -349,7 +349,7 @@ fun CustomizationSection(
                 Icon(
                     Icons.Default.ExpandMore,
                     "Expand/Collapse",
-                    tint = TextSecondary.copy(alpha = 0.6f),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                     modifier = Modifier.rotate(rotation).size(20.dp)
                 )
             }
@@ -360,7 +360,7 @@ fun CustomizationSection(
                         .fillMaxWidth()
                         .padding(start = 20.dp, end = 20.dp, bottom = 20.dp)
                 ) {
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.05f), modifier = Modifier.padding(bottom = 16.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.05f), modifier = Modifier.padding(bottom = 16.dp))
                     content()
                 }
             }
@@ -374,7 +374,7 @@ fun SelectionGrid(
     selectedOption: String,
     onOptionSelected: (String) -> Unit
 ) {
-    val haptic = LocalHapticFeedback.current
+                    val haptic = LocalHapticFeedback.current
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         options.chunked(2).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -385,10 +385,10 @@ fun SelectionGrid(
                             .weight(1f)
                             .height(44.dp)
                             .clip(RoundedCornerShape(8.dp))
-                            .background(if (isSelected) AccentCyan.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.25f))
+                            .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.background.copy(alpha = 0.25f))
                             .border(
                                 1.dp,
-                                if (isSelected) AccentCyan else Color.White.copy(alpha = 0.08f),
+                                if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.08f),
                                 RoundedCornerShape(8.dp)
                             )
                             .clickable { 
@@ -399,7 +399,7 @@ fun SelectionGrid(
                     ) {
                         Text(
                             option.uppercase(),
-                            color = if (isSelected) AccentCyan else TextSecondary.copy(alpha = 0.8f),
+                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                             fontSize = 10.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                             fontFamily = FontFamily.Monospace,
@@ -418,7 +418,7 @@ fun SelectionGrid(
 fun SettingLabel(text: String) {
     Text(
         text.uppercase(),
-        color = AccentCyan.copy(alpha = 0.7f),
+        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
         fontSize = 9.sp,
         fontWeight = FontWeight.Bold,
         fontFamily = FontFamily.Monospace,
@@ -440,7 +440,7 @@ fun VisibilityToggle(
     ) {
         Text(
             label,
-            color = Color.White.copy(alpha = 0.85f),
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
             fontSize = 12.sp,
             fontFamily = FontFamily.Monospace,
             modifier = Modifier.weight(1f),
@@ -450,10 +450,10 @@ fun VisibilityToggle(
             checked = checked,
             onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors(
-                checkedThumbColor = Color.Black,
-                checkedTrackColor = AccentCyan,
-                uncheckedThumbColor = TextSecondary.copy(alpha = 0.6f),
-                uncheckedTrackColor = SurfaceDark.copy(alpha = 0.6f)
+                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                uncheckedTrackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)
             ),
             modifier = Modifier.scale(0.75f)
         )
@@ -465,7 +465,7 @@ fun VisibilityToggle(
 fun ActionButton(
     text: String,
     icon: ImageVector,
-    color: Color = AccentCyan,
+    color: Color = MaterialTheme.colorScheme.primary,
     enabled: Boolean = true,
     onClick: () -> Unit = {}
 ) {
@@ -474,17 +474,17 @@ fun ActionButton(
             .fillMaxWidth()
             .height(44.dp)
             .clip(RoundedCornerShape(8.dp))
-            .background(if (enabled) color.copy(alpha = 0.1f) else Color.White.copy(alpha = 0.05f))
-            .border(1.dp, if (enabled) color.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.05f), RoundedCornerShape(8.dp))
+            .background(if (enabled) color.copy(alpha = 0.1f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+            .border(1.dp, if (enabled) color.copy(alpha = 0.3f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f), RoundedCornerShape(8.dp))
             .clickable(enabled = enabled) { onClick() }
             .padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, text, tint = if (enabled) color else TextSecondary, modifier = Modifier.size(16.dp))
+        Icon(icon, text, tint = if (enabled) color else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
         Spacer(Modifier.width(12.dp))
         Text(
             text.uppercase(),
-            color = if (enabled) Color.White else TextSecondary,
+            color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 11.sp,
             fontWeight = FontWeight.Bold,
             fontFamily = FontFamily.Monospace
@@ -496,7 +496,7 @@ fun ActionButton(
 fun InfoText(text: String) {
     Text(
         text,
-        color = TextSecondary.copy(alpha = 0.6f),
+        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
         fontSize = 9.sp,
         lineHeight = 12.sp,
         fontFamily = FontFamily.Monospace,

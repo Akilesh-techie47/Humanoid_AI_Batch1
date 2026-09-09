@@ -17,29 +17,32 @@ object LayoutRegistry {
             "TOP_APERTURE" -> {
                 widgets[HUDComponentRegistry.CAMERA] = HUDComponentRegistry.getComponentDefaults(HUDComponentRegistry.CAMERA).copy(
                     anchor = WidgetAnchor.CENTER,
-                    offsetY = 0.dp,
-                    width = 280.dp, // Large Hero Element
-                    height = 280.dp
+                    offsetY = (-40).dp, // Moved slightly higher to make it feel "centered" in the upper half
+                    width = 320.dp, // Increased size for first impression
+                    height = 320.dp
                 )
                 widgets[HUDComponentRegistry.STATUS_BAR] = HUDComponentRegistry.getComponentDefaults(HUDComponentRegistry.STATUS_BAR).copy(
                     anchor = WidgetAnchor.TOP_CENTER,
                     offsetY = 0.dp
                 )
-                widgets[HUDComponentRegistry.RADAR] = HUDComponentRegistry.getComponentDefaults(HUDComponentRegistry.RADAR).copy(
-                    anchor = WidgetAnchor.TOP_END,
-                    offsetX = (-20).dp,
-                    offsetY = 60.dp
+                widgets[HUDComponentRegistry.ALERTS] = HUDComponentRegistry.getComponentDefaults(HUDComponentRegistry.ALERTS).copy(
+                    anchor = WidgetAnchor.TOP_CENTER,
+                    offsetY = 64.dp // Adjusted to be clearly below header but above camera
                 )
                 widgets[HUDComponentRegistry.ASSISTANT] = HUDComponentRegistry.getComponentDefaults(HUDComponentRegistry.ASSISTANT).copy(
                     anchor = WidgetAnchor.BOTTOM_CENTER,
-                    offsetY = (-10).dp // Tighter to bottom
+                    offsetY = (-12).dp
                 )
-                widgets[HUDComponentRegistry.ALERTS] = HUDComponentRegistry.getComponentDefaults(HUDComponentRegistry.ALERTS).copy(
-                    anchor = WidgetAnchor.TOP_CENTER,
-                    offsetY = 80.dp // Clearly below header identity
+                widgets[HUDComponentRegistry.RADAR] = HUDComponentRegistry.getComponentDefaults(HUDComponentRegistry.RADAR).copy(
+                    anchor = WidgetAnchor.TOP_END,
+                    offsetX = (-16).dp,
+                    offsetY = 16.dp
                 )
                 widgets[HUDComponentRegistry.STATUS_INDICATORS] = HUDComponentRegistry.getComponentDefaults(HUDComponentRegistry.STATUS_INDICATORS).copy(
-                    isVisible = false // Clean UI, no technical metrics over center
+                    anchor = WidgetAnchor.TOP_END,
+                    offsetX = (-16).dp,
+                    offsetY = 140.dp, // Clearly below Radar
+                    isVisible = true
                 )
                 widgets[HUDComponentRegistry.SECONDARY_ROI] = HUDComponentRegistry.getComponentDefaults(HUDComponentRegistry.SECONDARY_ROI).copy(
                     anchor = WidgetAnchor.CENTER,

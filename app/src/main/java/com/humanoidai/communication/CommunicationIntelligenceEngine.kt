@@ -18,7 +18,7 @@ class CommunicationIntelligenceEngine(
 
     suspend fun getWhatDidIMissSummary(): String {
         val missedCalls = MissedCallDetector(context).getMissedCalls()
-        val notifications = HumanoidNotificationListener.notifications.value
+        val notifications = Aura360NotificationListener.notifications.value
         
         val priorityContacts = LongTermMemory.getInstance(context).getCriticalContacts()
         val priorityNames = priorityContacts.map { it.name.lowercase() }.toSet()
@@ -74,7 +74,7 @@ class CommunicationIntelligenceEngine(
         }
 
         return """
-            You are Humanoid AI, a sophisticated assistant. Analyze the following missed communications and provide a concise, natural, JARVIS-style briefing for the owner.
+            You are Humanoid, the worlds first fisheye lens based 360° contextual proactive assistant. Analyze the following missed communications and provide a concise, natural, JARVIS-style briefing for the owner.
             
             MISSED COMMUNICATIONS:
             $itemsDescription

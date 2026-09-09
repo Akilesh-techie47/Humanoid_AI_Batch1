@@ -7,7 +7,7 @@ import com.humanoidai.memory.repository.MemoryRepository
 import kotlinx.coroutines.flow.Flow
 
 /**
- * LongTermMemory — the single public API for all persistent memory in Humanoid AI.
+ * LongTermMemory — the single public API for all persistent memory in Aura 360°.
  * Now backed by encrypted Room DB with SQLCipher and AES-256.
  */
 class LongTermMemory private constructor(context: Context) {

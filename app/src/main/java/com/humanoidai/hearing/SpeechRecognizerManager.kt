@@ -10,6 +10,7 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.util.Log
+import com.humanoidai.voice.SpeechProvider
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -26,14 +27,17 @@ enum class MicState {
 }
 
 /**
- * Authoritative Speech Recognizer Manager for Humanoid AI.
+ * Authoritative Speech Recognizer Manager for Aura 360°.
  * Implements a state machine to ensure stable transitions and suppresses system beeps.
  */
 class SpeechRecognizerManager(
     private val context: Context,
     private val mainHandler: Handler = Handler(Looper.getMainLooper())
-) {
+) : SpeechProvider {
 
+    override val id: String = "android-speech"
+    override val name: String = "Android System Speech"
+    
     private var speechRecognizer: SpeechRecognizer? = null
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     
@@ -46,39 +50,51 @@ class SpeechRecognizerManager(
     private val _ambientNoise = MutableStateFlow(0f)
     val ambientNoise: StateFlow<Float> = _ambientNoise.asStateFlow()
 
+    private val _partialTranscript = MutableStateFlow("")
+    val partialTranscript: StateFlow<String> = _partialTranscript.asStateFlow()
+
+    private var cumulativeTranscript = StringBuilder()
+    private var lastSegmentText = ""
+
     private val wakeWordManager = WakeWordManager()
     private var onWakeWordDetected: (() -> Unit)? = null
     private var onSpeechStarted: (() -> Unit)? = null
-    private var activeCallbacks: Pair<(String) -> Unit, (String) -> Unit>? = null
+    
+    private var providerPartialCallback: ((String) -> Unit)? = null
+    private var providerFinalCallback: ((String) -> Unit)? = null
+    private var providerErrorCallback: ((String) -> Unit)? = null
 
     private var originalAudioMode = AudioManager.MODE_NORMAL
     private var currentLanguage = "en-US"
     private var consecutiveErrorCount = 0
+    private var isContinuous = false
 
     companion object {
         private const val TAG = "SpeechRecognizerManager"
-        private const val RESTART_DELAY_MS = 500L // Reduced from 2000L for faster recovery
-        private const val MAX_RETRY_COUNT = 3
+        private const val RESTART_DELAY_MS = 100L 
+        private const val MAX_RETRY_COUNT = 5
     }
 
     init {
         initializeRecognizer()
     }
 
+    override fun isAvailable(): Boolean = SpeechRecognizer.isRecognitionAvailable(context)
+
     private fun initializeRecognizer() {
         mainHandler.post {
             try {
-                Log.d(TAG, "[VOICE] INITIALIZING_RECOGNIZER")
+                Log.d(TAG, "[VOICE_PIPELINE] MIC_INITIALIZE")
                 speechRecognizer?.destroy()
             } catch (_: Exception) {}
 
-            if (SpeechRecognizer.isRecognitionAvailable(context)) {
+            if (isAvailable()) {
                 speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context).apply {
                     setRecognitionListener(InternalRecognitionListener())
                 }
-                Log.i(TAG, "[VOICE] RECOGNIZER_CREATED_SUCCESSFULLY")
+                Log.i(TAG, "[VOICE_PIPELINE] RECOGNIZER_READY")
             } else {
-                Log.e(TAG, "[VOICE] RECOGNIZER_UNAVAILABLE_ON_DEVICE")
+                Log.e(TAG, "[VOICE_PIPELINE] ERROR: RECOGNIZER_UNAVAILABLE")
                 _state.value = MicState.ERROR
             }
         }
@@ -86,23 +102,21 @@ class SpeechRecognizerManager(
 
     private inner class InternalRecognitionListener : RecognitionListener {
         override fun onReadyForSpeech(params: Bundle?) {
-            Log.i(TAG, "[VOICE] READY_FOR_SPEECH state=${_state.value}")
+            Log.i(TAG, "[VOICE_PIPELINE] LISTEN_READY state=${_state.value}")
             _isListening.value = true
             restoreAudioState()
-            if (_state.value == MicState.STARTING) {
-                _state.value = if (activeCallbacks == null) MicState.LISTENING_PASSIVE else MicState.LISTENING_ACTIVE
+            if (_state.value == MicState.STARTING || _state.value == MicState.RECOVERING) {
+                _state.value = if (isContinuous) MicState.LISTENING_ACTIVE else MicState.LISTENING_PASSIVE
             }
         }
 
         override fun onBeginningOfSpeech() {
-            Log.d(TAG, "[VOICE] BEGINNING_OF_SPEECH")
+            Log.i(TAG, "[VOICE_PIPELINE] SPEECH_DETECTED")
             onSpeechStarted?.invoke()
         }
 
+        private var lastRmsLogTime = 0L
         override fun onRmsChanged(rmsdB: Float) {
-            if (rmsdB > 0) {
-                 Log.v(TAG, "[VOICE] AUDIO_LEVEL: $rmsdB")
-            }
             val normalized = ((rmsdB + 2f) / 12f).coerceIn(0f, 1f) * 100f
             _ambientNoise.value = normalized
         }
@@ -113,60 +127,77 @@ class SpeechRecognizerManager(
 
         override fun onEndOfSpeech() {
             speechEndTime = System.currentTimeMillis()
-            Log.d(TAG, "[VOICE] END_OF_SPEECH [TS] $speechEndTime")
+            Log.d(TAG, "[VOICE_PIPELINE] SPEECH_SEGMENT_END")
             _isListening.value = false
         }
 
         override fun onError(error: Int) {
             val message = getErrorMessage(error)
-            Log.e(TAG, "[VOICE] ERROR: $message ($error). Current state=${_state.value}")
+            Log.e(TAG, "[VOICE_PIPELINE] ERROR: $message ($error). State=${_state.value}")
+            
+            if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY) {
+                cancelAndRestart()
+                return
+            }
+
             _isListening.value = false
             restoreAudioState()
             
-            handleError(error)
+            if (isContinuous && (error == SpeechRecognizer.ERROR_NO_MATCH || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT)) {
+                // Keep listening in continuous mode even if silent
+                restartInternal(delay = 100)
+            } else {
+                providerErrorCallback?.invoke(message)
+                handleError(error)
+            }
         }
 
         override fun onResults(results: Bundle?) {
-            val transcriptTime = System.currentTimeMillis()
             consecutiveErrorCount = 0
             val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
             val text = matches?.getOrNull(0) ?: ""
-            Log.i(TAG, "[VOICE] FINAL_RESULT: \"$text\" latency=${transcriptTime - speechEndTime}ms")
             
-            val currentState = _state.value
-            _state.value = MicState.PROCESSING
-            restoreAudioState()
-            
-            if (currentState == MicState.LISTENING_PASSIVE) {
-                if (text.isNotEmpty() && wakeWordManager.checkText(text)) {
-                    Log.i(TAG, "[VOICE] WAKE_WORD_DETECTED")
-                    onWakeWordDetected?.invoke()
+            if (text.isNotEmpty()) {
+                if (isContinuous) {
+                    cumulativeTranscript.append(text).append(" ")
+                    val full = cumulativeTranscript.toString().trim()
+                    Log.i(TAG, "[VOICE_PIPELINE] SEGMENT_FINAL: \"$text\" -> FULL: \"$full\"")
+                    _partialTranscript.value = full
+                    providerPartialCallback?.invoke(full)
+                    
+                    // Immediately restart for continuous flow
+                    restartInternal(delay = 50) 
                 } else {
-                    restartInternal(delay = RESTART_DELAY_MS)
+                    Log.i(TAG, "[VOICE_PIPELINE] FINAL_TRANSCRIPT: \"$text\"")
+                    _partialTranscript.value = text
+                    _state.value = MicState.PROCESSING
+                    restoreAudioState()
+                    
+                    if (onWakeWordDetected != null && wakeWordManager.checkText(text)) {
+                        onWakeWordDetected?.invoke()
+                    } else {
+                        providerFinalCallback?.invoke(text)
+                    }
                 }
-            } else if (currentState == MicState.LISTENING_ACTIVE) {
-                activeCallbacks?.second?.invoke(text)
+            } else if (isContinuous) {
+                restartInternal(delay = 100)
             }
         }
 
         override fun onPartialResults(partialResults: Bundle?) {
-            consecutiveErrorCount = 0
             val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
             val text = matches?.getOrNull(0) ?: ""
             if (text.isNotEmpty()) {
-                Log.v(TAG, "[VOICE] PARTIAL_RESULT: \"$text\"")
+                val display = if (isContinuous) {
+                    val current = cumulativeTranscript.toString() + text
+                    current.trim()
+                } else text
                 
-                if (_state.value == MicState.LISTENING_PASSIVE) {
-                    if (wakeWordManager.checkText(text)) {
-                        Log.i(TAG, "[VOICE] WAKE_WORD_DETECTED (partial)")
-                        onWakeWordDetected?.invoke()
-                    }
-                } else {
-                    activeCallbacks?.first?.invoke(text)
-                }
+                Log.v(TAG, "[VOICE_PIPELINE] PARTIAL: \"$display\"")
+                _partialTranscript.value = display
+                providerPartialCallback?.invoke(display)
             }
         }
-
 
         override fun onEvent(eventType: Int, params: Bundle?) {}
     }
@@ -199,18 +230,27 @@ class SpeechRecognizerManager(
         Log.i(TAG, "[VOICE] START_PASSIVE_REQUESTED")
         onWakeWordDetected = onDetected
         this.onSpeechStarted = onSpeechStarted
-        activeCallbacks = null
-        // Enable partial results even for passive to speed up detection
+        isContinuous = false
+        cumulativeTranscript.setLength(0)
         startInternal(isPartial = true)
     }
 
-    fun startListening(onPartialResult: (String) -> Unit = {}, onFinalResult: (String) -> Unit = {}, onSpeechStarted: (() -> Unit)? = null) {
+    override fun startListening(
+        onPartialResult: (String) -> Unit,
+        onFinalResult: (String) -> Unit,
+        onError: (String) -> Unit
+    ) {
         if (_state.value == MicState.LISTENING_ACTIVE) return
 
-        Log.i(TAG, "[VOICE] START_ACTIVE_REQUESTED")
+        Log.i(TAG, "[VOICE] START_ACTIVE_CONTINUOUS_REQUESTED")
         onWakeWordDetected = null
-        this.onSpeechStarted = onSpeechStarted
-        activeCallbacks = onPartialResult to onFinalResult
+        isContinuous = true
+        cumulativeTranscript.setLength(0)
+        
+        providerPartialCallback = onPartialResult
+        providerFinalCallback = onFinalResult
+        providerErrorCallback = onError
+        
         startInternal(isPartial = true)
     }
 
@@ -218,20 +258,18 @@ class SpeechRecognizerManager(
         mainHandler.post {
             val currentState = _state.value
             if (currentState == MicState.STARTING || currentState == MicState.STOPPING) {
-                 Log.w(TAG, "[VOICE] REJECTED_START: State is $currentState")
+                 Log.w(TAG, "[VOICE_PIPELINE] REJECTED_START: State is $currentState")
                  return@post
             }
 
-            Log.d(TAG, "[VOICE] START_REQUESTED: isPartial=$isPartial from $currentState")
+            Log.i(TAG, "[VOICE_PIPELINE] LISTEN_START: isPartial=$isPartial continuous=$isContinuous")
             _state.value = MicState.STARTING
             prepareAudioState() 
             
-            // Critical fix for "Busy (8)": Ensure complete cancellation before next start
             try {
                 speechRecognizer?.cancel()
             } catch (_: Exception) {}
 
-            // Small delay to allow service to clear
             mainHandler.postDelayed({
                 val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                     putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
@@ -240,33 +278,38 @@ class SpeechRecognizerManager(
                     putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, isPartial)
                     putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, context.packageName)
                     
-                    // Added for stability
-                    putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, false)
-                    putExtra("android.speech.extra.DICTATION_MODE", true)
+                    // Increased sensitivity for continuous speech
+                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 5000L)
+                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 2000L)
+                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 1500L)
                     
-                    // Recognition sensitivity
-                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 2000L)
-                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1500L)
+                    if (isContinuous) {
+                        putExtra("android.speech.extra.DICTATION_MODE", true)
+                    }
                 }
                 
                 try {
-                    Log.d(TAG, "[VOICE] START_SUCCESS (Invoking Recognizer)")
                     speechRecognizer?.startListening(intent)
                 } catch (e: Exception) {
-                    Log.e(TAG, "[VOICE] START_FAILED: ${e.message}")
+                    Log.e(TAG, "[VOICE_PIPELINE] ERROR: START_FAILED ${e.message}")
                     _state.value = MicState.ERROR
-                    restoreAudioState()
                     recreateRecognizer()
                 }
-            }, 400L)
+            }, 300L)
         }
     }
 
-    fun stopListening() {
+    override fun stopListening() {
         val oldState = _state.value
         if (oldState == MicState.IDLE || oldState == MicState.STOPPING) return
         
-        Log.i(TAG, "[VOICE] STOP_REQUESTED from $oldState")
+        Log.i(TAG, "[VOICE] STOP_REQUESTED")
+        val finalResult = cumulativeTranscript.toString().trim()
+        if (isContinuous && finalResult.isNotEmpty()) {
+            providerFinalCallback?.invoke(finalResult)
+        }
+        
+        isContinuous = false
         _state.value = MicState.STOPPING
         mainHandler.post {
             try {
@@ -293,14 +336,14 @@ class SpeechRecognizerManager(
         // Interaction 2.0 Optimization: Only count critical failures that prevent usage
         val isTimeout = error == SpeechRecognizer.ERROR_NO_MATCH || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT
         
-        Log.w(TAG, "[MIC_ERROR] code=$error. State=${_state.value}")
+        Log.w(TAG, "[VOICE_PIPELINE] ERROR_HANDLING code=$error. State=${_state.value}")
 
         if (!isTimeout) {
             consecutiveErrorCount++
         }
         
         if (consecutiveErrorCount >= MAX_RETRY_COUNT) {
-            Log.e(TAG, "[MIC_ERROR] Too many consecutive critical errors. Re-initializing...")
+            Log.e(TAG, "[VOICE_PIPELINE] CRITICAL_FAILURE: Too many consecutive errors. Re-initializing...")
             recreateRecognizer(extraDelay = 5000L)
             consecutiveErrorCount = 0 
             return
@@ -308,21 +351,19 @@ class SpeechRecognizerManager(
 
         when (error) {
             SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> {
-                Log.w(TAG, "[MIC_ERROR] Recognizer busy, resetting...")
+                Log.w(TAG, "[VOICE_PIPELINE] RECOVERING: Recognizer busy, resetting...")
                 cancelAndRestart()
             }
             SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> {
                 // Natural silence or timeout - expected in Passive Mode
-                if (activeCallbacks != null) {
-                    activeCallbacks?.second?.invoke("RETRY_PROMPT")
+                if (providerFinalCallback != null) {
+                    providerFinalCallback?.invoke("RETRY_PROMPT")
                 } else {
-                    // Passive mode: keep listening without re-init
-                    // Increased delay to 500ms to allow hardware reset
                     restartInternal(delay = 500L)
                 }
             }
             SpeechRecognizer.ERROR_AUDIO, SpeechRecognizer.ERROR_CLIENT -> {
-                Log.e(TAG, "[MIC_ERROR] Critical mic error: $error. Recreating...")
+                Log.e(TAG, "[VOICE_PIPELINE] CRITICAL_RECOVERY: Recreating recognizer...")
                 recreateRecognizer()
             }
             else -> {
@@ -365,7 +406,7 @@ class SpeechRecognizerManager(
 
 
 
-    fun destroy() {
+    override fun destroy() {
         Log.i(TAG, "[MIC_DESTROY] Releasing resources")
         mainHandler.removeCallbacksAndMessages(null)
         try {

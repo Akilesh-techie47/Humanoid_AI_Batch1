@@ -19,16 +19,25 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.BorderStroke
 import androidx.core.content.ContextCompat
 import android.content.Context
 import android.content.ContextWrapper
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavController
@@ -114,6 +123,18 @@ fun BiometricVerificationScreen(
         animationSpec = infiniteRepeatable(tween(1000), RepeatMode.Reverse),
         label = "scan_alpha"
     )
+    
+    val rotation by infiniteTransition.animateFloat(
+        initialValue = 0f, targetValue = 360f,
+        animationSpec = infiniteRepeatable(tween(3000, easing = LinearEasing), RepeatMode.Restart),
+        label = "rotation"
+    )
+
+    val scannerRotation by infiniteTransition.animateFloat(
+        initialValue = 0f, targetValue = 360f,
+        animationSpec = infiniteRepeatable(tween(1200, easing = LinearEasing), RepeatMode.Restart),
+        label = "scanner_rotation"
+    )
 
     LaunchedEffect(Unit) {
         // Load Owner and all secondary faces for differentiation
@@ -134,7 +155,7 @@ fun BiometricVerificationScreen(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(BackgroundDark)) {
+    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Column(
             modifier = Modifier.fillMaxSize().padding(32.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -142,9 +163,9 @@ fun BiometricVerificationScreen(
         ) {
             Text(
                 "SYSTEM GATEWAY",
-                fontSize = 12.sp,
+                style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
-                color = AccentCyan,
+                color = MaterialTheme.colorScheme.primary,
                 letterSpacing = 2.sp
             )
             
@@ -153,9 +174,9 @@ fun BiometricVerificationScreen(
             WithCameraPermission {
                 Box(
                     modifier = Modifier
-                        .size(240.dp)
+                        .size(320.dp) // Large camera round as requested
                         .clip(CircleShape)
-                        .border(2.dp, if (isVerifying) SuccessGreen else AccentCyan, CircleShape),
+                        .border(2.dp, if (isVerifying) SuccessGreen else MaterialTheme.colorScheme.primary, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     AndroidView(
@@ -217,17 +238,51 @@ fun BiometricVerificationScreen(
             if (isVerifying) {
                 Box(Modifier.fillMaxSize().background(SuccessGreen.copy(alpha = 0.2f)))
             } else if (faceScanActive) {
-                // Pulsing Scan Ring
+                // 1. Main Rotating Aura Ring (Slow)
+                Canvas(modifier = Modifier.fillMaxSize().rotate(rotation)) {
+                    val strokeWidth = 3.dp.toPx()
+                    drawArc(
+                        color = SuccessGreen,
+                        startAngle = -90f, sweepAngle = 80f, useCenter = false,
+                        style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+                    )
+                    drawArc(
+                        color = SuccessGreen,
+                        startAngle = 90f, sweepAngle = 80f, useCenter = false,
+                        style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+                    )
+                }
+
+                // 2. NEW: Fast Rotating "Scanning Section" (Laser Sweep)
+                Canvas(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .rotate(scannerRotation)
+                ) {
+                    drawArc(
+                        brush = Brush.sweepGradient(
+                            0f to Color.Transparent,
+                            0.5f to SuccessGreen.copy(alpha = 0.5f),
+                            1f to SuccessGreen
+                        ),
+                        startAngle = 0f,
+                        sweepAngle = 45f,
+                        useCenter = false,
+                        style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round)
+                    )
+                }
+
+                // Pulsing Scan Overlay
                 Box(
                     Modifier
                         .fillMaxSize()
-                        .border(8.dp, AccentCyan.copy(alpha = scanAlpha), CircleShape)
+                        .border(8.dp, MaterialTheme.colorScheme.primary.copy(alpha = scanAlpha), CircleShape)
                 )
             }
             
             if (showPasswordInput) {
                 Box(
-                    modifier = Modifier.fillMaxSize().background(BackgroundDark.copy(alpha = 0.9f)),
+                    modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background.copy(alpha = 0.9f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(
@@ -235,28 +290,28 @@ fun BiometricVerificationScreen(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         var pass by remember { mutableStateOf("") }
-                        OutlinedTextField(
+                        AuraTextField(
                             value = pass,
                             onValueChange = { pass = it },
-                            label = { Text("Master Password") },
-                            visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
-                            modifier = Modifier.fillMaxWidth()
+                            label = "Master Password",
+                            visualTransformation = PasswordVisualTransformation(),
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Password
+                            )
                         )
                         Spacer(Modifier.height(16.dp))
-                        Button(
+                        AuraButton(
+                            text = "Verify Access",
                             onClick = {
-                                if (pass == "admin") { // Replace with real check
+                                if (pass == ownerManager.getMasterPassword()) {
                                     onAccessGranted()
                                 } else {
                                     subStatus = "Incorrect Password"
                                 }
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("Verify Access")
-                        }
-                        TextButton(onClick = { showPasswordInput = false }) {
-                            Text("Cancel", color = AccentCyan)
+                            }
+                        )
+                        TextButton(onClick = { showPasswordInput = false; faceScanActive = true }) {
+                            Text("Cancel", color = MaterialTheme.colorScheme.primary)
                         }
                     }
                 }
@@ -277,7 +332,7 @@ fun BiometricVerificationScreen(
             Text(
                 subStatus,
                 fontSize = 14.sp,
-                color = TextSecondary,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
 
@@ -289,27 +344,35 @@ fun BiometricVerificationScreen(
             ) {
                 IconButton(
                     onClick = { showFingerprint() },
-                    modifier = Modifier.size(64.dp).background(SurfaceDark, CircleShape).border(1.dp, AccentCyan.copy(alpha = 0.3f), CircleShape)
+                    modifier = Modifier.size(64.dp).background(MaterialTheme.colorScheme.surface, CircleShape).border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
                 ) {
-                    Icon(Icons.Default.Fingerprint, "Fingerprint Authentication", tint = AccentCyan, modifier = Modifier.size(32.dp))
+                    Icon(Icons.Default.Fingerprint, "Fingerprint Authentication", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
                 }
                 
                 IconButton(
-                    onClick = { showPasswordInput = true },
-                    modifier = Modifier.size(64.dp).background(SurfaceDark, CircleShape).border(1.dp, AccentCyan.copy(alpha = 0.3f), CircleShape)
+                    onClick = { showPasswordInput = true; faceScanActive = false },
+                    modifier = Modifier.size(64.dp).background(MaterialTheme.colorScheme.surface, CircleShape).border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
                 ) {
-                    Icon(Icons.Default.Lock, "Password Authentication", tint = AccentCyan, modifier = Modifier.size(24.dp))
+                    Icon(Icons.Default.Lock, "Password Authentication", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
                 }
 
                 IconButton(
                     onClick = { 
-                        // Sign out and go back to login
+                        faceScanActive = true; showPasswordInput = false
+                    },
+                    modifier = Modifier.size(64.dp).background(MaterialTheme.colorScheme.surface, CircleShape).border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                ) {
+                    Icon(Icons.Default.Face, "Face Authentication", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+                }
+
+                IconButton(
+                    onClick = { 
                         authViewModel.signOut()
                         navController.navigate(NavRoutes.LOGIN) {
                             popUpTo(0) { inclusive = true }
                         }
                     },
-                    modifier = Modifier.size(64.dp).background(SurfaceDark, CircleShape).border(1.dp, Color.Red.copy(alpha = 0.3f), CircleShape)
+                    modifier = Modifier.size(64.dp).background(MaterialTheme.colorScheme.surface, CircleShape).border(1.dp, Color.Red.copy(alpha = 0.3f), CircleShape)
                 ) {
                     Icon(Icons.Default.ExitToApp, "Sign Out", tint = Color.Red, modifier = Modifier.size(24.dp))
                 }

@@ -3,16 +3,56 @@ package com.humanoidai.ai
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Common interface for all AI models (Gemini, SmolLM2, Mock, etc.)
+ * Capabilities that an AI provider can declare.
+ */
+enum class AICapability {
+    TEXT,
+    STREAMING,
+    VISION,
+    TOOL_USE,
+    TOOLS,
+    LOCAL,
+    CLOUD,
+    FAST_RESPONSE,
+    REASONING,
+    CODING,
+    LONG_CONTEXT,
+    AUDIO,
+    VIDEO
+}
+
+/**
+ * Common interface for all AI models (Gemini, Groq, Ollama, etc.)
  */
 interface AIProvider {
     /**
-     * Unique identifier for the provider
+     * Unique identifier for the provider (e.g., "gemini-1.5-flash")
      */
     val id: String
 
     /**
-     * Perform any asynchronous initialization (loading weights, etc.)
+     * Human-readable name for the provider
+     */
+    val name: String
+
+    /**
+     * Set of capabilities supported by this provider
+     */
+    val capabilities: Set<AICapability>
+
+    /**
+     * Check if the provider is currently configured and available.
+     * Includes health check and quota status.
+     */
+    suspend fun isAvailable(): Boolean
+
+    /**
+     * Internal health check for the provider.
+     */
+    suspend fun healthCheck(): Boolean = isAvailable()
+
+    /**
+     * Perform any asynchronous initialization
      */
     suspend fun initialize()
 

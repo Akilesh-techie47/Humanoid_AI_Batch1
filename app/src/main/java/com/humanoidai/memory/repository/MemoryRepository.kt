@@ -4,7 +4,7 @@ import android.content.Context
 import com.google.gson.Gson
 import com.humanoidai.memory.dao.PriorityCount
 import com.humanoidai.memory.dao.UserInteractionCount
-import com.humanoidai.memory.database.HumanoidDatabase
+import com.humanoidai.memory.database.Aura360Database
 import com.humanoidai.memory.entities.*
 import com.humanoidai.memory.security.PrivacyVault
 import kotlinx.coroutines.flow.Flow
@@ -13,7 +13,7 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 class MemoryRepository(context: Context) {
-    private val db = HumanoidDatabase.getInstance(context)
+    private val db = Aura360Database.getInstance(context)
     private val vault = PrivacyVault(context)
     private val gson = Gson()
 
@@ -141,7 +141,7 @@ class MemoryRepository(context: Context) {
         db.interactionDao().deleteAll()
         db.alertHistoryDao().deleteAll()
         vault.wipeAll()
-        HumanoidDatabase.closeDatabase()
+        Aura360Database.closeDatabase()
     }
 
     suspend fun getAnalyticsSummary(): AnalyticsSummary {

@@ -5,12 +5,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * Responsible for detecting the wake word ("Humanoid" or "Hey Humanoid").
+ * Responsible for detecting the wake word ("Aura" or "Hey Aura").
  * In a production app, this would use a local DSP/TF Lite model. 
  * For this phase, we use the SpeechRecognizer's results to detect the keyword.
  */
 class WakeWordManager {
-    private var customWakeWord: String = "humanoid"
+    private var customWakeWord: String = "aura"
     private val DEFAULT_WAKE_WORDS = listOf("hey", "assistant")
 
     private val _isWakeWordDetected = MutableStateFlow(false)

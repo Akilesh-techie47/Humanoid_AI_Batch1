@@ -1,0 +1,57 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="100dp"
+    android:height="100dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+
+    <!-- Central Isometric Cube -->
+    <path
+        android:fillColor="#333333"
+        android:pathData="M50,47 L55,50 L55,56 L50,59 L45,56 L45,50 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M50,47 L55,50 L50,53 L45,50 Z" />
+
+    <!-- Isometric Arm - Top (Red/Orange) -->
+    <group>
+        <path
+            android:fillColor="#E84E1B"
+            android:pathData="M50,15 L62,25 L62,35 L50,41 L38,35 L38,25 Z" />
+        <path
+            android:fillColor="#B73A14"
+            android:pathData="M50,15 L62,25 L50,30 L38,25 Z" />
+        <!-- 3D depth sides -->
+        <path
+            android:fillColor="#8C2B0E"
+            android:pathData="M50,41 L62,35 L62,40 L50,46 Z" />
+    </group>
+
+    <!-- Isometric Arm - Right (Blue) -->
+    <group>
+        <path
+            android:fillColor="#4F81BD"
+            android:pathData="M85,55 L73,45 L63,45 L63,55 L73,65 L85,65 Z" />
+        <path
+            android:fillColor="#385D8A"
+            android:pathData="M85,55 L73,45 L73,55 L85,65 Z" />
+        <!-- 3D depth -->
+        <path
+            android:fillColor="#253E5B"
+            android:pathData="M63,55 L73,65 L68,70 L58,60 Z" />
+    </group>
+
+    <!-- Isometric Arm - Left (Green) -->
+    <group>
+        <path
+            android:fillColor="#76BC43"
+            android:pathData="M15,55 L27,45 L37,45 L37,55 L27,65 L15,65 Z" />
+        <path
+            android:fillColor="#5D9234"
+            android:pathData="M15,55 L27,45 L27,55 L15,65 Z" />
+        <!-- 3D depth -->
+        <path
+            android:fillColor="#3F6323"
+            android:pathData="M37,55 L27,65 L32,70 L42,60 Z" />
+    </group>
+
+</vector>

@@ -15,6 +15,11 @@ if (localPropertiesFile.exists()) {
     localProperties.load(localPropertiesFile.inputStream())
 }
 val geminiApiKey = localProperties.getProperty("GEMINI_API_KEY") ?: ""
+val groqApiKey = localProperties.getProperty("GROQ_API_KEY") ?: ""
+val openrouterApiKey = localProperties.getProperty("OPENROUTER_API_KEY") ?: ""
+val cerebrasApiKey = localProperties.getProperty("CEREBRAS_API_KEY") ?: ""
+val mistralApiKey = localProperties.getProperty("MISTRAL_API_KEY") ?: ""
+val nvidiaApiKey = localProperties.getProperty("NVIDIA_API_KEY") ?: ""
 
 android {
     namespace = "com.humanoidai"
@@ -33,6 +38,31 @@ android {
             "GEMINI_API_KEY",
             "\"$geminiApiKey\""
         )
+        buildConfigField(
+            "String",
+            "GROQ_API_KEY",
+            "\"$groqApiKey\""
+        )
+        buildConfigField(
+            "String",
+            "OPENROUTER_API_KEY",
+            "\"$openrouterApiKey\""
+        )
+        buildConfigField(
+            "String",
+            "CEREBRAS_API_KEY",
+            "\"$cerebrasApiKey\""
+        )
+        buildConfigField(
+            "String",
+            "MISTRAL_API_KEY",
+            "\"$mistralApiKey\""
+        )
+        buildConfigField(
+            "String",
+            "NVIDIA_API_KEY",
+            "\"$nvidiaApiKey\""
+        )
         externalNativeBuild {
             cmake {
                 arguments("-DANDROID_STL=c++_shared")
@@ -50,8 +80,18 @@ android {
         noCompress += "tflite"
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file("release.keystore")
+            storePassword = "humanoidai123"
+            keyAlias = "releaseKey"
+            keyPassword = "humanoidai123"
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -111,6 +151,8 @@ dependencies {
     implementation("androidx.biometric:biometric:1.2.0-alpha05")
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
+    implementation(libs.firebase.analytics)
+    implementation(libs.play.services.auth)
 
     // Compose
     implementation(platform(libs.androidx.compose.bom))
@@ -138,6 +180,7 @@ dependencies {
     implementation(libs.tensorflow.lite)
 
     implementation(libs.gson)
+    implementation(libs.okhttp)
     implementation(libs.generativeai)
     implementation(project(":opencv"))
 

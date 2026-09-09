@@ -27,7 +27,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavController
 import com.humanoidai.permission.PermissionManager
-import com.humanoidai.ui.theme.*
+import com.humanoidai.ui.theme.SuccessGreen
 import androidx.compose.foundation.shape.CircleShape
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -61,7 +61,7 @@ fun CommunicationAccessScreen(navController: NavController) {
     }
 
     Scaffold(
-        containerColor = BackgroundDark,
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             Row(
                 modifier = Modifier
@@ -78,15 +78,15 @@ fun CommunicationAccessScreen(navController: NavController) {
                     modifier = Modifier
                         .size((44).dp)
                         .clip(CircleShape)
-                        .background(SurfaceDark.copy(alpha = 0.4f))
-                        .border(1.dp, Color.White.copy(alpha = 0.05f), CircleShape)
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.4f))
+                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.05f), CircleShape)
                 ) {
-                    Icon(Icons.Default.ArrowBack, "Back", tint = Color.White, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Default.ArrowBack, "Back", tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
                 }
                 
                 Spacer(Modifier.width(16.dp))
                 
-                Text("SYSTEM ACCESS", fontSize = 15.sp, fontWeight = FontWeight.Black, color = AccentCyan, fontFamily = FontFamily.Monospace, letterSpacing = 1.sp)
+                Text("SYSTEM ACCESS", fontSize = 15.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary, fontFamily = FontFamily.Monospace, letterSpacing = 1.sp)
             }
         }
     ) { padding ->
@@ -98,8 +98,8 @@ fun CommunicationAccessScreen(navController: NavController) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                "Enable access to unlock Communication Intelligence. Humanoid AI will be able to brief you on missed calls and messages.",
-                color = TextSecondary,
+                "Enable access to unlock Communication Intelligence. Aura 360° will be able to brief you on missed calls and messages.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 14.sp,
                 lineHeight = 20.sp,
                 modifier = Modifier.padding(bottom = 32.dp)
@@ -147,9 +147,9 @@ fun CommunicationAccessScreen(navController: NavController) {
                 onClick = { navController.popBackStack() },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = AccentCyan)
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) {
-                Text("Done", color = Color.Black, fontWeight = FontWeight.Bold)
+                Text("Done", color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -161,23 +161,23 @@ private fun AccessRow(title: String, subtitle: String, enabled: Boolean, onClick
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 6.dp),
-        color = SurfaceDark.copy(alpha = 0.4f),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.4f),
         shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.05f))
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(title, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                Text(subtitle, color = TextSecondary, fontSize = 12.sp)
+                Text(title, color = MaterialTheme.colorScheme.onSurface, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
             }
             Button(
                 onClick = onClick,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = if (enabled) SuccessGreen.copy(alpha = 0.15f) else AccentCyan,
-                    contentColor = if (enabled) SuccessGreen else Color.Black
+                    containerColor = if (enabled) SuccessGreen.copy(alpha = 0.15f) else MaterialTheme.colorScheme.primary,
+                    contentColor = if (enabled) SuccessGreen else MaterialTheme.colorScheme.onPrimary
                 ),
                 shape = RoundedCornerShape(8.dp),
                 contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),

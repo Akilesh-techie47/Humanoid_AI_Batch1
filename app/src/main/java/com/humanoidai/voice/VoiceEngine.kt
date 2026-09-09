@@ -2,12 +2,9 @@ package com.humanoidai.voice
 
 import android.content.Context
 import android.util.Log
-import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.collect
 
 /**
  * Coordinates speech generation with the BDI state and persona.
@@ -24,6 +21,7 @@ class VoiceEngine(
     private var lastSpokenTime = 0L
 
     private val speechScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private var streamJob: Job? = null
 
     /**
      * Interaction 2.0: Instant Vocalization.
@@ -31,7 +29,7 @@ class VoiceEngine(
      */
     fun speak(text: String, tone: SpeechTone = SpeechTone.NEUTRAL, priority: Boolean = false, onComplete: () -> Unit = {}) {
         val now = System.currentTimeMillis()
-        Log.d("VoiceEngine", "[VOICE] TTS_SPEAK_REQUESTED: \"${text.take(20)}...\"")
+        Log.d("VoiceEngine", "[VOICE_PIPELINE] TTS_INPUT: \"${text.take(20)}...\"")
         
         // Cooldown for repeated phrases (unless priority like alert)
         if (!priority && (text == lastSpokenText) && ((now - lastSpokenTime) < 5_000)) {
@@ -54,17 +52,25 @@ class VoiceEngine(
      */
     suspend fun speakStream(phraseFlow: Flow<String>, tone: SpeechTone = SpeechTone.NEUTRAL) {
         stop()
-        phraseFlow.collect { phrase ->
-            // Natural unit received
-            Log.d("VoiceEngine", "Streaming phrase: $phrase")
-            val chunks = formatter.splitIntoChunks(phrase)
-            
-            // Wait for completion of current phrase before next one to avoid overlap
-            val latch = CompletableDeferred<Unit>()
-            speakSequential(chunks, tone) {
-                latch.complete(Unit)
+        coroutineScope {
+            val job = launch {
+                phraseFlow.collect { phrase ->
+                    if (!isActive) return@collect
+                    
+                    // Natural unit received
+                    Log.d("VoiceEngine", "[VOICE_PIPELINE] TTS_STREAM_PHRASE: $phrase")
+                    val chunks = formatter.splitIntoChunks(phrase)
+                    
+                    // Wait for completion of current phrase before next one to avoid overlap
+                    val latch = CompletableDeferred<Unit>()
+                    speakSequential(chunks, tone) {
+                        latch.complete(Unit)
+                    }
+                    latch.await()
+                }
             }
-            latch.await()
+            streamJob = job
+            job.join()
         }
     }
 
@@ -86,6 +92,8 @@ class VoiceEngine(
     }
 
     fun stop() {
+        streamJob?.cancel()
+        streamJob = null
         outputRouter.stop()
     }
 

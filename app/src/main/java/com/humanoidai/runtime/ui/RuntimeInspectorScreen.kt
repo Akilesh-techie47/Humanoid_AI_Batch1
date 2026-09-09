@@ -15,10 +15,6 @@ import androidx.compose.ui.unit.dp
 import com.humanoidai.runtime.HealthState
 import com.humanoidai.runtime.RuntimeProfile
 import com.humanoidai.ui.theme.AccentCyan
-import com.humanoidai.ui.theme.BackgroundDark
-import com.humanoidai.ui.theme.SurfaceDark
-import com.humanoidai.ui.theme.TextPrimary
-import com.humanoidai.ui.theme.TextSecondary
 
 @Composable
 fun RuntimeInspectorScreen(viewModel: RuntimeInspectorViewModel) {
@@ -28,7 +24,7 @@ fun RuntimeInspectorScreen(viewModel: RuntimeInspectorViewModel) {
 
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = BackgroundDark
+        color = MaterialTheme.colorScheme.background
     ) {
         Column(
             modifier = Modifier
@@ -36,7 +32,7 @@ fun RuntimeInspectorScreen(viewModel: RuntimeInspectorViewModel) {
                 .padding(16.dp)
                 .verticalScroll(rememberScrollState())
         ) {
-            Text("AI Runtime Inspector", style = MaterialTheme.typography.headlineMedium, color = TextPrimary)
+            Text("AI Runtime Inspector", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onBackground)
             Spacer(Modifier.height(16.dp))
 
             // System Health
@@ -54,7 +50,7 @@ fun RuntimeInspectorScreen(viewModel: RuntimeInspectorViewModel) {
             Spacer(Modifier.height(8.dp))
 
             // Active Profile
-            Text("Runtime Profile", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+            Text("Runtime Profile", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 RuntimeProfile.entries.forEach { p ->
                     FilterChip(
@@ -109,7 +105,7 @@ fun StatusCard(title: String, value: String, color: Color) {
         colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.1f))
     ) {
         Column(Modifier.padding(16.dp)) {
-            Text(title, style = MaterialTheme.typography.labelMedium, color = TextSecondary)
+            Text(title, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(value, style = MaterialTheme.typography.titleLarge, color = color, fontWeight = FontWeight.Bold)
         }
     }
@@ -119,7 +115,7 @@ fun StatusCard(title: String, value: String, color: Color) {
 fun MetricSection(title: String, content: @Composable ColumnScope.() -> Unit) {
     Column(Modifier.padding(vertical = 8.dp)) {
         Text(title, style = MaterialTheme.typography.titleSmall, color = AccentCyan)
-        HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
         Column(content = content)
     }
 }
@@ -132,7 +128,7 @@ fun MetricRow(label: String, value: String) {
             .padding(vertical = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(label, style = MaterialTheme.typography.bodyMedium, color = TextPrimary)
-        Text(value, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = TextPrimary)
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onBackground)
+        Text(value, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
     }
 }

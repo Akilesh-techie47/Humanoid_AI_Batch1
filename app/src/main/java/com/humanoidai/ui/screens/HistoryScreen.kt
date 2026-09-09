@@ -24,11 +24,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.navigation.NavController
+import com.humanoidai.memory.LongTermMemory
+import com.humanoidai.ui.components.ArmsunFooter
 import com.humanoidai.ui.components.SidePanelDrawer
 import com.humanoidai.ui.theme.*
 import kotlinx.coroutines.launch
-import androidx.compose.ui.platform.LocalContext
-import com.humanoidai.memory.LongTermMemory
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -96,7 +96,7 @@ fun HistoryScreen(navController: NavController) {
         drawerState = drawerState
     ) {
         Scaffold(
-            containerColor = BackgroundDark,
+            containerColor = MaterialTheme.colorScheme.background,
             topBar = {
                 Row(
                 modifier = Modifier
@@ -112,37 +112,47 @@ fun HistoryScreen(navController: NavController) {
                     },
                     modifier = Modifier
                         .size(44.dp)
-                        .clip(CircleShape)
-                        .background(SurfaceDark.copy(alpha = 0.4f))
-                        .border(1.dp, Color.White.copy(alpha = 0.05f), CircleShape)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.surface)
+                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
                 ) {
-                    Icon(Icons.Default.Menu, "Menu", tint = Color.White, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Default.Menu, "Menu", tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
                 }
                 
                 Spacer(Modifier.width(16.dp))
                 
-                Text("ACTIVITY HISTORY", fontSize = 15.sp, fontWeight = FontWeight.Black, color = AccentCyan, fontFamily = FontFamily.Monospace, letterSpacing = 1.sp)
+                Text(
+                    "ACTIVITY HISTORY", 
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold, 
+                    color = MaterialTheme.colorScheme.primary, 
+                    letterSpacing = 1.sp
+                )
             }
         }
     ) { padding ->
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                grouped.forEach { (date, dayEvents) ->
-                    item {
-                        Spacer(modifier = Modifier.height(16.dp))
-                        DateHeader(date)
-                        Spacer(modifier = Modifier.height(8.dp))
+            Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    grouped.forEach { (date, dayEvents) ->
+                        item {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            DateHeader(date)
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+                        items(dayEvents) { event ->
+                            HistoryEventRow(event)
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
                     }
-                    items(dayEvents) { event ->
-                        HistoryEventRow(event)
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
+                    item { Spacer(modifier = Modifier.height(64.dp)) }
                 }
+                
+                ArmsunFooter(modifier = Modifier.align(Alignment.BottomCenter))
             }
         }
     }
@@ -151,16 +161,16 @@ fun HistoryScreen(navController: NavController) {
 @Composable
 private fun DateHeader(date: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(Icons.Default.DateRange, null, tint = AccentCyan, modifier = Modifier.size(16.dp))
+        Icon(Icons.Default.DateRange, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
         Spacer(modifier = Modifier.width(6.dp))
-        Text(date, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = AccentCyan)
+        Text(date, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
     }
 }
 
 @Composable
 private fun HistoryEventRow(event: HistoryEvent) {
     val (icon, iconColor) = when (event.type) {
-        EventType.DETECTION -> Pair(Icons.Default.Person, AccentCyan)
+        EventType.DETECTION -> Pair(Icons.Default.Person, MaterialTheme.colorScheme.primary)
         EventType.ALERT     -> Pair(Icons.Default.Notifications, ErrorRed)
         EventType.SYSTEM    -> Pair(Icons.Default.Settings, SuccessGreen)
     }
@@ -169,9 +179,9 @@ private fun HistoryEventRow(event: HistoryEvent) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp),
-        color = SurfaceDark.copy(alpha = 0.4f),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.4f),
         shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
     ) {
         Row(
             modifier = Modifier.padding(14.dp),
@@ -190,12 +200,12 @@ private fun HistoryEventRow(event: HistoryEvent) {
             Spacer(modifier = Modifier.width(16.dp))
             
             Column(modifier = Modifier.weight(1f)) {
-                Text(event.title, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Text(event.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                 Spacer(modifier = Modifier.height(2.dp))
-                Text(event.detail, fontSize = 12.sp, color = TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(event.detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             
-            Text(event.timestamp, fontSize = 10.sp, color = TextSecondary.copy(alpha = 0.6f), fontFamily = FontFamily.Monospace)
+            Text(event.timestamp, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
         }
     }
 }

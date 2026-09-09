@@ -17,7 +17,7 @@ class GeminiContextHelper(apiKey: String) {
             val response = model.generateContent(
                 content {
                     image(bitmap)
-                    text("You are the brain of Humanoid AI. You are looking through a fisheye lens. " +
+                    text("You are the brain of Humanoid, the worlds first fisheye lens based 360° contextual proactive assistant. You are looking through a fisheye lens. " +
                          "Describe the room and what people are doing. The owner's name is $ownerName. " +
                          "Be concise (max 20 words). If you see security risks, mention them.")
                 }

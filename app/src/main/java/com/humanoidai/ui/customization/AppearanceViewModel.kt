@@ -50,6 +50,10 @@ class AppearanceViewModel(context: Context) : ViewModel() {
         viewModelScope.launch { dataStore.updateStructure(structure) }
     }
 
+    fun setScale(scale: UIScale) {
+        viewModelScope.launch { dataStore.updateScale(scale) }
+    }
+
     fun setTheme(theme: String, accent: Long) {
         viewModelScope.launch { dataStore.updateTheme(theme, accent) }
     }
@@ -69,6 +73,34 @@ class AppearanceViewModel(context: Context) : ViewModel() {
 
     fun setMaxRoi(count: Int) {
         viewModelScope.launch { dataStore.updateMaxRoi(count) }
+    }
+
+    fun setAiMode(mode: AIMode) {
+        viewModelScope.launch { dataStore.updateAiMode(mode) }
+    }
+
+    fun setOllamaEndpoint(endpoint: String) {
+        viewModelScope.launch { dataStore.updateOllamaEndpoint(endpoint) }
+    }
+
+    fun setOllamaModel(model: String) {
+        viewModelScope.launch { dataStore.updateOllamaModel(model) }
+    }
+
+    fun updateGroqModel(model: String) {
+        viewModelScope.launch { dataStore.updateGroqModel(model) }
+    }
+
+    fun updateOpenRouterModel(model: String) {
+        viewModelScope.launch { dataStore.updateOpenRouterModel(model) }
+    }
+
+    fun setDarkMode(enabled: Boolean) {
+        viewModelScope.launch { dataStore.updateDarkMode(enabled) }
+    }
+
+    fun setMasterPassword(password: String) {
+        viewModelScope.launch { dataStore.updateMasterPassword(password) }
     }
 
     class Factory(private val context: Context) : ViewModelProvider.Factory {

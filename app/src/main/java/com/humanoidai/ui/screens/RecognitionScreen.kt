@@ -28,6 +28,8 @@ import com.humanoidai.ui.components.SidePanelDrawer
 import com.humanoidai.ui.theme.*
 import kotlinx.coroutines.launch
 
+import com.humanoidai.ui.components.ArmsunFooter
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecognitionScreen(
@@ -46,7 +48,7 @@ fun RecognitionScreen(
         drawerState = drawerState
     ) {
         Scaffold(
-            containerColor = BackgroundDark,
+            containerColor = MaterialTheme.colorScheme.background,
             topBar = {
                 Row(
                 modifier = Modifier
@@ -63,15 +65,21 @@ fun RecognitionScreen(
                     modifier = Modifier
                         .size(44.dp)
                         .clip(CircleShape)
-                        .background(SurfaceDark.copy(alpha = 0.4f))
-                        .border(1.dp, Color.White.copy(alpha = 0.05f), CircleShape)
+                        .background(MaterialTheme.colorScheme.surface)
+                        .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
                 ) {
-                    Icon(Icons.Default.Menu, "Open Menu", tint = Color.White, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Default.Menu, "Open Menu", tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
                 }
                 
                 Spacer(Modifier.width(16.dp))
                 
-                Text("RECOGNITION", fontSize = 15.sp, fontWeight = FontWeight.Black, color = AccentCyan, fontFamily = FontFamily.Monospace, letterSpacing = 1.sp)
+                Text(
+                    "RECOGNITION", 
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold, 
+                    color = MaterialTheme.colorScheme.primary, 
+                    letterSpacing = 1.sp
+                )
                 
                 Spacer(Modifier.weight(1f))
 
@@ -79,81 +87,84 @@ fun RecognitionScreen(
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     navController.navigate("enrollment") 
                 }) {
-                    Icon(Icons.Default.PersonAdd, "Add Person", tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(20.dp))
+                    Icon(Icons.Default.PersonAdd, "Add Person", tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f), modifier = Modifier.size(20.dp))
                 }
             }
         }
     ) { padding ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(horizontal = 16.dp)
-            ) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+            Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp)
                 ) {
-                    StatChip("Enrolled", people.size.toString(), AccentCyan, Modifier.weight(1f))
-                    StatChip(
-                        "Family",
-                        people.count { it.label == "Family" }.toString(),
-                        Color(0xFF66BB6A),
-                        Modifier.weight(1f)
-                    )
-                    StatChip(
-                        "Others",
-                        people.count { it.label != "Family" }.toString(),
-                        Color(0xFF42A5F5),
-                        Modifier.weight(1f)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                if (people.isEmpty()) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(
-                                Icons.Default.Person,
-                                contentDescription = null,
-                                tint = TextSecondary.copy(alpha = 0.4f),
-                                modifier = Modifier.size(56.dp)
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Text(
-                                "No persons enrolled yet",
-                                fontSize = 15.sp,
-                                color = TextSecondary
-                            )
-                            Spacer(modifier = Modifier.height(20.dp))
-                            Button(
-                                onClick = { navController.navigate("enrollment") },
-                                colors = ButtonDefaults.buttonColors(containerColor = AccentCyan),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Text("Enroll First Person", color = Color.Black, fontWeight = FontWeight.SemiBold)
+                        StatChip("Enrolled", people.size.toString(), MaterialTheme.colorScheme.primary, Modifier.weight(1f))
+                        StatChip(
+                            "Family",
+                            people.count { it.label == "Family" }.toString(),
+                            SuccessGreen,
+                            Modifier.weight(1f)
+                        )
+                        StatChip(
+                            "Others",
+                            people.count { it.label != "Family" }.toString(),
+                            Color(0xFF42A5F5),
+                            Modifier.weight(1f)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    if (people.isEmpty()) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    Icons.Default.Person,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                                    modifier = Modifier.size(56.dp)
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    "No persons enrolled yet",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.height(20.dp))
+                                AuraButton(
+                                    text = "Enroll First Person",
+                                    onClick = { navController.navigate("enrollment") }
+                                )
+                            }
+                        }
+                    } else {
+                        LazyColumn(
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                            contentPadding = PaddingValues(bottom = 60.dp)
+                        ) {
+                            items(people) { person ->
+                                EnrolledPersonCard(
+                                    person = person,
+                                    onDelete = { showDeleteDialog = person },
+                                    onTogglePriority = {
+                                        enrollmentManager.toggleCriticalStatus(person.name)
+                                        people = enrollmentManager.getAllPersons()
+                                    }
+                                )
                             }
                         }
                     }
-                } else {
-                    LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        items(people) { person ->
-                            EnrolledPersonCard(
-                                person = person,
-                                onDelete = { showDeleteDialog = person },
-                                onTogglePriority = {
-                                    enrollmentManager.toggleCriticalStatus(person.name)
-                                    people = enrollmentManager.getAllPersons()
-                                }
-                            )
-                        }
-                    }
                 }
+                
+                ArmsunFooter(modifier = Modifier.align(Alignment.BottomCenter))
             }
         }
     }
@@ -161,9 +172,9 @@ fun RecognitionScreen(
     showDeleteDialog?.let { person ->
         AlertDialog(
             onDismissRequest = { showDeleteDialog = null },
-            containerColor = SurfaceDark,
-            title = { Text("Remove ${person.name}?", color = TextPrimary) },
-            text = { Text("This person will no longer be recognized by the camera.", color = TextSecondary) },
+            containerColor = MaterialTheme.colorScheme.surface,
+            title = { Text("Remove ${person.name}?", color = MaterialTheme.colorScheme.onBackground) },
+            text = { Text("This person will no longer be recognized by the camera.", color = MaterialTheme.colorScheme.onSurfaceVariant) },
             confirmButton = {
                 TextButton(onClick = {
                     enrollmentManager.removePerson(person.name)
@@ -176,7 +187,7 @@ fun RecognitionScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = null }) {
-                    Text("Cancel", color = TextSecondary)
+                    Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         )
@@ -188,19 +199,19 @@ private fun EnrolledPersonCard(person: EnrolledPerson, onDelete: () -> Unit, onT
     val haptic = LocalHapticFeedback.current
     val labelColor = when (person.label) {
         "Family"    -> SuccessGreen
-        "Colleague" -> AccentCyan
+        "Colleague" -> MaterialTheme.colorScheme.primary
         "Neighbor"  -> WarningOrange
-        "Friend"    -> AccentPurple
-        else        -> TextSecondary
+        "Friend"    -> Color(0xFFCE93D8)
+        else        -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp),
-        color = SurfaceDark.copy(alpha = 0.4f),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.4f),
         shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
@@ -210,17 +221,17 @@ private fun EnrolledPersonCard(person: EnrolledPerson, onDelete: () -> Unit, onT
                 modifier = Modifier
                     .size(48.dp)
                     .clip(CircleShape)
-                    .background(AccentCyan.copy(alpha = 0.1f))
-                    .border(1.dp, AccentCyan.copy(alpha = 0.3f), CircleShape),
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
+                    .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.Person, null, tint = AccentCyan, modifier = Modifier.size(24.dp))
+                Icon(Icons.Default.Person, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
             }
 
             Spacer(modifier = Modifier.width(16.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(person.name, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Text(person.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                 Spacer(modifier = Modifier.height(4.dp))
                 Surface(
                     color = labelColor.copy(alpha = 0.1f),
@@ -229,7 +240,7 @@ private fun EnrolledPersonCard(person: EnrolledPerson, onDelete: () -> Unit, onT
                 ) {
                     Text(
                         person.label.uppercase(), 
-                        fontSize = 9.sp, 
+                        style = MaterialTheme.typography.labelSmall, 
                         color = labelColor, 
                         fontWeight = FontWeight.Black,
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
@@ -245,7 +256,7 @@ private fun EnrolledPersonCard(person: EnrolledPerson, onDelete: () -> Unit, onT
                 Icon(
                     if (person.isCritical) Icons.Default.Star else Icons.Default.StarBorder,
                     "Priority",
-                    tint = if (person.isCritical) WarningOrange else TextSecondary.copy(alpha = 0.5f),
+                    tint = if (person.isCritical) WarningOrange else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -265,11 +276,11 @@ private fun EnrolledPersonCard(person: EnrolledPerson, onDelete: () -> Unit, onT
 private fun StatChip(label: String, value: String, color: Color, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
-            .background(SurfaceDark, RoundedCornerShape(10.dp))
+            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(10.dp))
             .padding(vertical = 10.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(value, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = color)
-        Text(label, fontSize = 11.sp, color = TextSecondary)
+        Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = color)
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

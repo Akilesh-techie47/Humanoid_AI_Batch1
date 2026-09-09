@@ -13,22 +13,22 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
 /**
- * Advanced security vault for Humanoid AI.
+ * Advanced security vault for Aura 360°.
  * Handles AES-256-GCM encryption for embeddings and SQLCipher key management.
  */
 class PrivacyVault(private val context: Context) {
 
     companion object {
-        private const val MASTER_KEY_ALIAS  = "humanoid_ai_master_key"
-        private const val DATA_KEY_ALIAS    = "humanoid_ai_data_key"
-        private const val DB_KEY_ALIAS      = "humanoid_db_key_v2"
+        private const val MASTER_KEY_ALIAS  = "aura360_master_key"
+        private const val DATA_KEY_ALIAS    = "aura360_data_key"
+        private const val DB_KEY_ALIAS      = "aura360_db_key_v2"
         private const val KEYSTORE_PROVIDER = "AndroidKeyStore"
         private const val ALGORITHM         = KeyProperties.KEY_ALGORITHM_AES
         private const val BLOCK_MODE        = KeyProperties.BLOCK_MODE_GCM
         private const val PADDING           = KeyProperties.ENCRYPTION_PADDING_NONE
         private const val TRANSFORMATION    = "AES/GCM/NoPadding"
         private const val GCM_TAG_LENGTH    = 128
-        private const val PREFS_FILE        = "humanoid_secure_prefs"
+        private const val PREFS_FILE        = "aura360_secure_prefs"
     }
 
     private val masterKey: MasterKey by lazy {

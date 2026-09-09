@@ -82,14 +82,14 @@ class LayoutCustomizationEngine(
 
     private fun mapWidgetIdToSettingsKey(id: String): String? {
         return when(id) {
-            "primary_roi" -> "Primary ROI"
+            "primary_roi" -> "ROI Labels"
             "secondary_roi" -> "Secondary ROI"
             "assistant" -> "AI Assistant"
             "status_bar" -> "AI Status"
             "notifications" -> "Notification Stack"
             "alerts" -> "Alert Panel"
             "radar" -> "Distance Indicator"
-            "status_indicators" -> "Emotion Indicator"
+            "status_indicators" -> "Sensor Status"
             "object_details" -> "Object Details"
             else -> null
         }
