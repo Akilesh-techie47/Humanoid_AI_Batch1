@@ -12,13 +12,14 @@ class AIRouter(private val registry: AIProviderRegistry) {
     private val providerHealth = mutableMapOf<String, ProviderHealthState>()
 
     data class ProviderHealthState(
-        var status: ProviderStatus = ProviderStatus.AVAILABLE,
+        var status: ProviderStatus = ProviderStatus.UNKNOWN,
         var retryAt: Long = 0L,
         var lastError: String? = null,
         var failureCount: Int = 0
     )
 
     enum class ProviderStatus {
+        UNKNOWN,
         AVAILABLE,
         RATE_LIMITED,
         UNAVAILABLE,
@@ -43,7 +44,7 @@ class AIRouter(private val registry: AIProviderRegistry) {
         return when (settings.aiMode) {
             AIMode.LOCAL_ONLY -> {
                 if (isProviderHealthy("ollama-local") && ollama != null && ollama.isAvailable()) ollama
-                else registry.get("offline-local") ?: registry.get("mock-provider")!!
+                else registry.get("offline-local") ?: registry.get("system-fallback")!!
             }
             AIMode.CLOUD_ONLY -> {
                 selectBestCloudProvider(settings.cloudPriority)
@@ -81,23 +82,30 @@ class AIRouter(private val registry: AIProviderRegistry) {
             }
         }
 
-        return registry.get("offline-local") ?: registry.get("mock-provider")!!
+        return registry.get("offline-local") ?: registry.get("system-fallback")!!
     }
 
     fun getProviderStatus(providerId: String): ProviderStatus {
-        val health = providerHealth[providerId] ?: return ProviderStatus.AVAILABLE
-        if (health.status == ProviderStatus.AVAILABLE) return ProviderStatus.AVAILABLE
-        
-        if (System.currentTimeMillis() > health.retryAt) {
-            Log.i("AIRouter", "[AI_ROUTER] Recovery time reached for $providerId")
-            health.status = ProviderStatus.AVAILABLE
-            return ProviderStatus.AVAILABLE
-        }
-        return health.status
+        return providerHealth[providerId]?.status ?: ProviderStatus.UNKNOWN
     }
 
     private fun isProviderHealthy(providerId: String): Boolean {
-        return getProviderStatus(providerId) == ProviderStatus.AVAILABLE
+        val health = providerHealth[providerId] ?: return false
+        if (health.status == ProviderStatus.AVAILABLE) return true
+        
+        if (System.currentTimeMillis() > health.retryAt && health.retryAt > 0) {
+            // Recovery candidate: Timer expired, so we can try it again.
+            // We don't mark it AVAILABLE yet (requires verified success).
+            return true 
+        }
+        return false
+    }
+
+    fun reportSuccess(providerId: String) {
+        val health = providerHealth.getOrPut(providerId) { ProviderHealthState() }
+        health.status = ProviderStatus.AVAILABLE
+        health.retryAt = 0L
+        health.failureCount = 0
     }
 
     fun reportFailure(providerId: String, error: AIError, metadata: Map<String, Any> = emptyMap()) {
@@ -139,7 +147,7 @@ class AIRouter(private val registry: AIProviderRegistry) {
         val filteredPriority = priority.filter { it != failedProviderId }
         val next = selectBestCloudProvider(filteredPriority)
         
-        // Return null only if we've exhausted all options and hit mock
-        return if (next.id == "mock-provider" && failedProviderId != "mock-provider") null else next
+        // Return null only if we've exhausted all options and hit fallback
+        return if (next.id == "system-fallback" && failedProviderId != "system-fallback") null else next
     }
 }

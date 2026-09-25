@@ -17,7 +17,6 @@ import com.humanoidai.voice.SpeechTone
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
@@ -43,7 +42,8 @@ class AIManager(
     private val settings: StateFlow<AppearanceSettings>,
     initialProviders: Map<String, AIProvider>? = null,
     private val trustFramework: TrustFramework = TrustFramework.getInstance(context),
-    private val ownerEnrollmentManager: OwnerEnrollmentManager = OwnerEnrollmentManager(context)
+    private val ownerEnrollmentManager: OwnerEnrollmentManager = OwnerEnrollmentManager(context),
+    private val externalScope: CoroutineScope? = null
 ) {
 
     private val registry = AIProviderRegistry()
@@ -51,13 +51,12 @@ class AIManager(
     private val orchestrator = AIOrchestrator(router)
     
     private val _aiState = MutableStateFlow<AIState>(AIState.Idle)
-    val aiState: StateFlow<AIState> = _aiState.asStateFlow()
 
-    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val scope = externalScope ?: CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     // Context Cache for High-Speed Reasoning
     private var cachedOwnerName: String = ""
-    private var cachedAiName: String = "Aura 360°"
+    private var cachedAiName: String = "Aura 360"
     private var cachedLanguage: String = "en"
 
     var onSpeechStarted: (() -> Unit)? = null
@@ -67,7 +66,7 @@ class AIManager(
             initialProviders.values.forEach { registry.register(it) }
         } else {
             // Register default providers
-            registry.register(MockProvider())
+            registry.register(FallbackAIProvider())
             registry.register(OfflineAIProvider())
             
             val geminiKey = apiKeys["gemini"] ?: ""
@@ -88,15 +87,40 @@ class AIManager(
         
         Log.i("AIManager", "[AI_ORCHESTRATOR] Registered providers: ${registry.getAll().joinToString { it.id }}")
 
-        // Initialize active providers
+        // Initialize and verify active providers
         scope.launch {
-            registry.getAll().forEach { it.initialize() }
+            registry.getAll().forEach { provider ->
+                try {
+                    provider.initialize()
+                    if (provider.id != "system-fallback" && provider.id != "offline-local" && provider.isAvailable()) {
+                        // Genuinely verify it before marking AVAILABLE
+                        if (testProvider(provider.id)) {
+                             Log.i("AIManager", "Provider ${provider.id} verified and ready.")
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.w("AIManager", "Failed to initialize provider ${provider.id}: ${e.message}")
+                }
+            }
         }
     }
 
     fun getProviderHealth(): Map<String, AIRouter.ProviderStatus> {
-        return registry.getAll().associate { provider ->
-            provider.id to (router.getProviderStatus(provider.id))
+        return registry.getAll().associateBy { it.id }.mapValues {
+            router.getProviderStatus(it.key)
+        }
+    }
+
+    /**
+     * Checks if at least one real (non-fallback, non-offline) provider is genuinely available.
+     */
+    suspend fun hasUsableRealProvider(): Boolean {
+        val health = getProviderHealth()
+        return registry.getAll().any { provider ->
+            provider.id != "system-fallback" && 
+            provider.id != "offline-local" && 
+            provider.isAvailable() &&
+            health[provider.id] == AIRouter.ProviderStatus.AVAILABLE
         }
     }
 
@@ -112,9 +136,11 @@ class AIManager(
             val success = response.error == null && response.text.contains("LINK_STABLE", ignoreCase = true)
             if (!success) {
                 router.reportFailure(providerId, response.errorCategory ?: AIError.UNKNOWN_ERROR, response.metadata)
+            } else {
+                router.reportSuccess(providerId)
             }
             success
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             router.reportFailure(providerId, AIError.NETWORK_ERROR)
             false
         }
@@ -126,13 +152,16 @@ class AIManager(
         userQuestion: String,
         ownerName: String,
         currentScreen: String,
+        systemInstruction: String? = null,
+        imageData: ByteArray? = null,
         onResponseComplete: () -> Unit = {}
     ): AIResponse {
         val requestId = ++currentRequestId
         val requestStartTime = System.currentTimeMillis()
-        Log.i("AIManager", "[VOICE_PIPELINE] AI_REQUEST id=$requestId prompt=\"$userQuestion\"")
+        val sessionActive = trustFramework.sessionManager.isSessionActive()
+        Log.i("AIManager", "[VOICE_PIPELINE] AI_REQUEST id=$requestId prompt=\"$userQuestion\" sessionActive=$sessionActive hasImage=${imageData != null}")
 
-        if (!trustFramework.sessionManager.isSessionActive()) {
+        if (!sessionActive) {
             Log.w("AIManager", "[VOICE_PIPELINE] ERROR: SESSION_INACTIVE id=$requestId")
             val response = AIResponse(
                 text = "Session is inactive. Please re-authenticate.",
@@ -140,6 +169,7 @@ class AIManager(
                 error = "SESSION_INACTIVE"
             )
             _aiState.value = AIState.Error(response.text)
+            onResponseComplete()
             return response
         }
 
@@ -153,6 +183,7 @@ class AIManager(
                 error = "INVALID_TRANSCRIPT"
             )
             _aiState.value = AIState.Error(response.text)
+            onResponseComplete()
             return response
         }
 
@@ -180,13 +211,17 @@ class AIManager(
         }
 
         // 3. Generate Response (Streaming for Interaction 2.0)
-        val hasVision = currentContext.visiblePeople.isNotEmpty()
-        val prompt = PromptBuilder.build(currentContext, "", normalizedQuestion, cachedAiName, isProactive = false)
+        val hasVision = currentContext.visiblePeople.isNotEmpty() || imageData != null
+        
+        val finalSystemInstruction = systemInstruction ?: PromptBuilder.build(currentContext, "", "", cachedAiName, isProactive = false)
+        
         val request = AIRequest(
-            prompt = prompt,
+            prompt = normalizedQuestion,
             requestId = requestId,
+            systemInstructions = finalSystemInstruction,
             history = historyList,
             requiresVision = hasVision,
+            imageData = imageData,
             type = if (hasVision) AIRequestType.VISION else AIRequestType.GENERAL_CONVERSATION
         )
         
@@ -239,12 +274,15 @@ class AIManager(
                 streamError = e.localizedMessage
                 Log.e("AIManager", "[VOICE_PIPELINE] ERROR: AI_STREAM_ERROR id=$requestId message=${e.message}")
                 withContext(Dispatchers.Main) {
-                    val errorMsg = "I encountered an error: ${e.localizedMessage ?: "Connection failure"}"
+                    val errorMsg = "[CONNECTION_ERROR: ${e.localizedMessage ?: "Neural link interrupted"}]"
                     if (firstChunkReceived) {
-                        conversationMemory.updateLastAiMessage(fullTextBuilder.toString() + "\n[ERROR: $errorMsg]")
+                        // Append error to partial response
+                        conversationMemory.updateLastAiMessage("${fullTextBuilder.toString()}\n$errorMsg")
                     } else {
-                        conversationMemory.addMessage(ChatMessage(text = errorMsg, isUser = false))
+                        // Direct error if nothing received
+                        conversationMemory.addMessage(ChatMessage(text = "I lost connection to my neural network. Please check your link.", isUser = false))
                     }
+                    _aiState.value = AIState.Error(e.localizedMessage ?: "Stream failed")
                 }
             } finally {
                 phraseChannel.close()
@@ -276,6 +314,37 @@ class AIManager(
         return response
     }
 
+    /**
+     * Interaction 2.0: System-Internal AI Generation.
+     * Bypasses local intent classification and UI turn management.
+     * Used for background tasks like summarizing missed communications.
+     */
+    suspend fun generatePureResponse(prompt: String): AIResponse {
+        val requestId = ++currentRequestId
+        val startTime = System.currentTimeMillis()
+        Log.i("AIManager", "[AI_SYSTEM_INTERNAL] Request id=$requestId prompt=\"${prompt.take(50)}...\"")
+
+        // Ensure session is active even for system tasks
+        if (!trustFramework.sessionManager.isSessionActive()) {
+            return AIResponse(text = "Unauthorized system request.", provider = "SYSTEM", error = "SESSION_INACTIVE")
+        }
+
+        val request = AIRequest(
+            prompt = prompt,
+            requestId = requestId,
+            type = AIRequestType.QUICK_COMMAND
+        )
+
+        return try {
+            val response = orchestrator.generate(request, settings.value)
+            Log.i("AIManager", "[AI_SYSTEM_INTERNAL] Response complete id=$requestId duration=${System.currentTimeMillis() - startTime}ms")
+            response
+        } catch (e: Exception) {
+            Log.e("AIManager", "[AI_SYSTEM_INTERNAL] Error id=$requestId: ${e.message}")
+            AIResponse(text = "System AI failure.", provider = "SYSTEM", error = e.localizedMessage)
+        }
+    }
+
     private suspend fun finalizeAiResponse(
         response: AIResponse, 
         ownerName: String, 
@@ -289,13 +358,14 @@ class AIManager(
         
         try {
             LongTermMemory.getInstance(context).logInteraction(
-                eventType = "AI_RESPONSE",
+                eventType = if (response.error == null) "AI_RESPONSE" else "AI_ERROR",
                 userId = ownerName,
                 aiResponse = response.text,
                 context = mapOf(
                     "battery" to currentContext.batteryPercent,
                     "noise" to currentContext.noiseLevel,
-                    "provider" to response.provider
+                    "provider" to response.provider,
+                    "error" to (response.error ?: "none")
                 ),
                 wasOwnerPresent = true
             )
@@ -303,7 +373,7 @@ class AIManager(
             Log.e("AIManager", "Memory Log Error: ${e.message}")
         }
 
-        _aiState.value = AIState.Success(response)
+        _aiState.value = AIState.fromResponse(response)
         onResponseComplete()
     }
 
@@ -390,7 +460,7 @@ class AIManager(
         _aiState.value = AIState.Success(response)
         
         val tone = when {
-            currentContext.recentAlerts.isNotEmpty() -> com.humanoidai.voice.SpeechTone.ALERT
+            currentContext.recentAlerts.isNotEmpty() -> SpeechTone.ALERT
             currentContext.batteryPercent in 1..15 -> com.humanoidai.voice.SpeechTone.CONCERNED
             else -> com.humanoidai.voice.SpeechTone.NEUTRAL
         }
@@ -411,4 +481,9 @@ class AIManager(
     }
 
     fun getMessages(): StateFlow<List<ChatMessage>> = conversationMemory.messages
+
+    fun cancel() {
+        orchestrator.cancel()
+        _aiState.value = AIState.Idle
+    }
 }

@@ -3,7 +3,6 @@ package com.humanoidai.ui.theme
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -12,17 +11,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 // -----------------------------------------------------------------
-// Aura 360° Standardized Components
+// Aura 360° Standardized Glassmorphic Components
 // -----------------------------------------------------------------
 
 @Composable
@@ -42,28 +44,32 @@ fun AuraButton(
         enabled = enabled && !isLoading,
         modifier = modifier
             .fillMaxWidth()
-            .height(56.dp),
-        shape = RoundedCornerShape(12.dp),
+            .height(52.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.primary,
-            contentColor = MaterialTheme.colorScheme.onPrimary,
-            disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
-            disabledContentColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.5f)
+            containerColor = AccentCyan,
+            contentColor = Color.Black,
+            disabledContainerColor = AccentCyan.copy(alpha = 0.2f),
+            disabledContentColor = Color.Black.copy(alpha = 0.5f)
         ),
-        elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
+        elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
     ) {
         if (isLoading) {
             CircularProgressIndicator(
-                modifier = Modifier.size(24.dp),
-                color = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier.size(22.dp),
+                color = Color.Black,
                 strokeWidth = 2.dp
             )
         } else {
             Text(
                 text = text.uppercase(),
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.sp
+                style = TextStyle(
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace,
+                    letterSpacing = 1.2.sp,
+                    color = Color.Black
+                )
             )
         }
     }
@@ -85,18 +91,24 @@ fun AuraOutlinedButton(
         enabled = enabled,
         modifier = modifier
             .fillMaxWidth()
-            .height(56.dp),
-        shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+            .height(52.dp),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, Brush.horizontalGradient(
+            listOf(AccentCyan.copy(alpha = 0.5f), AccentPurple.copy(alpha = 0.3f))
+        )),
         colors = ButtonDefaults.outlinedButtonColors(
-            contentColor = MaterialTheme.colorScheme.onBackground,
-            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.05f)
+            contentColor = Color.White,
+            containerColor = Color(0x330F172A)
         )
     ) {
         Text(
             text = text,
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.Medium
+            style = TextStyle(
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                fontFamily = FontFamily.Monospace,
+                color = Color.White
+            )
         )
     }
 }
@@ -120,17 +132,17 @@ fun AuraTextField(
         visualTransformation = visualTransformation,
         keyboardOptions = keyboardOptions,
         enabled = enabled,
-        shape = RoundedCornerShape(8.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = OutlinedTextFieldDefaults.colors(
-            focusedTextColor = MaterialTheme.colorScheme.onBackground,
-            unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
-            focusedBorderColor = MaterialTheme.colorScheme.primary,
-            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-            cursorColor = MaterialTheme.colorScheme.primary,
-            focusedContainerColor = MaterialTheme.colorScheme.background,
-            unfocusedContainerColor = MaterialTheme.colorScheme.background,
-            focusedLabelColor = MaterialTheme.colorScheme.primary,
-            unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
+            focusedTextColor = Color.White,
+            unfocusedTextColor = Color.White,
+            focusedBorderColor = AccentCyan,
+            unfocusedBorderColor = Color(0xFF334155),
+            cursorColor = AccentCyan,
+            focusedContainerColor = Color(0xEE0F172A),
+            unfocusedContainerColor = Color(0xCC0F172A),
+            focusedLabelColor = AccentCyan,
+            unfocusedLabelColor = Color(0xFF94A3B8)
         ),
         trailingIcon = trailingIcon
     )
@@ -140,27 +152,39 @@ fun AuraTextField(
 fun AuraPanel(
     modifier: Modifier = Modifier,
     title: String? = null,
+    borderAccent: Color = AccentCyan.copy(alpha = 0.3f),
     content: @Composable ColumnScope.() -> Unit
 ) {
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surface)
-            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
-            .padding(16.dp)
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = Color(0xEE0F172A),
+        border = BorderStroke(1.dp, Brush.horizontalGradient(
+            listOf(borderAccent, borderAccent.copy(alpha = 0.1f), borderAccent)
+        )),
+        tonalElevation = 6.dp,
+        shadowElevation = 8.dp
     ) {
-        if (title != null) {
-            Text(
-                text = title.uppercase(),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.sp,
-                modifier = Modifier.padding(bottom = 12.dp)
-            )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(18.dp)
+        ) {
+            if (title != null) {
+                Text(
+                    text = title.uppercase(),
+                    style = TextStyle(
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace,
+                        letterSpacing = 1.2.sp,
+                        color = AccentCyan
+                    ),
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+            }
+            content()
         }
-        content()
     }
 }
 
@@ -169,7 +193,7 @@ fun AuraIcon(
     imageVector: ImageVector,
     contentDescription: String?,
     modifier: Modifier = Modifier,
-    tint: Color = MaterialTheme.colorScheme.primary
+    tint: Color = AccentCyan
 ) {
     Icon(
         imageVector = imageVector,

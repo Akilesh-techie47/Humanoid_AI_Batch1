@@ -33,6 +33,7 @@ class FaceRecognitionManager {
 
     // Registry: person name → list of their face embeddings (viewpoints)
     private val knownFaces = mutableMapOf<String, MutableList<FloatArray>>()
+    private val labels = mutableMapOf<String, String>()
 
     // ------------------------------------------------------------
     // Registration
@@ -41,25 +42,27 @@ class FaceRecognitionManager {
     /**
      * Register a known person with a single embedding or add to existing.
      */
-    fun registerFace(name: String, embedding: FloatArray) {
+    fun registerFace(name: String, embedding: FloatArray, label: String? = null) {
         val list = knownFaces.getOrPut(name) { mutableListOf() }
         // For owner/primary users, we want more viewpoints (multi-angle robustness)
-        if (list.size >= 50) list.removeAt(0) 
+        if (list.size >= 60) list.removeAt(0) 
         list.add(embedding)
+        label?.let { labels[name] = it }
         Log.d(TAG, "Registered viewpoint for $name. Total viewpoints: ${list.size}")
     }
 
     /**
      * Register multiple viewpoints at once.
      */
-    fun registerFaces(name: String, embeddings: List<FloatArray>) {
+    fun registerFaces(name: String, embeddings: List<FloatArray>, label: String? = null) {
         val list = knownFaces.getOrPut(name) { mutableListOf() }
         list.addAll(embeddings)
-        if (list.size > 50) {
-            val kept = list.takeLast(50)
+        if (list.size > 60) {
+            val kept = list.takeLast(60)
             list.clear()
             list.addAll(kept)
         }
+        label?.let { labels[name] = it }
         Log.d(TAG, "Registered ${embeddings.size} viewpoints for $name.")
     }
 
@@ -68,6 +71,7 @@ class FaceRecognitionManager {
      */
     fun removeFace(name: String) {
         knownFaces.remove(name)
+        labels.remove(name)
     }
 
     /**
@@ -75,7 +79,10 @@ class FaceRecognitionManager {
      */
     fun clearAll() {
         knownFaces.clear()
+        labels.clear()
     }
+
+    fun getLabel(name: String): String? = labels[name]
 
     fun getRegisteredNames(): List<String> = knownFaces.keys.toList()
 

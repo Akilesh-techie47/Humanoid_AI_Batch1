@@ -1,5 +1,5 @@
 [versions]
-agp = "9.4.0"
+agp = "9.4.1"
 kotlin = "2.2.10"
 coreKtx = "1.15.0"
 lifecycleRuntimeKtx = "2.8.7"
@@ -15,6 +15,8 @@ googleServices = "4.5.0"
 playServicesAuth = "21.3.0"
 firebaseBom = "34.18.0"
 mlkitFaceDetection = "16.1.7"
+mlkitObjectDetection = "17.0.2"
+mlkitTextRecognition = "16.0.1"
 tensorflowLite = "2.16.1"
 gson = "2.10.1"
 generativeai = "0.9.0"
@@ -47,6 +49,8 @@ firebase-auth = { group = "com.google.firebase", name = "firebase-auth" }
 firebase-analytics = { group = "com.google.firebase", name = "firebase-analytics" }
 play-services-auth = { group = "com.google.android.gms", name = "play-services-auth", version.ref = "playServicesAuth" }
 mlkit-face-detection = { group = "com.google.mlkit", name = "face-detection", version.ref = "mlkitFaceDetection" }
+mlkit-objectdetection = { group = "com.google.mlkit", name = "object-detection", version.ref = "mlkitObjectDetection" }
+mlkit-text-recognition = { group = "com.google.mlkit", name = "text-recognition", version.ref = "mlkitTextRecognition" }
 tensorflow-lite = { group = "org.tensorflow", name = "tensorflow-lite", version.ref = "tensorflowLite" }
 gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }

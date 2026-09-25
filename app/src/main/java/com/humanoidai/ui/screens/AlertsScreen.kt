@@ -103,7 +103,7 @@ fun AlertsScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 16.dp),
+                            .padding(horizontal = AuraSpacing.large, vertical = AuraSpacing.large),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -119,7 +119,7 @@ fun AlertsScreen(
                             }
                         }
 
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(AuraSpacing.small)) {
                             if (unreadCount > 0) {
                                 TextButton(onClick = { 
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -141,8 +141,8 @@ fun AlertsScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            .padding(horizontal = AuraSpacing.large),
+                        horizontalArrangement = Arrangement.spacedBy(AuraSpacing.small)
                     ) {
                         FilterChip(
                             selected = selectedFilter == null,
@@ -182,7 +182,7 @@ fun AlertsScreen(
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(AuraSpacing.small))
 
                     // ---- Alert List ----
                     if (filteredAlerts.isEmpty()) {

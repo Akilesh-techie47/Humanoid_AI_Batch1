@@ -20,6 +20,9 @@ val openrouterApiKey = localProperties.getProperty("OPENROUTER_API_KEY") ?: ""
 val cerebrasApiKey = localProperties.getProperty("CEREBRAS_API_KEY") ?: ""
 val mistralApiKey = localProperties.getProperty("MISTRAL_API_KEY") ?: ""
 val nvidiaApiKey = localProperties.getProperty("NVIDIA_API_KEY") ?: ""
+val releaseStorePassword = localProperties.getProperty("RELEASE_STORE_PASSWORD") ?: ""
+val releaseKeyPassword = localProperties.getProperty("RELEASE_KEY_PASSWORD") ?: ""
+val releaseKeyAlias = localProperties.getProperty("RELEASE_KEY_ALIAS") ?: "releaseKey"
 
 android {
     namespace = "com.humanoidai"
@@ -82,17 +85,20 @@ android {
 
     signingConfigs {
         create("release") {
-            storeFile = file("release.keystore")
-            storePassword = "humanoidai123"
-            keyAlias = "releaseKey"
-            keyPassword = "humanoidai123"
+            // Expect keystore in project root or path defined in local.properties
+            val keystorePath = localProperties.getProperty("RELEASE_KEYSTORE_PATH") ?: "release.keystore"
+            storeFile = file(keystorePath)
+            storePassword = releaseStorePassword
+            keyAlias = releaseKeyAlias
+            keyPassword = releaseKeyPassword
         }
     }
 
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName("release")
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -177,6 +183,8 @@ dependencies {
 
     // ML integration
     implementation(libs.mlkit.face.detection)
+    implementation("com.google.mlkit:object-detection:17.0.2")
+    implementation(libs.mlkit.text.recognition)
     implementation(libs.tensorflow.lite)
 
     implementation(libs.gson)
@@ -216,4 +224,8 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+}
+
+tasks.withType<Test> {
+    jvmArgs("-Dnet.bytebuddy.experimental=true")
 }

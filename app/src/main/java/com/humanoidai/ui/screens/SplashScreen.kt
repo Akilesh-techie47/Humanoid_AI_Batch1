@@ -15,22 +15,26 @@ fun SplashScreen(
     navController: NavController, 
     ownerManager: OwnerEnrollmentManager,
     authViewModel: AuthViewModel,
+    onSessionActivate: (String) -> Unit
 ) {
     val isReady by SystemReadiness.isReady.collectAsState()
     
     LaunchedEffect(key1 = isReady) {
         if (!isReady) return@LaunchedEffect
         
-        delay(6000) // 3s ARMSUN + 3s Fish for visual satisfaction
+        delay(1000) // Fast 1s splash for responsive navigation
         
         try {
             val enrolled = ownerManager.isOwnerEnrolled()
-            val voiceEnrolled = ownerManager.isVoiceEnrolled()
+            val ownerName = if (enrolled) ownerManager.getOwnerName() else "Owner"
             val justLoggedIn = authViewModel.consumeAuthFlag()
             
             val target = when {
-                !enrolled || !voiceEnrolled -> NavRoutes.OWNER_ENROLLMENT
-                justLoggedIn -> NavRoutes.ENVIRONMENT
+                !enrolled -> NavRoutes.OWNER_ENROLLMENT
+                justLoggedIn -> {
+                    onSessionActivate(ownerName)
+                    NavRoutes.ENVIRONMENT
+                }
                 else -> NavRoutes.BIOMETRIC_VERIFICATION
             }
             

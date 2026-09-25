@@ -41,6 +41,18 @@ import com.humanoidai.ui.theme.*
 // LoginScreen
 // -----------------------------------------------------------------
 
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.lifecycle.viewmodel.compose.viewModel
+
+@Preview(showBackground = true)
+@Composable
+fun PreviewLoginScreen() {
+    LoginScreen(
+        onLoginSuccess = {},
+        authViewModel = viewModel() // This might need a mock/factory if it fails
+    )
+}
+
 enum class LoginTab { PHONE, EMAIL }
 
 @Composable
@@ -49,6 +61,7 @@ fun LoginScreen(
     authViewModel: AuthViewModel
 ) {
     var selectedTab by remember { mutableStateOf(LoginTab.PHONE) }
+    var isSignUp by remember { mutableStateOf(false) }
     val authState by authViewModel.authState.collectAsState()
     val context = LocalContext.current
 
@@ -98,28 +111,28 @@ fun LoginScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 32.dp, vertical = 60.dp)
+                    .padding(start = 24.dp, end = 24.dp, top = 24.dp, bottom = 90.dp)
                     .verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 // Logo & Branding
                 Box(
                     modifier = Modifier
-                        .size(110.dp)
+                        .size(90.dp)
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.05f))
-                        .padding(12.dp),
+                        .padding(10.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Image(
-                        painter = painterResource(id = R.drawable.ic_humanoid_logo),
+                        painter = painterResource(id = R.drawable.ic_humanoid_logo_new),
                         contentDescription = "Aura 360 Logo",
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Fit
                     )
                 }
 
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
                     text = "AURA 360",
@@ -137,12 +150,13 @@ fun LoginScreen(
                     textAlign = TextAlign.Center
                 )
                 
-                Spacer(modifier = Modifier.height(48.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
                 // Social Auth Buttons
                 SocialAuthSection(
                     onGoogleClick = { signInWithGoogle() },
-                    onAppleClick = { authViewModel.signInWithApple(context as Activity, onLoginSuccess) }
+                    onAppleClick = { authViewModel.signInWithApple(context as Activity, onLoginSuccess) },
+                    onGuestClick = { authViewModel.signInAnonymously(onLoginSuccess) }
                 )
 
                 Spacer(modifier = Modifier.height(32.dp))
@@ -189,7 +203,28 @@ fun LoginScreen(
 
                     when (selectedTab) {
                         LoginTab.PHONE -> PhoneOtpForm(authViewModel, onLoginSuccess)
-                        LoginTab.EMAIL -> EmailPasswordForm(authViewModel, onLoginSuccess)
+                        LoginTab.EMAIL -> EmailPasswordForm(authViewModel, isSignUp, { isSignUp = it }, onLoginSuccess)
+                    }
+                    
+                    Spacer(modifier = Modifier.height(24.dp))
+                    
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 40.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                    
+                    Spacer(modifier = Modifier.height(24.dp))
+                    
+                    TextButton(
+                        onClick = { 
+                            selectedTab = LoginTab.EMAIL
+                            isSignUp = !isSignUp
+                        },
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    ) {
+                        Text(
+                            text = if (isSignUp) "Switch to Sign In" else "Don't have an account? Create one now",
+                            color = MaterialTheme.colorScheme.primary,
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
             }
@@ -200,10 +235,15 @@ fun LoginScreen(
 }
 
 @Composable
-private fun SocialAuthSection(onGoogleClick: () -> Unit, onAppleClick: () -> Unit) {
+private fun SocialAuthSection(
+    onGoogleClick: () -> Unit,
+    onAppleClick: () -> Unit,
+    onGuestClick: () -> Unit
+) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         AuraOutlinedButton(text = "Continue with Google", onClick = onGoogleClick)
         AuraOutlinedButton(text = "Continue with Apple", onClick = onAppleClick)
+        AuraButton(text = "Continue as Guest", onClick = onGuestClick)
     }
 }
 
@@ -338,11 +378,12 @@ private fun PhoneOtpForm(
 @Composable
 private fun EmailPasswordForm(
     authViewModel: AuthViewModel,
+    isSignUp: Boolean,
+    onSignUpToggle: (Boolean) -> Unit,
     onLoginSuccess: () -> Unit
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var isSignUp by remember { mutableStateOf(false) }
     var passwordVisible by remember { mutableStateOf(false) }
 
     val authState by authViewModel.authState.collectAsState()
@@ -387,16 +428,23 @@ private fun EmailPasswordForm(
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
-        Text(
-            text = if (isSignUp) "Already have an account? Sign In" else "Don't have an account? Sign Up",
-            color = MaterialTheme.colorScheme.primary,
-            style = MaterialTheme.typography.labelMedium,
-            modifier = Modifier
-                .align(Alignment.CenterHorizontally)
-                .clickable { isSignUp = !isSignUp }
-        )
+        HorizontalDivider(modifier = Modifier.padding(horizontal = 40.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        TextButton(
+            onClick = { onSignUpToggle(!isSignUp) },
+            modifier = Modifier.align(Alignment.CenterHorizontally)
+        ) {
+            Text(
+                text = if (isSignUp) "Already have an account? Sign In" else "Don't have an account? Create one now",
+                color = MaterialTheme.colorScheme.primary,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold
+            )
+        }
 
         AuthStatusText(authState)
     }

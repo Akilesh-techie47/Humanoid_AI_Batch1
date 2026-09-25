@@ -8,7 +8,7 @@ import java.util.*
  */
 class GreetingSystem(private val ownerManager: OwnerEnrollmentManager) {
 
-    fun generateGreeting(): String {
+    suspend fun generateGreeting(): String {
         val ownerName = ownerManager.getOwnerName()
         if (ownerName.isEmpty()) return "System online. Please enroll as owner."
 

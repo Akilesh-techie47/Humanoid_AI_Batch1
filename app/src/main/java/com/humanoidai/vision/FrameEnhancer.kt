@@ -11,7 +11,7 @@ data class EnhancementConfig(
     val denoise: Boolean = true,
     val sharpen: Boolean = true,
     val clahe: Boolean = true,
-    val brightnessThreshold: Double = 50.0 // Threshold for denoising
+    val brightnessThreshold: Double = 50.0, // Threshold for denoising
 )
 
 /**
@@ -37,7 +37,7 @@ class FrameEnhancer(private val config: EnhancementConfig = EnhancementConfig())
             autoWhiteBalance(processed)
 
             // 2. Denoising (Conditional on low light)
-            if (config.denoise && calculateBrightness(processed) < config.brightnessThreshold) {
+            if (config.denoise && (calculateBrightness(processed) < config.brightnessThreshold)) {
                 val denoised = Mat()
                 Photo.fastNlMeansDenoisingColored(processed, denoised, 3f, 3f, 7, 21)
                 processed.release()

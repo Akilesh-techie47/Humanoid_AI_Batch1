@@ -135,18 +135,18 @@ fun HistoryScreen(navController: NavController) {
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 16.dp),
+                        .padding(horizontal = AuraSpacing.large),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     grouped.forEach { (date, dayEvents) ->
                         item {
-                            Spacer(modifier = Modifier.height(16.dp))
+                            Spacer(modifier = Modifier.height(AuraSpacing.large))
                             DateHeader(date)
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(AuraSpacing.small))
                         }
                         items(dayEvents) { event ->
                             HistoryEventRow(event)
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(AuraSpacing.small))
                         }
                     }
                     item { Spacer(modifier = Modifier.height(64.dp)) }

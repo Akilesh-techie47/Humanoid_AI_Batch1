@@ -36,7 +36,7 @@ object LayoutRegistry {
                 widgets[HUDComponentRegistry.RADAR] = HUDComponentRegistry.getComponentDefaults(HUDComponentRegistry.RADAR).copy(
                     anchor = WidgetAnchor.TOP_END,
                     offsetX = (-16).dp,
-                    offsetY = 16.dp
+                    offsetY = 120.dp
                 )
                 widgets[HUDComponentRegistry.STATUS_INDICATORS] = HUDComponentRegistry.getComponentDefaults(HUDComponentRegistry.STATUS_INDICATORS).copy(
                     anchor = WidgetAnchor.TOP_END,

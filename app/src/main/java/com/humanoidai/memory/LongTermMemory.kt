@@ -68,7 +68,10 @@ class LongTermMemory private constructor(context: Context) {
 
     suspend fun getRecentInteractions(limit: Int = 50) = repo.getRecentInteractions(limit)
     fun observeInteractions(): Flow<List<InteractionEntity>> = repo.observeInteractions()
-    suspend fun getInteractionsByUser(userId: String) = repo.getInteractionsByUser(userId)
+
+    suspend fun searchInteractions(query: String) = repo.searchInteractions(query)
+    suspend fun searchAlerts(query: String) = repo.searchAlerts(query)
+    suspend fun searchFinance(query: String) = repo.searchFinance(query)
 
     // ── Alert Management ──────────────────────────────────────────────────────
 

@@ -60,8 +60,14 @@ class CommunicationIntelligenceEngine(
         val manager = aiManager ?: return generateLocalFallbackSummary(items)
 
         return try {
-            val response = manager.ask(prompt, "Owner", "CommunicationIntelligence")
-            response.text
+            // Use generatePureResponse to avoid recursion with LocalIntentClassifier
+            val response = manager.generatePureResponse(prompt)
+            if (response.error == null) {
+                response.text
+            } else {
+                Log.w("CommIntel", "AI generation error: ${response.error}")
+                generateLocalFallbackSummary(items)
+            }
         } catch (e: Exception) {
             Log.e("CommIntel", "Gemini summary failed: ${e.message}")
             generateLocalFallbackSummary(items)

@@ -6,6 +6,7 @@ import androidx.compose.animation.core.*
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.scaleIn
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -34,7 +35,31 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import com.humanoidai.vision.DetectedPerson
+import android.graphics.RectF
+import com.humanoidai.ui.widgets.HudCrosshair
+import com.humanoidai.ui.widgets.TacticalBrackets
+import com.humanoidai.ui.theme.HudThemes
+import androidx.compose.ui.tooling.preview.Preview
+
+@Preview(showBackground = true, backgroundColor = 0xFF000000)
+@Composable
+fun PreviewCameraHomeHud() {
+    CameraHomeHud(
+        theme = HudThemes.all.first(),
+        detectedPersons = listOf(
+            DetectedPerson(boundingBox = RectF(0f, 0f, 0.1f, 0.1f), name = "User", isPrimary = true, confidence = 0.99f),
+            DetectedPerson(boundingBox = RectF(0.2f, 0.2f, 0.3f, 0.3f), name = "Person A", isPrimary = false, confidence = 0.85f),
+            DetectedPerson(boundingBox = RectF(0.4f, 0.4f, 0.5f, 0.5f), name = "Person B", isPrimary = false, confidence = 0.70f)
+        ),
+        ownerName = "User",
+        isListening = false,
+        onMicToggle = {},
+        onAddRoi = {},
+        previewView = {}
+    )
+}
 
 private fun gridConfig(n: Int): Triple<Int, Dp, Float> = when {
     n <= 2 -> Triple(2, 54.dp, 8f)
@@ -152,14 +177,45 @@ fun CameraHomeHud(
 
             Spacer(Modifier.height(16.dp))
 
-            // Primary ROI
-            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                PrimaryRoi(
-                    theme = theme,
-                    pulse = roiPulse,
-                    previewView = previewView,
-                    roiSize = 100.dp
-                )
+            // Primary ROI with Corner Layouts
+            Box(modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.size(240.dp), contentAlignment = Alignment.Center) {
+                    PrimaryRoi(
+                        theme = theme,
+                        pulse = roiPulse,
+                        previewView = previewView,
+                        roiSize = 120.dp
+                    )
+
+                    // Top Left (Left side corner of camera round)
+                    CornerRoi(
+                        modifier = Modifier.align(Alignment.TopStart).offset(x = 8.dp, y = 8.dp),
+                        person = others.getOrNull(0),
+                        theme = theme,
+                        label = "L-CNR"
+                    )
+                    // Top Right
+                    CornerRoi(
+                        modifier = Modifier.align(Alignment.TopEnd).offset(x = (-8).dp, y = 8.dp),
+                        person = others.getOrNull(1),
+                        theme = theme,
+                        label = "R-UP"
+                    )
+                    // Bottom Right
+                    CornerRoi(
+                        modifier = Modifier.align(Alignment.BottomEnd).offset(x = (-8).dp, y = (-8).dp),
+                        person = others.getOrNull(2),
+                        theme = theme,
+                        label = "R-DN"
+                    )
+                    // Bottom Left
+                    CornerRoi(
+                        modifier = Modifier.align(Alignment.BottomStart).offset(x = 8.dp, y = (-8).dp),
+                        person = others.getOrNull(3),
+                        theme = theme,
+                        label = "L-DN"
+                    )
+                }
             }
 
             Spacer(Modifier.height(12.dp))
@@ -463,6 +519,63 @@ private fun GuestChip(
             style = MaterialTheme.typography.labelSmall,
             fontFamily = FontFamily.Monospace
         )
+    }
+}
+
+@Composable
+private fun CornerRoi(
+    modifier: Modifier = Modifier,
+    person: DetectedPerson?,
+    theme: HudTheme,
+    label: String
+) {
+    val borderColor = if (person == null) theme.accent.copy(alpha = 0.3f) else theme.accent
+    val shape = RoundedCornerShape(8.dp)
+    
+    Column(
+        modifier = modifier.width(54.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            label,
+            color = borderColor,
+            fontSize = 7.sp,
+            fontWeight = FontWeight.Bold,
+            fontFamily = FontFamily.Monospace
+        )
+        Spacer(Modifier.height(2.dp))
+        Box(
+            modifier = Modifier
+                .size(46.dp)
+                .clip(shape)
+                .background(theme.panelBg.copy(alpha = 0.4f))
+                .border(1.dp, borderColor, shape),
+            contentAlignment = Alignment.Center
+        ) {
+            if (person?.faceBitmap != null) {
+                Image(
+                    bitmap = person.faceBitmap.asImageBitmap(),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Box(
+                    Modifier
+                        .size(12.dp)
+                        .border(1.dp, borderColor.copy(alpha = 0.4f), CircleShape)
+                )
+            }
+        }
+        if (person != null) {
+            Text(
+                person.name.take(6),
+                color = theme.text,
+                fontSize = 8.sp,
+                maxLines = 1,
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }
 

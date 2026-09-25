@@ -1,6 +1,5 @@
 package com.humanoidai.security
 
-import android.content.Context
 import android.os.Build
 import java.io.File
 
@@ -9,7 +8,7 @@ import java.io.File
  */
 object IntegrityChecker {
 
-    fun isDeviceSecure(context: Context): Boolean {
+    fun isDeviceSecure(): Boolean {
         return !isRooted() && !isEmulator()
     }
 
@@ -23,7 +22,7 @@ object IntegrityChecker {
             "/data/local/bin/su",
             "/system/sd/xbin/su",
             "/system/bin/failsafe/su",
-            "/data/local/su"
+            "/data/local/su",
         )
         for (path in paths) {
             if (File(path).exists()) return true

@@ -7,7 +7,6 @@ import com.humanoidai.memory.database.Aura360Database
 import com.humanoidai.memory.entities.UserEntity
 import com.humanoidai.memory.entities.UserClass
 import com.humanoidai.memory.security.PrivacyVault
-import kotlinx.coroutines.runBlocking
 import java.util.*
 
 // -----------------------------------------------------------------
@@ -45,22 +44,22 @@ class OwnerEnrollmentManager(context: Context) {
     /**
      * Check if the owner has already completed the enrollment wizard.
      */
-    fun isOwnerEnrolled(): Boolean = runBlocking {
-        userDao.getOwner() != null
+    suspend fun isOwnerEnrolled(): Boolean {
+        return userDao.getOwner() != null
     }
 
     /**
      * Check if the owner has registered their voice.
      */
-    fun isVoiceEnrolled(): Boolean = runBlocking {
+    suspend fun isVoiceEnrolled(): Boolean {
         val owner = userDao.getOwner()
-        owner?.voiceProfileId?.isNotEmpty() == true
+        return owner?.voiceProfileId?.isNotEmpty() == true
     }
 
     /**
      * Save the master owner profile with multiple viewpoints.
      */
-    fun enrollOwner(name: String, embeddings: List<FloatArray>, accuracy: Float, voiceEnrolled: Boolean = false) {
+    suspend fun enrollOwner(name: String, embeddings: List<FloatArray>, accuracy: Float, voiceEnrolled: Boolean = false) {
         if (embeddings.isEmpty()) return
 
         // 1. We'll store a subset of representative viewpoints (max 15 for owner)
@@ -87,40 +86,36 @@ class OwnerEnrollmentManager(context: Context) {
             voiceProfileId = if (voiceEnrolled) "OWNER_VOICE" else ""
         )
 
-        runBlocking {
-            userDao.insertUser(user)
-        }
+        userDao.insertUser(user)
     }
 
     /**
      * Mark voice as enrolled separately if needed.
      */
-    fun markVoiceEnrolled(enrolled: Boolean) {
-        runBlocking {
-            val owner = userDao.getOwner()
-            if (owner != null) {
-                userDao.updateUser(owner.copy(voiceProfileId = if (enrolled) "OWNER_VOICE" else ""))
-            }
+    suspend fun markVoiceEnrolled(enrolled: Boolean) {
+        val owner = userDao.getOwner()
+        if (owner != null) {
+            userDao.updateUser(owner.copy(voiceProfileId = if (enrolled) "OWNER_VOICE" else ""))
         }
     }
 
-    fun getOwnerName(): String = runBlocking {
-        userDao.getOwner()?.name ?: "Owner"
+    suspend fun getOwnerName(): String {
+        return userDao.getOwner()?.name ?: "Owner"
     }
 
-    fun getMasterEmbedding(): FloatArray? = runBlocking {
-        val encrypted = userDao.getOwner()?.embeddingData ?: return@runBlocking null
-        try {
+    suspend fun getMasterEmbedding(): FloatArray? {
+        val encrypted = userDao.getOwner()?.embeddingData ?: return null
+        return try {
             vault.decryptEmbedding(encrypted)
         } catch (e: Exception) {
             null
         }
     }
 
-    fun getOwnerViewpoints(): List<FloatArray> = runBlocking {
-        val user = userDao.getOwner() ?: return@runBlocking emptyList()
-        val json = user.viewpointsJson ?: return@runBlocking emptyList()
-        try {
+    suspend fun getOwnerViewpoints(): List<FloatArray> {
+        val user = userDao.getOwner() ?: return emptyList()
+        val json = user.viewpointsJson ?: return emptyList()
+        return try {
             val encryptedList: List<String> = gson.fromJson(json, Array<String>::class.java).toList()
             encryptedList.mapNotNull { encrypted ->
                 try {
@@ -130,8 +125,8 @@ class OwnerEnrollmentManager(context: Context) {
         } catch (e: Exception) { emptyList() }
     }
 
-    fun getLastUpdated(): Long = runBlocking {
-        userDao.getOwner()?.enrolledAt ?: 0L
+    suspend fun getLastUpdated(): Long {
+        return userDao.getOwner()?.enrolledAt ?: 0L
     }
     
     fun getAccuracyScore(): Float = 0.95f // Default high accuracy for owner

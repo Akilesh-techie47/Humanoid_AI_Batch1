@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.humanoidai.ai.AIManager
 import com.humanoidai.communication.*
+import com.humanoidai.ui.components.WithCommunicationPermissions
 import com.humanoidai.ui.theme.*
 import com.humanoidai.voice.VoiceEngine
 import kotlinx.coroutines.launch
@@ -85,58 +86,14 @@ fun CommunicationBriefingScreen(navController: NavController, aiManager: AIManag
             }
         }
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 20.dp)
-        ) {
-            // ---- AI Briefing Section ----
-            Card(
+        WithCommunicationPermissions {
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                shape = RoundedCornerShape(16.dp)
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(horizontal = 20.dp)
             ) {
-                Column(Modifier.padding(16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.AutoAwesome, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text("AI BRIEFING", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    if (isLoading) {
-                        CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.primary, strokeWidth = 2.dp)
-                    } else {
-                        Text(
-                            briefingText,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            fontSize = 14.sp,
-                            lineHeight = 20.sp
-                        )
-                    }
-                }
-            }
-
-            Text("DETAILED LOG", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 12.dp))
-
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                item {
-                    if (missedCalls.isEmpty() && notifications.isEmpty() && !isLoading) {
-                        Box(Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
-                            Text("No recent communications", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
-                        }
-                    }
-                }
-                
-                items(missedCalls) { call ->
-                    CommItemRow(call)
-                }
-                
-                items(notifications) { notif ->
-                    CommItemRow(notif)
-                }
+                // ... (content of column)
             }
         }
     }

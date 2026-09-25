@@ -8,11 +8,19 @@ import com.humanoidai.ml.OwnerEnrollmentManager
 import com.humanoidai.security.SessionManager
 import com.humanoidai.security.TrustFramework
 import com.humanoidai.voice.VoiceEngine
+import com.humanoidai.ui.customization.AppearanceSettings
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.Dispatchers
+import org.junit.Assert.assertNotNull
 import org.junit.Before
+import org.junit.After
 import org.junit.Test
 import org.mockito.Mock
 import org.mockito.MockitoAnnotations
@@ -42,9 +50,11 @@ class AIManagerTest {
 
     @Before
     fun setup() {
+        Dispatchers.setMain(UnconfinedTestDispatcher())
         MockitoAnnotations.openMocks(this)
         
-        whenever(mockAIProvider.id).thenReturn("MockProvider")
+        whenever(mockAIProvider.id).thenReturn("system-fallback")
+        whenever(mockAIProvider.capabilities).thenReturn(setOf(AICapability.TEXT))
         whenever(mockContextEngine.currentContext).thenReturn(MutableStateFlow(CurrentContext()))
         whenever(mockTrustFramework.sessionManager).thenReturn(mockSessionManager)
         whenever(mockSessionManager.isSessionActive()).thenReturn(true)
@@ -53,17 +63,24 @@ class AIManagerTest {
         whenever(mockOwnerEnrollmentManager.getAiName()).thenReturn("Humanoid")
         whenever(mockOwnerEnrollmentManager.getPreferredLanguage()).thenReturn("en")
         
-        val providers = mapOf("MockProvider" to mockAIProvider)
+        val providers = mapOf("system-fallback" to mockAIProvider)
         aiManager = AIManager(
-            mockContext,
-            "fake_key",
-            mockContextEngine,
-            mockConversationMemory,
-            mockVoiceEngine,
+            context = mockContext,
+            apiKeys = mapOf("Gemini" to "fake_key"),
+            contextEngine = mockContextEngine,
+            conversationMemory = mockConversationMemory,
+            voiceEngine = mockVoiceEngine,
+            settings = MutableStateFlow(AppearanceSettings()),
             initialProviders = providers,
             trustFramework = mockTrustFramework,
-            ownerEnrollmentManager = mockOwnerEnrollmentManager
+            ownerEnrollmentManager = mockOwnerEnrollmentManager,
+            externalScope = CoroutineScope(UnconfinedTestDispatcher())
         )
+    }
+
+    @After
+    fun tearDown() {
+        Dispatchers.resetMain()
     }
 
     @Test
@@ -74,6 +91,9 @@ class AIManagerTest {
         
         aiManager.ask(question, "Owner", "HomeScreen")
         
+        // Allow background thread to execute stream collection
+        Thread.sleep(250)
+        
         // Verify provider was called to stream the response
         verify(mockAIProvider).stream(any())
         
@@ -82,6 +102,17 @@ class AIManagerTest {
         
         // Verify interaction was added to conversation memory
         verify(mockConversationMemory, atLeastOnce()).addMessage(any())
+    }
+
+    @Test
+    fun `ask reports error when streaming fails`() = runTest {
+        val question = "Hello AI"
+        whenever(mockAIProvider.stream(any())).thenThrow(RuntimeException("Network lost"))
+        
+        val response = aiManager.ask(question, "Owner", "HomeScreen")
+        
+        assertNotNull(response.error)
+        verify(mockConversationMemory, atLeastOnce()).updateLastAiMessage(argThat { contains("Network lost") })
     }
     
     @Test

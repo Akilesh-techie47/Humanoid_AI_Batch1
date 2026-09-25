@@ -29,13 +29,13 @@ object FacePreprocessor {
         val centerX = faceBox.centerX()
         val centerY = faceBox.centerY()
         
-        val left = (centerX - side / 2).coerceAtLeast(0)
-        val top = (centerY - side / 2).coerceAtLeast(0)
-        val right = (centerX + side / 2).coerceAtMost(source.width)
-        val bottom = (centerY + side / 2).coerceAtMost(source.height)
+        val left = (centerX - side / 2).coerceIn(0, (source.width - 1).coerceAtLeast(0))
+        val top = (centerY - side / 2).coerceIn(0, (source.height - 1).coerceAtLeast(0))
+        val right = (centerX + side / 2).coerceIn(left + 1, source.width.coerceAtLeast(left + 1))
+        val bottom = (centerY + side / 2).coerceIn(top + 1, source.height.coerceAtLeast(top + 1))
         
-        val actualWidth = right - left
-        val actualHeight = bottom - top
+        val actualWidth = (right - left).coerceAtLeast(1)
+        val actualHeight = (bottom - top).coerceAtLeast(1)
         
         val initialCrop = Bitmap.createBitmap(source, left, top, actualWidth, actualHeight)
         

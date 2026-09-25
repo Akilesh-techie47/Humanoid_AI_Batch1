@@ -42,6 +42,13 @@ class ContextEngine(
     private val _currentContext = MutableStateFlow(CurrentContext())
     val currentContext: StateFlow<CurrentContext> = _currentContext.asStateFlow()
 
+    init {
+        val bat = getBatteryLevel()
+        _currentContext.value = _currentContext.value.copy(
+            batteryPercent = if (bat in 0..100) bat else 85
+        )
+    }
+
     // ── Context Methods ──────────────────────────────────────────────────────
 
     /**
@@ -187,11 +194,20 @@ class ContextEngine(
     }
 
     private fun getBatteryLevel(): Int {
-        val batteryStatus: Intent? = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        try {
+            val bm = context.getSystemService(Context.BATTERY_SERVICE) as? BatteryManager
+            val cap = bm?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: -1
+            if (cap in 0..100) return cap
+        } catch (_: Exception) {}
+
+        val batteryStatus: Intent? = try {
+            context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        } catch (_: Exception) { null }
+
         return batteryStatus?.let { intent ->
             val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
             val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
-            (level * 100 / scale.toFloat()).toInt()
-        } ?: -1
+            if (level >= 0 && scale > 0) (level * 100 / scale.toFloat()).toInt() else 85
+        } ?: 85
     }
 }

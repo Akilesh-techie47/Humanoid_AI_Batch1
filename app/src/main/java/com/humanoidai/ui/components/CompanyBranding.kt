@@ -70,7 +70,7 @@ fun ArmsunSplashScreen(
         ) {
             Box(contentAlignment = Alignment.TopEnd) {
                 Image(
-                    painter = painterResource(id = R.drawable.ic_aura_logo),
+                    painter = painterResource(id = R.drawable.ic_humanoid_logo_new),
                     contentDescription = "Aura Logo",
                     modifier = Modifier.size(160.dp)
                 )

@@ -112,7 +112,7 @@ fun PrivacyDashboardScreen(viewModel: PrivacyDashboardViewModel) {
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = AccentCyan)
             ) {
-                Text("Refresh Permissions", color = Color.Black)
+                Text("Refresh Permissions", color = MaterialTheme.colorScheme.onPrimaryContainer)
             }
         }
     }

@@ -42,7 +42,7 @@ fun GoalInspectorScreen(viewModel: GoalInspectorViewModel) {
             ) {
                 Text("AI Goal Inspector", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onBackground)
                 Button(onClick = { viewModel.clearCompleted() }, colors = ButtonDefaults.buttonColors(containerColor = AccentCyan)) {
-                    Text("Clear Done", color = Color.Black)
+                    Text("Clear Done", color = MaterialTheme.colorScheme.onPrimaryContainer)
                 }
             }
             

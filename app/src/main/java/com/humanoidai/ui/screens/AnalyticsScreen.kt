@@ -93,28 +93,28 @@ fun AnalyticsScreen(navController: NavController) {
                     modifier = Modifier
                         .fillMaxSize()
                         .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 16.dp)
+                        .padding(horizontal = AuraSpacing.large)
                 ) {
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(AuraSpacing.large))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         SummaryCard("${summary?.totalDetectionsToday ?: 0}", "Today's Detections", Icons.Default.Person, MaterialTheme.colorScheme.primary, Modifier.weight(1f))
                         SummaryCard("${summary?.totalAlertsToday ?: 0}", "Today's Alerts", Icons.Default.Notifications, ErrorRed, Modifier.weight(1f))
                     }
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(AuraSpacing.small))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         SummaryCard("${summary?.registeredUserCount ?: 0}", "Total Enrolled", Icons.Default.CheckCircle, SuccessGreen, Modifier.weight(1f))
                         SummaryCard("Active", "System State", Icons.Default.SmartToy, WarningOrange, Modifier.weight(1f))
                     }
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(AuraSpacing.xxLarge))
                     Text("Weekly Detections", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onBackground)
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(AuraSpacing.medium))
 
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
-                            .padding(16.dp)
+                            .padding(AuraSpacing.large)
                     ) {
                         Row(
                             modifier = Modifier
@@ -131,7 +131,7 @@ fun AnalyticsScreen(navController: NavController) {
                                     modifier = Modifier.fillMaxHeight()
                                 ) {
                                     Text(value.toString(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Spacer(modifier = Modifier.height(AuraSpacing.xSmall))
                                     Box(
                                         modifier = Modifier
                                             .width(28.dp)
@@ -146,20 +146,20 @@ fun AnalyticsScreen(navController: NavController) {
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(AuraSpacing.xxLarge))
                     Text("Detection Breakdown", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onBackground)
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(AuraSpacing.medium))
                     BreakdownRow("Known Persons", 28, 36, MaterialTheme.colorScheme.primary)
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(AuraSpacing.small))
                     BreakdownRow("Unknown Persons", 8, 36, ErrorRed)
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(AuraSpacing.xxLarge))
                     Text("Alert Breakdown", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onBackground)
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(AuraSpacing.medium))
                     BreakdownRow("High Severity", 3, 8, ErrorRed)
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(AuraSpacing.small))
                     BreakdownRow("Medium Severity", 2, 8, WarningOrange)
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(AuraSpacing.small))
                     BreakdownRow("Low Severity", 3, 8, SuccessGreen)
 
                     Spacer(modifier = Modifier.height(64.dp))

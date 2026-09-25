@@ -1,12 +1,12 @@
 package com.humanoidai.ui.screens
 
 import android.annotation.SuppressLint
-import android.graphics.Bitmap
 import android.graphics.Matrix
 import android.util.Log
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -19,8 +19,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -54,6 +60,8 @@ import org.opencv.imgproc.Imgproc
 import java.util.concurrent.Executors
 import kotlin.math.abs
 
+enum class EnrollStep { ENTER_NAME, CAPTURE, SUCCESS }
+
 @SuppressLint("UnsafeOptInUsageError")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -69,6 +77,7 @@ fun EnrollmentScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     val drawerState    = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope          = rememberCoroutineScope()
+    val haptic         = LocalHapticFeedback.current
 
     var name          by remember { mutableStateOf("") }
     var label         by remember { mutableStateOf("Family") }
@@ -76,7 +85,8 @@ fun EnrollmentScreen(
     var faceProgress  by remember { mutableFloatStateOf(0f) }
     var currentPose   by remember { mutableStateOf(FacePose.FRONT) }
     var poseSamples   by remember { mutableIntStateOf(0) }
-    val SAMPLES_PER_POSE = 3
+    var lastCaptureTime by remember { mutableLongStateOf(0L) }
+    val SAMPLES_PER_POSE = 10
     val totalTarget = FacePose.entries.size * SAMPLES_PER_POSE
     val isListening by microphoneManager.isListening.collectAsState()
 
@@ -100,8 +110,6 @@ fun EnrollmentScreen(
 
     val capturedEmbeddings = remember { mutableListOf<FloatArray>() }
     val embeddingHelper    = remember { FaceEmbeddingHelper(context) }
-    val fisheyeCorrector   = remember { FisheyeCorrector() }
-    val frameEnhancer      = remember { FrameEnhancer() }
     val analysisExecutor   = remember { Executors.newSingleThreadExecutor() }
     val detector           = remember {
         FaceDetection.getClient(
@@ -118,7 +126,6 @@ fun EnrollmentScreen(
         onDispose {
             analysisExecutor.shutdown()
             embeddingHelper.close()
-            fisheyeCorrector.release()
             detector.close()
         }
     }
@@ -213,66 +220,216 @@ fun EnrollmentScreen(
                             )
                         }
                         EnrollStep.CAPTURE -> {
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text("Enrolling: $name", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
-                            Text("Pose: ${currentPose.name}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onBackground)
                             Spacer(modifier = Modifier.height(12.dp))
-                            WithCameraPermission {
-                                Box(
+                            Surface(
+                                color = Color(0xEE0F172A),
+                                shape = RoundedCornerShape(16.dp),
+                                border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.3f))
+                            ) {
+                                Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .height(320.dp)
-                                        .background(MaterialTheme.colorScheme.background, RoundedCornerShape(12.dp))
-                                        .border(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    AndroidView(
-                                        factory = { ctx ->
-                                            PreviewView(ctx).also { previewView ->
-                                                val future = ProcessCameraProvider.getInstance(ctx)
-                                                future.addListener({
-                                                    val cameraProvider = future.get()
-                                                    val preview = Preview.Builder().build().also { it.surfaceProvider = previewView.surfaceProvider }
-                                                    val imageAnalysis = ImageAnalysis.Builder()
-                                                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                                                        .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888)
-                                                        .build()
-                                                    imageAnalysis.setAnalyzer(analysisExecutor) { imageProxy ->
-                                                        processEnrollmentFrame(imageProxy, detector, embeddingHelper, fisheyeCorrector, frameEnhancer) { embedding, pose ->
-                                                            if (pose == currentPose) {
-                                                                capturedEmbeddings.add(embedding)
-                                                                poseSamples++
-                                                                faceProgress = capturedEmbeddings.size / totalTarget.toFloat()
-                                                                
-                                                                if (poseSamples >= SAMPLES_PER_POSE) {
-                                                                    val nextPoseIndex = currentPose.ordinal + 1
-                                                                    if (nextPoseIndex < FacePose.entries.size) {
-                                                                        currentPose = FacePose.entries[nextPoseIndex]
-                                                                        poseSamples = 0
-                                                                    } else {
-                                                                        enrollmentManager.enrollPerson(name, label, capturedEmbeddings)
-                                                                        enrollmentManager.loadAllInto(recognitionManager, ownerManager)
-                                                                        step = EnrollStep.SUCCESS
-                                                                    }
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-                                                    try {
-                                                        cameraProvider.unbindAll()
-                                                        cameraProvider.bindToLifecycle(lifecycleOwner, CameraSelector.DEFAULT_FRONT_CAMERA, preview, imageAnalysis)
-                                                    } catch (e: Exception) { e.printStackTrace() }
-                                                }, ContextCompat.getMainExecutor(ctx))
-                                            }
-                                        },
-                                        modifier = Modifier.fillMaxSize()
+                                    Column {
+                                        Text(
+                                            "ENROLLING: ${name.uppercase()}",
+                                            style = TextStyle(
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                fontFamily = FontFamily.Monospace,
+                                                color = AccentCyan
+                                            )
+                                        )
+                                        Text(
+                                            "INSTRUCTION: ${currentPose.name}",
+                                            style = TextStyle(
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Medium,
+                                                fontFamily = FontFamily.Monospace,
+                                                color = TextSecondary
+                                            )
+                                        )
+                                    }
+                                    Text(
+                                        "${capturedEmbeddings.size} / 60",
+                                        style = TextStyle(
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Black,
+                                            fontFamily = FontFamily.Monospace,
+                                            color = SuccessGreen
+                                        )
                                     )
-                                    Box(modifier = Modifier.size(180.dp).align(Alignment.Center).border(2.dp, MaterialTheme.colorScheme.primary, CircleShape))
                                 }
                             }
+                            
+                            Spacer(modifier = Modifier.height(12.dp))
+                            
+                            WithCameraPermission {
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(340.dp),
+                                    shape = RoundedCornerShape(24.dp),
+                                    color = Color.Black,
+                                    border = BorderStroke(1.5.dp, Brush.horizontalGradient(
+                                        listOf(AccentCyan, AccentPurple, AccentCyan)
+                                    )),
+                                    tonalElevation = 8.dp,
+                                    shadowElevation = 12.dp
+                                ) {
+                                    Box(modifier = Modifier.fillMaxSize()) {
+                                        AndroidView(
+                                            factory = { ctx ->
+                                                PreviewView(ctx).apply {
+                                                    implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+                                                }.also { previewView ->
+                                                    val future = ProcessCameraProvider.getInstance(ctx)
+                                                    future.addListener({
+                                                        val cameraProvider = future.get()
+                                                        val preview = Preview.Builder().build().also { it.surfaceProvider = previewView.surfaceProvider }
+                                                        val imageAnalysis = ImageAnalysis.Builder()
+                                                            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                                                            .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888)
+                                                            .build()
+                                                        imageAnalysis.setAnalyzer(analysisExecutor) { imageProxy ->
+                                                            val mediaImage = imageProxy.image
+                                                            if (mediaImage != null) {
+                                                                val inputImage = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
+                                                                detector.process(inputImage)
+                                                                    .addOnSuccessListener { faces ->
+                                                                        if (faces.isNotEmpty()) {
+                                                                            val face = faces[0]
+                                                                            val yaw = face.headEulerAngleY
+                                                                            val pitch = face.headEulerAngleX
+                                                                            
+                                                                            val pose = when {
+                                                                                yaw < -7f -> FacePose.LEFT
+                                                                                yaw > 7f -> FacePose.RIGHT
+                                                                                pitch > 7f -> FacePose.UP
+                                                                                pitch < -7f -> FacePose.DOWN
+                                                                                abs(yaw) < 12f && abs(pitch) < 12f -> FacePose.FRONT
+                                                                                else -> FacePose.NATURAL
+                                                                            }
+
+                                                                            val now = System.currentTimeMillis()
+                                                                            if (now - lastCaptureTime > 120 && (pose == currentPose || currentPose == FacePose.NATURAL)) {
+                                                                                try {
+                                                                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                                                    lastCaptureTime = now
+                                                                                    
+                                                                                    val bitmap = imageProxy.toBitmap()
+                                                                                    val isolated = FacePreprocessor.alignAndIsolate(bitmap, face)
+                                                                                    capturedEmbeddings.add(embeddingHelper.getEmbedding(isolated))
+                                                                                    poseSamples++
+                                                                                    faceProgress = capturedEmbeddings.size / totalTarget.toFloat()
+                                                                                    
+                                                                                    if (poseSamples >= SAMPLES_PER_POSE) {
+                                                                                        val nextPoseIndex = currentPose.ordinal + 1
+                                                                                        if (nextPoseIndex < FacePose.entries.size) {
+                                                                                            currentPose = FacePose.entries[nextPoseIndex]
+                                                                                            poseSamples = 0
+                                                                                        } else {
+                                                                                            scope.launch {
+                                                                                                enrollmentManager.enrollPerson(name, label, capturedEmbeddings)
+                                                                                                enrollmentManager.loadAllInto(recognitionManager, ownerManager)
+                                                                                                step = EnrollStep.SUCCESS
+                                                                                            }
+                                                                                        }
+                                                                                    }
+                                                                                } catch (e: Exception) {
+                                                                                    Log.e("Enrollment", "Frame processing failed: ${e.message}")
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                    .addOnCompleteListener { imageProxy.close() }
+                                                            } else {
+                                                                imageProxy.close()
+                                                            }
+                                                        }
+                                                        try {
+                                                            cameraProvider.unbindAll()
+                                                            val selector = try {
+                                                                CameraSelector.DEFAULT_FRONT_CAMERA
+                                                            } catch (_: Exception) {
+                                                                CameraSelector.DEFAULT_BACK_CAMERA
+                                                            }
+                                                            cameraProvider.bindToLifecycle(lifecycleOwner, selector, preview, imageAnalysis)
+                                                            Log.i("EnrollmentScreen", "Camera bound successfully")
+                                                        } catch (e: Exception) {
+                                                            Log.e("EnrollmentScreen", "Failed to bind camera", e)
+                                                        }
+                                                    }, ContextCompat.getMainExecutor(ctx))
+                                                }
+                                            },
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                        
+                                        // Face guide oval overlay
+                                        Box(
+                                            modifier = Modifier
+                                                .size(width = 180.dp, height = 230.dp)
+                                                .align(Alignment.Center)
+                                                .border(2.dp, Brush.sweepGradient(listOf(AccentCyan, AccentPurple, AccentCyan)), CircleShape)
+                                        )
+                                        
+                                        // Top status pill
+                                        Surface(
+                                            modifier = Modifier
+                                                .align(Alignment.TopCenter)
+                                                .padding(top = 12.dp),
+                                            color = Color(0xCC070A14),
+                                            shape = RoundedCornerShape(20.dp),
+                                            border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.4f))
+                                        ) {
+                                            Text(
+                                                text = when(currentPose) {
+                                                    FacePose.FRONT -> "LOOK STRAIGHT"
+                                                    FacePose.LEFT -> "TURN SLIGHTLY LEFT"
+                                                    FacePose.RIGHT -> "TURN SLIGHTLY RIGHT"
+                                                    FacePose.UP -> "LOOK SLIGHTLY UP"
+                                                    FacePose.DOWN -> "LOOK SLIGHTLY DOWN"
+                                                    FacePose.NATURAL -> "LOOK NATURALLY"
+                                                },
+                                                style = TextStyle(
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontFamily = FontFamily.Monospace,
+                                                    color = AccentCyan
+                                                ),
+                                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                            
                             Spacer(modifier = Modifier.height(16.dp))
-                            LinearProgressIndicator(progress = { faceProgress }, modifier = Modifier.fillMaxWidth().height(6.dp), color = MaterialTheme.colorScheme.primary, trackColor = MaterialTheme.colorScheme.surface)
+                            
+                            // Sample progress indicator
+                            LinearProgressIndicator(
+                                progress = { faceProgress },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(10.dp)
+                                    .clip(RoundedCornerShape(5.dp)),
+                                color = AccentCyan,
+                                trackColor = Color(0xFF1E293B)
+                            )
+                            
                             Spacer(modifier = Modifier.height(8.dp))
-                            Text("Hold still for current pose...", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            
+                            Text(
+                                "Hold still for pose verification...",
+                                style = TextStyle(
+                                    fontSize = 12.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = TextSecondary
+                                )
+                            )
                         }
                         EnrollStep.SUCCESS -> {
                             Spacer(modifier = Modifier.height(80.dp))
@@ -302,71 +459,4 @@ fun EnrollmentScreen(
             }
         }
     }
-}
-
-enum class EnrollStep { ENTER_NAME, CAPTURE, SUCCESS }
-
-@SuppressLint("UnsafeOptInUsageError")
-private fun processEnrollmentFrame(
-    imageProxy: ImageProxy,
-    detector: FaceDetector,
-    embeddingHelper: FaceEmbeddingHelper,
-    fisheyeCorrector: FisheyeCorrector,
-    frameEnhancer: FrameEnhancer,
-    onResult: (FloatArray, FacePose) -> Unit
-) {
-    val rotation = imageProxy.imageInfo.rotationDegrees
-    val original = try {
-        val bitmap = imageProxy.toBitmap()
-        val matrix = Matrix()
-        matrix.postRotate(rotation.toFloat())
-        matrix.postScale(-1f, 1f)
-        Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
-    } catch (e: Exception) {
-        imageProxy.close()
-        return
-    }
-
-    val processedBitmap = if (FisheyeCorrector.isOpenCVLoaded) {
-        try {
-            val corrected = fisheyeCorrector.correct(original)
-            val mat = Mat()
-            Utils.bitmapToMat(corrected, mat)
-            val bgr = Mat()
-            Imgproc.cvtColor(mat, bgr, Imgproc.COLOR_RGBA2BGR)
-            val enhancedBgr = frameEnhancer.enhance(bgr)
-            val outputRgba = Mat()
-            Imgproc.cvtColor(enhancedBgr, outputRgba, Imgproc.COLOR_BGR2RGBA)
-            val outputBitmap = Bitmap.createBitmap(outputRgba.cols(), outputRgba.rows(), Bitmap.Config.ARGB_8888)
-            Utils.matToBitmap(outputRgba, outputBitmap)
-            mat.release(); bgr.release(); enhancedBgr.release(); outputRgba.release()
-            outputBitmap
-        } catch (e: Exception) { original }
-    } else { original }
-
-    detector.process(InputImage.fromBitmap(processedBitmap, 0))
-        .addOnSuccessListener { faces ->
-            if (faces.isNotEmpty()) {
-                val face = faces[0]
-                val yaw = face.headEulerAngleY
-                val pitch = face.headEulerAngleX
-                
-                val pose = when {
-                    yaw < -15f -> FacePose.LEFT
-                    yaw > 15f -> FacePose.RIGHT
-                    pitch > 15f -> FacePose.UP
-                    pitch < -15f -> FacePose.DOWN
-                    abs(yaw) < 10f && abs(pitch) < 10f -> FacePose.FRONT
-                    else -> FacePose.NATURAL
-                }
-
-                try {
-                    val isolated = FacePreprocessor.alignAndIsolate(processedBitmap, face)
-                    onResult(embeddingHelper.getEmbedding(isolated), pose)
-                } catch (e: Exception) {
-                    Log.e("Enrollment", "Frame processing failed: ${e.message}")
-                }
-            }
-        }
-        .addOnCompleteListener { imageProxy.close() }
 }

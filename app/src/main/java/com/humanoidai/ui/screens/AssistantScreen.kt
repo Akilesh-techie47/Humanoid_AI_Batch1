@@ -24,6 +24,8 @@ import com.humanoidai.ai.AIManager
 import com.humanoidai.ai.ChatMessage
 import com.humanoidai.companion.CompanionEngine
 import com.humanoidai.companion.CompanionState
+import com.humanoidai.platform.bridge.LocalAuraCapabilityBridge
+import com.humanoidai.platform.model.Capability
 import com.humanoidai.ui.components.SidePanelDrawer
 import com.humanoidai.ui.theme.*
 import kotlinx.coroutines.launch
@@ -39,6 +41,7 @@ fun AssistantScreen(
     ownerName: String
 ) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val bridge = LocalAuraCapabilityBridge.current
     val scope = rememberCoroutineScope()
     val messages by aiManager.getMessages().collectAsState()
     val companionState by companionEngine.state.collectAsState()
@@ -143,7 +146,7 @@ fun AssistantScreen(
                             AuraTextField(
                                 value = inputText,
                                 onValueChange = { inputText = it },
-                                label = "Message Humanoid...",
+                                label = "Message Aura 360...",
                                 modifier = Modifier.weight(1f)
                             )
                             
@@ -153,8 +156,12 @@ fun AssistantScreen(
                                 onClick = {
                                     if (inputText.isNotBlank()) {
                                         val q = inputText
-                                        inputText = ""
-                                        companionEngine.ask(q, ownerName, "Assistant")
+                                        bridge.requestCapability("aura.assistant", Capability.AI) { granted ->
+                                            if (granted) {
+                                                inputText = ""
+                                                companionEngine.ask(q, ownerName, "Assistant")
+                                            }
+                                        }
                                     }
                                 },
                                 containerColor = MaterialTheme.colorScheme.primary,
@@ -201,7 +208,7 @@ fun AssistantBubble(msg: ChatMessage) {
                 .padding(12.dp)
         ) {
             Text(
-                text = if (msg.isUser) "YOU" else "HUMANOID",
+                text = if (msg.isUser) "YOU" else "AURA 360",
                 style = MaterialTheme.typography.labelSmall,
                 color = textColor.copy(alpha = 0.6f),
                 fontWeight = FontWeight.Bold,

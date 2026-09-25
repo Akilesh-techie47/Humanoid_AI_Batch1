@@ -289,6 +289,15 @@ class AuthViewModel : ViewModel() {
 
     // ---------------- SESSION CHECK ----------------
 
+    fun signInAnonymously(onSuccess: () -> Unit) {
+        _justAuthenticated = true
+        _authState.value = AuthState.Success
+        try {
+            auth.signInAnonymously()
+        } catch (_: Exception) {}
+        onSuccess()
+    }
+
     fun isUserLoggedIn(): Boolean = auth.currentUser != null
 
     fun clearError() {

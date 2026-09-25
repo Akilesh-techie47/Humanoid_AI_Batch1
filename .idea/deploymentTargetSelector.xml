@@ -4,10 +4,10 @@
     <selectionStates>
       <SelectionState runConfigName="app">
         <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2026-08-31T01:42:47.441959800Z">
+        <DropdownSelection timestamp="2026-09-24T16:59:38.681312300Z">
           <Target type="DEFAULT_BOOT">
             <handle>
-              <DeviceId pluginId="PhysicalDevice" identifier="serial=28601df30704" />
+              <DeviceId pluginId="Wireless" identifier="serviceName=adb-69lzzpzpdqbqxodq-RFbZ7P" />
             </handle>
           </Target>
         </DropdownSelection>
@@ -27,6 +27,17 @@
           <Target type="DEFAULT_BOOT">
             <handle>
               <DeviceId pluginId="PhysicalDevice" identifier="serial=28601df30704" />
+            </handle>
+          </Target>
+        </DropdownSelection>
+        <DialogSelection />
+      </SelectionState>
+      <SelectionState runConfigName="New Run Config">
+        <option name="selectionMode" value="DROPDOWN" />
+        <DropdownSelection timestamp="2026-09-10T01:19:06.977514400Z">
+          <Target type="DEFAULT_BOOT">
+            <handle>
+              <DeviceId pluginId="Wireless" identifier="serviceName=adb-69lzzpzpdqbqxodq-1aUqip" />
             </handle>
           </Target>
         </DropdownSelection>

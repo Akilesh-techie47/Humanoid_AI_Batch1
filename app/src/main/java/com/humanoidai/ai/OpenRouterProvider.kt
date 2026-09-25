@@ -23,7 +23,7 @@ class OpenRouterProvider(
     private var client: OpenRouterClient? = null
 
     override suspend fun isAvailable(): Boolean {
-        return apiKey.isNotBlank() && apiKey.startsWith("sk-or-")
+        return apiKey.isNotBlank() && apiKey.startsWith("sk-or-") && !apiKey.contains("mock")
     }
 
     override suspend fun initialize() {

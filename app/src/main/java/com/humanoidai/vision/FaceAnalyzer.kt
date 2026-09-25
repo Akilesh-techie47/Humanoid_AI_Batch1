@@ -10,14 +10,18 @@ import com.google.mlkit.vision.face.Face
 import com.google.mlkit.vision.face.FaceDetection
 import com.google.mlkit.vision.face.FaceDetectorOptions
 import com.humanoidai.ml.*
+import com.humanoidai.platform.bridge.AuraEvent
+import com.humanoidai.platform.bridge.AuraEventBus
 import kotlin.math.abs
 
 class FaceAnalyzer(
     private val embeddingHelper: FaceEmbeddingHelper,
     private val recognitionManager: FaceRecognitionManager,
-    private val enrollmentManager: FaceEnrollmentManager,
+    private val enrollmentManager: FaceEnrollmentManager, // No longer used for real-time label lookup
     private val contextEngine: com.humanoidai.context.ContextEngine,
     private val onResults: (List<DetectedPerson>) -> Unit,
+    private val gestureRecognizer: GestureRecognizer,
+    private val objectRecognizer: ObjectRecognizer,
     private val fisheyeCorrector: FisheyeCorrector? = null,
     var isFrontCamera: Boolean = false,
 ) : ImageAnalysis.Analyzer {
@@ -57,6 +61,24 @@ class FaceAnalyzer(
 
         // Optimization: Pass mediaImage directly to ML Kit (Efficient)
         val inputImage = InputImage.fromMediaImage(mediaImage, rotation)
+
+        // Parallel processing for multi-modal context (Phase 5)
+        objectRecognizer.processFrame(inputImage, rotation)
+        
+        // Feed object results to multimodal bus
+        objectRecognizer.detectedObjects.value.forEach { target ->
+            AuraEventBus.publish(
+                AuraEvent.VisualTargetDetected(target)
+            )
+            
+            // Link hand detection to gesture recognition
+            if (target.label.lowercase().contains("hand")) {
+                gestureRecognizer.processHandLandmarks(
+                    PointF(target.boundingBox.centerX(), target.boundingBox.centerY()),
+                    target.confidence
+                )
+            }
+        }
 
         detector.process(inputImage)
             .addOnSuccessListener { faces ->
@@ -220,7 +242,7 @@ class FaceAnalyzer(
             val livenessScore = (if (isBlinking) 0.5f else 0f) + (movementScore * 0.5f).coerceAtMost(0.5f)
 
             val label = if (name != "UNKNOWN" && name != "ANALYZING" && !name.startsWith("PROBABLE_")) {
-                enrollmentManager.getLabel(name)
+                recognitionManager.getLabel(name) ?: "VISITOR"
             } else if (name.startsWith("PROBABLE_")) {
                 "PROBABLE"
             } else {

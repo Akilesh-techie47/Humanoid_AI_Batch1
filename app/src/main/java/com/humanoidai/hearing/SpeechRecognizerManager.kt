@@ -350,6 +350,10 @@ class SpeechRecognizerManager(
         }
 
         when (error) {
+            SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> {
+                Log.e(TAG, "[VOICE_PIPELINE] CRITICAL: Missing RECORD_AUDIO permission. Auto-restart disabled.")
+                _state.value = MicState.ERROR
+            }
             SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> {
                 Log.w(TAG, "[VOICE_PIPELINE] RECOVERING: Recognizer busy, resetting...")
                 cancelAndRestart()
@@ -359,7 +363,7 @@ class SpeechRecognizerManager(
                 if (providerFinalCallback != null) {
                     providerFinalCallback?.invoke("RETRY_PROMPT")
                 } else {
-                    restartInternal(delay = 500L)
+                    restartInternal(delay = 2500L)
                 }
             }
             SpeechRecognizer.ERROR_AUDIO, SpeechRecognizer.ERROR_CLIENT -> {

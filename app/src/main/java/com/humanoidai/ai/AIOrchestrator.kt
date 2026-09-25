@@ -16,9 +16,11 @@ import java.io.IOException
 class AIOrchestrator(
     private val router: AIRouter
 ) {
+    private var currentProvider: AIProvider? = null
 
     suspend fun generate(request: AIRequest, settings: AppearanceSettings): AIResponse {
         var provider = router.route(request, settings)
+        currentProvider = provider
         Log.i("AIOrchestrator", "[AI_REQUEST] provider=${provider.id} prompt=\"${request.prompt.take(50)}...\"")
         
         val startTime = System.currentTimeMillis()
@@ -34,7 +36,12 @@ class AIOrchestrator(
                 Log.w("AIOrchestrator", "[AI_FAILOVER] ${provider.id} failed, attempting ${fallbackProvider.id} fallback")
                 provider = fallbackProvider
                 response = fallbackProvider.generate(request)
+                if (response.error == null) {
+                    router.reportSuccess(fallbackProvider.id)
+                }
             }
+        } else {
+            router.reportSuccess(provider.id)
         }
 
         val duration = System.currentTimeMillis() - startTime
@@ -45,10 +52,18 @@ class AIOrchestrator(
 
     fun stream(request: AIRequest, settings: AppearanceSettings): Flow<String> = flow {
         var provider = router.route(request, settings)
+        currentProvider = provider
         Log.i("AIOrchestrator", "[AI_STREAM_START] provider=${provider.id} id=${request.requestId}")
 
         try {
-            provider.stream(request).collect { emit(it) }
+            var firstChunk = true
+            provider.stream(request).collect { 
+                if (firstChunk) {
+                    router.reportSuccess(provider.id)
+                    firstChunk = false
+                }
+                emit(it) 
+            }
         } catch (e: Exception) {
             Log.w("AIOrchestrator", "[AI_STREAM_ERROR] ${provider.id} failed, checking failover: ${e.message}")
             
@@ -80,5 +95,10 @@ class AIOrchestrator(
             request.requiresCoding || request.type == AIRequestType.CODING -> AICapability.CODING
             else -> AICapability.TEXT
         }
+    }
+
+    fun cancel() {
+        currentProvider?.cancel()
+        currentProvider = null
     }
 }

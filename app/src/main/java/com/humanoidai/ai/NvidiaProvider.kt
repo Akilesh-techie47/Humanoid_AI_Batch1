@@ -19,7 +19,7 @@ class NvidiaProvider(
 
     private var client: GenericAiClient? = null
 
-    override suspend fun isAvailable(): Boolean = apiKey.isNotBlank()
+    override suspend fun isAvailable(): Boolean = apiKey.isNotBlank() && !apiKey.contains("mock")
 
     override suspend fun initialize() {
         if (client == null && apiKey.isNotBlank()) {

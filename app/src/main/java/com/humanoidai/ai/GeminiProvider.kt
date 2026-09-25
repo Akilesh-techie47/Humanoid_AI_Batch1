@@ -26,7 +26,7 @@ class GeminiProvider(private val apiKey: String) : AIProvider {
     )
 
     override suspend fun isAvailable(): Boolean {
-        return apiKey.isNotBlank() && apiKey.startsWith("AIza")
+        return apiKey.isNotBlank() && apiKey.startsWith("AIza") && !apiKey.contains("mock")
     }
     
     private var model: GenerativeModel? = null

@@ -24,11 +24,27 @@ import kotlinx.coroutines.launch
 @Composable
 fun SidePanelDrawer(
     navController: NavController,
-    drawerState: DrawerState,
+    drawerState: DrawerState = rememberDrawerState(initialValue = DrawerValue.Closed),
+    isOpen: Boolean = false,
+    onDrawerClose: () -> Unit = {},
     unreadCount: Int = 0,
     content: @Composable () -> Unit
 ) {
     val scope = rememberCoroutineScope()
+
+    LaunchedEffect(isOpen) {
+        if (isOpen) {
+            drawerState.open()
+        } else {
+            drawerState.close()
+        }
+    }
+
+    LaunchedEffect(drawerState.isClosed) {
+        if (drawerState.isClosed && isOpen) {
+            onDrawerClose()
+        }
+    }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -50,13 +66,13 @@ fun SidePanelDrawer(
                     ) {
                         Icon(
                             imageVector = Icons.Default.SmartToy,
-                            contentDescription = "Humanoid Logo",
+                            contentDescription = "Aura 360 Logo",
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(32.dp)
                         )
                         Spacer(Modifier.width(12.dp))
                         Text(
-                            "HUMANOID AI",
+                            "AURA 360",
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Black,
                             color = MaterialTheme.colorScheme.onSurface,
@@ -69,6 +85,7 @@ fun SidePanelDrawer(
                     // PRIMARY
                     DrawerSectionHeader("PRIMARY")
                     NavItem(Icons.Default.Dashboard, "Dashboard", NavRoutes.DASHBOARD, navController, drawerState)
+                    NavItem(Icons.Default.Apps, "Aura Apps", NavRoutes.APPS_HUB, navController, drawerState)
                     NavItem(Icons.Default.CameraAlt, "Camera Home", NavRoutes.ENVIRONMENT, navController, drawerState)
                     NavItem(Icons.Default.Notifications, "Alerts", NavRoutes.ALERTS, navController, drawerState, badge = unreadCount)
                     NavItem(Icons.Default.AutoAwesome, "AI Assistant", NavRoutes.ASSISTANT, navController, drawerState)

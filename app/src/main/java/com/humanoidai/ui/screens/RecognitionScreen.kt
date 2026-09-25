@@ -24,6 +24,7 @@ import androidx.navigation.NavController
 import com.humanoidai.ml.EnrolledPerson
 import com.humanoidai.ml.FaceEnrollmentManager
 import com.humanoidai.ml.FaceRecognitionManager
+import com.humanoidai.navigation.NavRoutes
 import com.humanoidai.ui.components.SidePanelDrawer
 import com.humanoidai.ui.theme.*
 import kotlinx.coroutines.launch
@@ -37,7 +38,12 @@ fun RecognitionScreen(
     enrollmentManager: FaceEnrollmentManager,
     recognitionManager: FaceRecognitionManager
 ) {
-    var people by remember { mutableStateOf(enrollmentManager.getAllPersons()) }
+    var people by remember { mutableStateOf<List<EnrolledPerson>>(emptyList()) }
+    
+    LaunchedEffect(Unit) {
+        people = enrollmentManager.getAllPersons()
+    }
+
     var showDeleteDialog by remember { mutableStateOf<EnrolledPerson?>(null) }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -85,7 +91,7 @@ fun RecognitionScreen(
 
                 IconButton(onClick = { 
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    navController.navigate("enrollment") 
+                    navController.navigate(NavRoutes.ENROLLMENT) 
                 }) {
                     Icon(Icons.Default.PersonAdd, "Add Person", tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f), modifier = Modifier.size(20.dp))
                 }
@@ -141,7 +147,7 @@ fun RecognitionScreen(
                                 Spacer(modifier = Modifier.height(20.dp))
                                 AuraButton(
                                     text = "Enroll First Person",
-                                    onClick = { navController.navigate("enrollment") }
+                                    onClick = { navController.navigate(NavRoutes.ENROLLMENT) }
                                 )
                             }
                         }
@@ -155,8 +161,10 @@ fun RecognitionScreen(
                                     person = person,
                                     onDelete = { showDeleteDialog = person },
                                     onTogglePriority = {
-                                        enrollmentManager.toggleCriticalStatus(person.name)
-                                        people = enrollmentManager.getAllPersons()
+                                        scope.launch {
+                                            enrollmentManager.toggleCriticalStatus(person.name)
+                                            people = enrollmentManager.getAllPersons()
+                                        }
                                     }
                                 )
                             }
@@ -177,10 +185,12 @@ fun RecognitionScreen(
             text = { Text("This person will no longer be recognized by the camera.", color = MaterialTheme.colorScheme.onSurfaceVariant) },
             confirmButton = {
                 TextButton(onClick = {
-                    enrollmentManager.removePerson(person.name)
-                    recognitionManager.removeFace(person.name)
-                    people = enrollmentManager.getAllPersons()
-                    showDeleteDialog = null
+                    scope.launch {
+                        enrollmentManager.removePerson(person.name)
+                        recognitionManager.removeFace(person.name)
+                        people = enrollmentManager.getAllPersons()
+                        showDeleteDialog = null
+                    }
                 }) {
                     Text("Remove", color = Color(0xFFFF5C5C))
                 }

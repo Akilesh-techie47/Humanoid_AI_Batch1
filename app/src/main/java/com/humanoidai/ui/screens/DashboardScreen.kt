@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -22,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.google.firebase.auth.FirebaseAuth
 import com.humanoidai.memory.LongTermMemory
 import com.humanoidai.memory.repository.AnalyticsSummary
 import com.humanoidai.memory.entities.InteractionEntity
@@ -71,6 +73,18 @@ fun DashboardScreen(navController: NavController) {
                             Icon(Icons.Default.Menu, "Menu", tint = MaterialTheme.colorScheme.onSurface)
                         }
                     },
+                    actions = {
+                        IconButton(onClick = { 
+                            // Add Sign Out Action
+                            val auth = FirebaseAuth.getInstance()
+                            auth.signOut()
+                            navController.navigate(NavRoutes.LOGIN) {
+                                popUpTo(0) { inclusive = true }
+                            }
+                        }) {
+                            Icon(Icons.AutoMirrored.Filled.Logout, "Sign Out", tint = Color.Red.copy(alpha = 0.7f))
+                        }
+                    },
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
                 )
             }
@@ -82,7 +96,7 @@ fun DashboardScreen(navController: NavController) {
                         .verticalScroll(rememberScrollState())
                         .padding(horizontal = 16.dp)
                 ) {
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(AuraSpacing.large))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -107,43 +121,52 @@ fun DashboardScreen(navController: NavController) {
                             shape = CircleShape,
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
                         ) {
-                            Icon(Icons.Default.AccountCircle, contentDescription = null,
+                            Icon(Icons.Default.AccountCircle, contentDescription = "User Profile",
                                 tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(44.dp).padding(4.dp))
                         }
                     }
 
-                    Spacer(Modifier.height(20.dp))
+                    Spacer(Modifier.height(AuraSpacing.xLarge))
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(AuraSpacing.medium)) {
                         StatusCard("Detections", "${summary?.totalDetectionsToday ?: 0}", Icons.Default.People, SuccessGreen, Modifier.weight(1f))
                         StatusCard("Alerts", "${summary?.totalAlertsToday ?: 0}", Icons.Default.Warning, WarningOrange, Modifier.weight(1f))
                         StatusCard("Registry", "${summary?.registeredUserCount ?: 0}", Icons.Default.SmartToy, MaterialTheme.colorScheme.primary, Modifier.weight(1f))
                     }
 
-                    Spacer(Modifier.height(24.dp))
+                    Spacer(Modifier.height(AuraSpacing.xxLarge))
 
                     // Quick Actions
                     Text("Quick Actions", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onBackground)
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(AuraSpacing.medium))
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(AuraSpacing.medium)) {
+                        QuickActionCard("Applications", Icons.Default.Apps,
+                            Modifier.weight(1f)) { navController.navigate(NavRoutes.APPS_HUB) }
                         QuickActionCard("Vision HUD", Icons.Default.Videocam,
                             Modifier.weight(1f)) { navController.navigate(NavRoutes.ENVIRONMENT) }
                         QuickActionCard("Identity", Icons.Default.Face,
                             Modifier.weight(1f)) { navController.navigate(NavRoutes.RECOGNITION) }
+                    }
+                    
+                    Spacer(Modifier.height(AuraSpacing.medium))
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(AuraSpacing.medium)) {
                         QuickActionCard("History", Icons.Default.History,
                             Modifier.weight(1f)) { navController.navigate(NavRoutes.HISTORY) }
+                        Spacer(Modifier.weight(1f))
+                        Spacer(Modifier.weight(1f))
                     }
 
-                    Spacer(Modifier.height(24.dp))
+                    Spacer(Modifier.height(AuraSpacing.xxLarge))
 
                     // Recent Events
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Timeline, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(8.dp))
+                        Icon(Icons.Default.Timeline, "Activity Timeline", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(AuraSpacing.small))
                         Text("Interaction History", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onBackground)
                     }
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(AuraSpacing.medium))
 
                     if (recentInteractions.isEmpty()) {
                         Box(

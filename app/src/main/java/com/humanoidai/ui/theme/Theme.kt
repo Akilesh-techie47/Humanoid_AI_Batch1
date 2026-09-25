@@ -25,45 +25,46 @@ val CornerRadiusExtraLarge = 24.dp
 val BorderWidthThin = 1.dp
 val BorderWidthMedium = 2.dp
 
-// Brand colors - Monochromatic Core Palette
-val BackgroundDark = Color(0xFF050505) // Near Black
-val SurfaceDark = Color(0xFF0B0B0B)    // Secondary Surface
-val ElevatedDark = Color(0xFF111111)   // Elevated Surface
-val BorderDark = Color(0xFF252525)     // Refined Border
+// Brand colors - Pure White, Black & Grayscale Palette (Zero Blue)
+val BackgroundDark = Color(0xFF000000) // Pure Black
+val SurfaceDark = Color(0xFF121212)    // Dark Gray Surface
+val ElevatedDark = Color(0xFF1E1E1E)   // Elevated Surface
+val BorderDark = Color(0xFF333333)     // Refined Gray Border
 
-val BackgroundLight = Color(0xFFFFFFFF) // White
-val SurfaceLight = Color(0xFFF7F7F7)    // Primary Surface
-val SecondaryLight = Color(0xFFEFEFEF)  // Secondary Surface
-val BorderLight = Color(0xFFD5D5D5)     // Border Light
+val BackgroundLight = Color(0xFFFFFFFF) // Pure White
+val SurfaceLight = Color(0xFFF5F5F5)    // Light Gray Surface
+val SecondaryLight = Color(0xFFE0E0E0)  // Secondary Surface
+val BorderLight = Color(0xFFCCCCCC)     // Border Light
 
-val FishGold = Color(0xFFFFB300)       // Loading Fish Warm Gold
-val SuccessGreen = Color(0xFF4ADE80)   // Mint Green
-val ErrorRed = Color(0xFFF87171)       // Vibrant Coral
+// Monochrome replacements for status colors
+val FishGold = Color(0xFFE0E0E0)       // Silver Gray
+val SuccessGreen = Color(0xFFFFFFFF)   // Pure White
+val ErrorRed = Color(0xFF888888)       // Muted Gray
+val WarningOrange = Color(0xFFCCCCCC)  // Light Gray
 
-// Monochromatic Accents
-val AccentOrange = Color.White         // Refactored to White for Monochrome UI
-val AccentCyan = Color.White           // Added back for compatibility
-val AccentPurple = Color.White         // Added back for compatibility
-val WarningOrange = Color(0xFFFB923C)  // Kept for status only
+// Monochrome Accents
+val AccentCyan = Color(0xFFFFFFFF)     // Pure White
+val AccentPurple = Color(0xFFCCCCCC)   // Light Gray
+val AccentOrange = Color(0xFF888888)   // Muted Gray
 
 // High Contrast Text
 val TextPrimary = Color(0xFFFFFFFF)
-val TextSecondary = Color(0xFFD6D6D6)
-val TextMuted = Color(0xFF9A9A9A)
+val TextSecondary = Color(0xFFAAAAAA)
+val TextMuted = Color(0xFF777777)
 
-val TextPrimaryLight = Color(0xFF111111)
-val TextSecondaryLight = Color(0xFF444444)
-val TextMutedLight = Color(0xFF666666)
+val TextPrimaryLight = Color(0xFF000000)
+val TextSecondaryLight = Color(0xFF555555)
+val TextMutedLight = Color(0xFF888888)
 
 private val DarkColorScheme = darkColorScheme(
     primary = Color.White,
     onPrimary = Color.Black,
-    secondary = Color.White,
+    secondary = Color(0xFFCCCCCC),
     onSecondary = Color.Black,
-    tertiary = SuccessGreen,
+    tertiary = Color(0xFF888888),
     background = BackgroundDark,
     surface = SurfaceDark,
-    error = ErrorRed,
+    error = Color(0xFF888888),
     onBackground = Color.White,
     onSurface = Color.White,
     outline = BorderDark,
@@ -74,12 +75,12 @@ private val DarkColorScheme = darkColorScheme(
 private val LightColorScheme = lightColorScheme(
     primary = Color.Black,
     onPrimary = Color.White,
-    secondary = Color.Black,
+    secondary = Color(0xFF333333),
     onSecondary = Color.White,
-    tertiary = SuccessGreen,
+    tertiary = Color(0xFF666666),
     background = BackgroundLight,
     surface = SurfaceLight,
-    error = ErrorRed,
+    error = Color(0xFF333333),
     onBackground = TextPrimaryLight,
     onSurface = TextPrimaryLight,
     outline = BorderLight,

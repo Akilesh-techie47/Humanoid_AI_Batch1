@@ -8,6 +8,7 @@ import com.humanoidai.memory.database.Aura360Database
 import com.humanoidai.memory.entities.*
 import com.humanoidai.memory.security.PrivacyVault
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.util.UUID
 import java.util.concurrent.TimeUnit
@@ -102,7 +103,24 @@ class MemoryRepository(context: Context) {
             list.map { decryptInteraction(it) }
         }
     }
-    suspend fun getInteractionsByUser(userId: String) = db.interactionDao().getInteractionsByUser(userId)
+    suspend fun searchInteractions(query: String): List<InteractionEntity> {
+        return db.interactionDao().getRecentInteractions(200)
+            .map { decryptInteraction(it) }
+            .filter { it.aiResponse.contains(query, ignoreCase = true) || it.eventType.contains(query, ignoreCase = true) }
+    }
+
+    suspend fun searchAlerts(query: String): List<AlertHistoryEntity> {
+        return db.alertHistoryDao().getRecentAlerts(100)
+            .filter { it.alertType.contains(query, ignoreCase = true) || it.contactName.contains(query, ignoreCase = true) }
+    }
+
+    suspend fun searchFinance(query: String): List<TransactionEntity> {
+        return db.transactionDao().getAllTransactions().first().filter {
+            it.description.contains(query, ignoreCase = true) ||
+            it.category.contains(query, ignoreCase = true) ||
+            it.merchant?.contains(query, ignoreCase = true) == true
+        }
+    }
 
     suspend fun logAlert(
         alertType: String,

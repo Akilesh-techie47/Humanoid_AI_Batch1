@@ -43,13 +43,19 @@ data class AlertItem(
 )
 
 class AlertEngine(
-    private val ownerName: String,
+    initialOwnerName: String = "Owner",
     private val onNewAlert: (AlertItem) -> Unit
 ) {
     companion object {
         private const val UNKNOWN_ALERT_COOLDOWN_MS = 120_000L  // Increased to 2m to reduce agent-level annoyance
         private const val OWNER_ABSENT_THRESHOLD_MS = 10_000L   // 10s before marking owner absent
         private const val MAX_ALERTS = 100
+    }
+
+    private var ownerName: String = initialOwnerName
+
+    fun setOwnerName(name: String) {
+        this.ownerName = name
     }
 
     // Alert state

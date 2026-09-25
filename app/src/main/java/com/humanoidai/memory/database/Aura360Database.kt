@@ -21,9 +21,12 @@ import com.humanoidai.recovery.model.GapEventEntity
         AlertHistoryEntity::class,
         ContextLogEntity::class,
         GapEventEntity::class,
-        AuditLogEntity::class
+        AuditLogEntity::class,
+        TransactionEntity::class,
+        BudgetEntity::class,
+        SavingsGoalEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class Aura360Database : RoomDatabase() {
@@ -34,6 +37,9 @@ abstract class Aura360Database : RoomDatabase() {
     abstract fun contextLogDao(): ContextLogDao
     abstract fun gapEventDao(): GapEventDao
     abstract fun auditLogDao(): AuditLogDao
+    abstract fun transactionDao(): TransactionDao
+    abstract fun budgetDao(): BudgetDao
+    abstract fun savingsGoalDao(): SavingsGoalDao
 
     companion object {
         @Volatile
@@ -88,6 +94,45 @@ abstract class Aura360Database : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS finance_transactions (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        amount INTEGER NOT NULL,
+                        type TEXT NOT NULL,
+                        category TEXT NOT NULL,
+                        description TEXT NOT NULL,
+                        timestamp INTEGER NOT NULL,
+                        merchant TEXT,
+                        source TEXT NOT NULL,
+                        currency TEXT NOT NULL,
+                        notes TEXT
+                    )
+                """.trimIndent())
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS finance_budgets (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        category TEXT NOT NULL,
+                        targetAmount INTEGER NOT NULL,
+                        period TEXT NOT NULL,
+                        startDate INTEGER NOT NULL,
+                        endDate INTEGER NOT NULL
+                    )
+                """.trimIndent())
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS finance_savings_goals (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        name TEXT NOT NULL,
+                        targetAmount INTEGER NOT NULL,
+                        currentAmount INTEGER NOT NULL,
+                        targetDate INTEGER NOT NULL,
+                        createdAt INTEGER NOT NULL
+                    )
+                """.trimIndent())
+            }
+        }
+
         fun getInstance(context: Context): Aura360Database {
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: buildDatabase(context).also { INSTANCE = it }
@@ -106,7 +151,7 @@ abstract class Aura360Database : RoomDatabase() {
                 "aura360_memory_v2.db"
             )
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .build()
         }
 

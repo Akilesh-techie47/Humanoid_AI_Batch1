@@ -1,5 +1,6 @@
 package com.humanoidai.security
 
+import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
@@ -62,6 +63,8 @@ enum class AiPermission(val androidPermission: String? = null) {
     CAMERA(android.Manifest.permission.CAMERA),
     MICROPHONE(android.Manifest.permission.RECORD_AUDIO),
     NOTIFICATIONS(if (android.os.Build.VERSION.SDK_INT >= 33) android.Manifest.permission.POST_NOTIFICATIONS else null),
+    CALL_LOG(Manifest.permission.READ_CALL_LOG),
+    CONTACTS(Manifest.permission.READ_CONTACTS),
     CLOUD_INFERENCE(null), // Logical permission
     THIRD_PARTY_SKILLS(null) // Logical permission
 }

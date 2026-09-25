@@ -68,7 +68,11 @@ fun SettingsScreen(
     var pendingPassword by remember { mutableStateOf("") }
     var showDebugAi by remember { mutableStateOf(false) }
 
-    val ownerName = ownerManager.getOwnerName()
+    var ownerName by remember { mutableStateOf("Owner") }
+    LaunchedEffect(Unit) {
+        ownerName = ownerManager.getOwnerName()
+    }
+    
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
@@ -141,9 +145,9 @@ fun SettingsScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 16.dp)
+                        .padding(horizontal = AuraSpacing.large)
                 ) {
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(AuraSpacing.large))
                     
                     SectionHeader("AI Persona")
                     AuraTextField(
@@ -155,7 +159,7 @@ fun SettingsScreen(
                         label = "AI Name / Wake Word"
                     )
                     
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(AuraSpacing.xxLarge))
 
                     SectionHeader("Appearance")
                     SettingsItem(
@@ -176,8 +180,11 @@ fun SettingsScreen(
                         }
                     )
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(AuraSpacing.xxLarge))
                     SectionHeader("HUD")
+                    ToggleRow(Icons.Default.DarkMode, "Dark Mode", settings.isDarkMode) {
+                        appearanceViewModel.setDarkMode(it)
+                    }
                     ToggleRow(Icons.Default.Analytics, "Sensor Status", settings.showSensorStatus) { 
                         appearanceViewModel.toggleComponent("sensors", it)
                     }
@@ -188,13 +195,31 @@ fun SettingsScreen(
                         appearanceViewModel.toggleComponent("glow", it)
                     }
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(AuraSpacing.xxLarge))
                     SectionHeader("Account")
                     SettingsItem(
                         icon = Icons.Default.Person,
                         title = "Identity",
                         subtitle = "Owner: $ownerName",
                         onClick = { /* No-op */ }
+                    )
+
+                    SettingsItem(
+                        icon = Icons.Default.Face,
+                        title = "Update Face Biometric",
+                        subtitle = "Re-scan facial landmarks",
+                        onClick = {
+                            navController.navigate("${NavRoutes.OWNER_ENROLLMENT}?isUpdateMode=true&updateType=face")
+                        }
+                    )
+
+                    SettingsItem(
+                        icon = Icons.Default.Mic,
+                        title = "Update Voice Trigger",
+                        subtitle = "Verify 'Aura' command trigger",
+                        onClick = {
+                            navController.navigate("${NavRoutes.OWNER_ENROLLMENT}?isUpdateMode=true&updateType=voice")
+                        }
                     )
 
                     SettingsItem(
@@ -220,7 +245,7 @@ fun SettingsScreen(
                     )
 
                     // Hidden Debug section for CES
-                    Spacer(modifier = Modifier.height(32.dp))
+                    Spacer(modifier = Modifier.height(AuraSpacing.xxxLarge))
                     Text(
                         "v2.0.1C-CES",
                         style = MaterialTheme.typography.labelSmall,

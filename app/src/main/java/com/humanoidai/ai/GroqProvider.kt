@@ -24,7 +24,7 @@ class GroqProvider(
     private var client: GroqClient? = null
 
     override suspend fun isAvailable(): Boolean {
-        return apiKey.isNotBlank() && apiKey.startsWith("gsk_")
+        return apiKey.isNotBlank() && apiKey.startsWith("gsk_") && !apiKey.contains("mock")
     }
 
     override suspend fun initialize() {

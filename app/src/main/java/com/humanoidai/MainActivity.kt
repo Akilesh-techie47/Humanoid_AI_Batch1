@@ -28,24 +28,43 @@ import com.humanoidai.ui.screens.AuthViewModel
 import com.humanoidai.ui.theme.Aura360Theme
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import com.humanoidai.ai.AIManager
+import com.humanoidai.context.ContextEngine
+import com.humanoidai.hearing.SpeechRecognizerManager
+import com.humanoidai.memory.ConversationMemory
+import com.humanoidai.ml.FaceRecognitionManager
+import com.humanoidai.platform.bridge.ProvideAuraCapabilityBridge
+import com.humanoidai.platform.capability.RealCapabilityProvider
+import com.humanoidai.platform.manager.AuraCapabilityManagerImpl
+import com.humanoidai.platform.manager.AuraSensorManager
 import com.humanoidai.runtime.SystemReadiness
+import com.humanoidai.vision.GestureRecognizer
+import com.humanoidai.vision.ObjectRecognizer
+import com.humanoidai.voice.VoiceEngine
 
 class MainActivity : ComponentActivity() {
+    private var activeVoiceEngine: VoiceEngine? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Log.i("Aura360Main", "MainActivity: onCreate")
+
+        // Reset enrollment for first-time setup testing
+        deleteDatabase("aura360_memory_v2.db")
+        getSharedPreferences("aura360_owner_biometrics", MODE_PRIVATE).edit().clear().apply()
 
         val trust = TrustFramework.getInstance(this)
         trust.initialize()
 
         // Security Integrity Check
-        if (!IntegrityChecker.isDeviceSecure(this)) {
+        if (!IntegrityChecker.isDeviceSecure()) {
             trust.auditLogger.log(
                 SecurityCategory.INTEGRITY,
                 "Device Compromised",
                 SecurityStatus.VIOLATION,
-                "Root or Emulator detected"
+                "Root or Emulator detected",
             )
             // In a real app, we might block access here
         }
@@ -64,7 +83,7 @@ class MainActivity : ComponentActivity() {
             } catch (e: Exception) {
                 Log.e("Aura360Main", "OpenCV Load Error: ${e.message}")
             } finally {
-                com.humanoidai.runtime.SystemReadiness.markReady("OPENCV")
+                SystemReadiness.markReady("OPENCV")
             }
 
             try {
@@ -72,7 +91,7 @@ class MainActivity : ComponentActivity() {
             } catch (e: Exception) {
                 Log.e("Aura360Main", "SQLCipher Load Error: ${e.message}")
             } finally {
-                com.humanoidai.runtime.SystemReadiness.markReady("SQLITE")
+                SystemReadiness.markReady("SQLITE")
             }
 
         }
@@ -96,14 +115,47 @@ class MainActivity : ComponentActivity() {
                 val navController = rememberNavController()
                 val authViewModel = remember { AuthViewModel() }
 
-                // Skip login if already signed in
-                val startDestination = if (authViewModel.isUserLoggedIn()) {
-                    NavRoutes.SPLASH
-                } else {
-                    NavRoutes.LOGIN
+                // Trace trace dependency chain to ensure explicit RealCapabilityProvider usage
+                val contextEngine = remember { ContextEngine(this, lifecycleScope) }
+                val conversationMemory = remember { ConversationMemory() }
+                val voiceEngine = remember { VoiceEngine(this).also { activeVoiceEngine = it } }
+                
+                // Root AI Manager
+                val apiKeys = mapOf(
+                    "gemini" to BuildConfig.GEMINI_API_KEY,
+                    "groq" to BuildConfig.GROQ_API_KEY
+                )
+                val aiManager = remember { AIManager(this, apiKeys, contextEngine, conversationMemory, voiceEngine, settings = appearanceViewModel.settings) }
+                
+                // Unified Capability Manager
+                val microphoneManager = remember { SpeechRecognizerManager(this) }
+                val recognitionManager = remember { FaceRecognitionManager() }
+                
+                // Phase 5 Recognizers
+                val gestureRecognizer = remember { GestureRecognizer() }
+                val objectRecognizer = remember { ObjectRecognizer() }
+                
+                // Phase 6 Spatial Manager
+                val sensorManager = remember { AuraSensorManager(this) }
+                
+                LaunchedEffect(Unit) {
+                    sensorManager.start()
                 }
 
-                NavGraph(navController = navController, startDestination = startDestination)
+                val capabilityManager = remember {
+                    AuraCapabilityManagerImpl(
+                        this,
+                        RealCapabilityProvider(
+                            this, aiManager, microphoneManager, voiceEngine, recognitionManager,
+                            gestureRecognizer, objectRecognizer, sensorManager
+                        )
+                    )
+                }
+
+                ProvideAuraCapabilityBridge(capabilityManager) {
+                    val startDest = if (authViewModel.isUserLoggedIn()) NavRoutes.SPLASH else NavRoutes.LOGIN
+                    NavGraph(navController = navController, startDestination = startDest)
+                }
             }
         }
     }
@@ -155,6 +207,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        activeVoiceEngine?.shutdown()
         TrustFramework.getInstance(this).sessionManager.closeSession()
         
         // Path B: Step D - Clean Shutdown Marker

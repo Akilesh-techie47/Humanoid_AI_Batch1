@@ -26,7 +26,7 @@ class ConversationMemory {
 
     fun getHistorySnippet(limit: Int = 10): String {
         return _messages.value.takeLast(limit).joinToString("\n") { 
-            "${if (it.isUser) "User" else "Humanoid"}: ${it.text}" 
+            "${if (it.isUser) "User" else "Aura 360"}: ${it.text}" 
         }
     }
 

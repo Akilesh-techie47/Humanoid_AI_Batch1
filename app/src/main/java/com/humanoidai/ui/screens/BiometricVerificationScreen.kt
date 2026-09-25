@@ -1,6 +1,7 @@
 package com.humanoidai.ui.screens
 
 import android.annotation.SuppressLint
+import android.util.Log
 import androidx.biometric.BiometricPrompt
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -69,6 +70,7 @@ fun BiometricVerificationScreen(
     onAccessGranted: () -> Unit
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val lifecycleOwner = LocalLifecycleOwner.current
     val embeddingHelper = remember { FaceEmbeddingHelper(context) }
     val enrollmentManager = remember { FaceEnrollmentManager(context) }
@@ -122,18 +124,6 @@ fun BiometricVerificationScreen(
         initialValue = 0.2f, targetValue = 0.8f,
         animationSpec = infiniteRepeatable(tween(1000), RepeatMode.Reverse),
         label = "scan_alpha"
-    )
-    
-    val rotation by infiniteTransition.animateFloat(
-        initialValue = 0f, targetValue = 360f,
-        animationSpec = infiniteRepeatable(tween(3000, easing = LinearEasing), RepeatMode.Restart),
-        label = "rotation"
-    )
-
-    val scannerRotation by infiniteTransition.animateFloat(
-        initialValue = 0f, targetValue = 360f,
-        animationSpec = infiniteRepeatable(tween(1200, easing = LinearEasing), RepeatMode.Restart),
-        label = "scanner_rotation"
     )
 
     LaunchedEffect(Unit) {
@@ -227,8 +217,16 @@ fun BiometricVerificationScreen(
                                     }
                                     try {
                                         provider.unbindAll()
-                                        provider.bindToLifecycle(lifecycleOwner, CameraSelector.DEFAULT_FRONT_CAMERA, preview, analysis)
-                                    } catch (e: Exception) {}
+                                        val selector = try {
+                                            CameraSelector.DEFAULT_FRONT_CAMERA
+                                        } catch (e: Exception) {
+                                            CameraSelector.DEFAULT_BACK_CAMERA
+                                        }
+                                        provider.bindToLifecycle(lifecycleOwner, selector, preview, analysis)
+                                        Log.i("BiometricVerification", "Camera bound successfully")
+                                    } catch (e: Exception) {
+                                        Log.e("BiometricVerification", "Failed to bind camera", e)
+                                    }
                                 }, ContextCompat.getMainExecutor(ctx))
                             }
                         },
@@ -238,37 +236,11 @@ fun BiometricVerificationScreen(
             if (isVerifying) {
                 Box(Modifier.fillMaxSize().background(SuccessGreen.copy(alpha = 0.2f)))
             } else if (faceScanActive) {
-                // 1. Main Rotating Aura Ring (Slow)
-                Canvas(modifier = Modifier.fillMaxSize().rotate(rotation)) {
-                    val strokeWidth = 3.dp.toPx()
-                    drawArc(
-                        color = SuccessGreen,
-                        startAngle = -90f, sweepAngle = 80f, useCenter = false,
-                        style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
-                    )
-                    drawArc(
-                        color = SuccessGreen,
-                        startAngle = 90f, sweepAngle = 80f, useCenter = false,
-                        style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
-                    )
-                }
-
-                // 2. NEW: Fast Rotating "Scanning Section" (Laser Sweep)
-                Canvas(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .rotate(scannerRotation)
-                ) {
-                    drawArc(
-                        brush = Brush.sweepGradient(
-                            0f to Color.Transparent,
-                            0.5f to SuccessGreen.copy(alpha = 0.5f),
-                            1f to SuccessGreen
-                        ),
-                        startAngle = 0f,
-                        sweepAngle = 45f,
-                        useCenter = false,
-                        style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round)
+                // Static Guide
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    drawCircle(
+                        color = Color.White.copy(alpha = 0.1f),
+                        style = Stroke(width = 2.dp.toPx())
                     )
                 }
 
@@ -276,7 +248,7 @@ fun BiometricVerificationScreen(
                 Box(
                     Modifier
                         .fillMaxSize()
-                        .border(8.dp, MaterialTheme.colorScheme.primary.copy(alpha = scanAlpha), CircleShape)
+                        .border(4.dp, MaterialTheme.colorScheme.primary.copy(alpha = scanAlpha), CircleShape)
                 )
             }
             
@@ -325,7 +297,7 @@ fun BiometricVerificationScreen(
                 statusText,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onBackground,
                 textAlign = TextAlign.Center
             )
             

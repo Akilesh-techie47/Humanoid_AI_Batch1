@@ -5,38 +5,32 @@ import kotlinx.coroutines.flow.flowOf
 
 /**
  * Base implementation for offline/on-device AI.
- * Can be extended to use MediaPipe, TFLite, or ONNX.
+ * Currently reports as unavailable until a local model is deployed.
  */
 class OfflineAIProvider : AIProvider {
     override val id: String = "offline-local"
-    override val name: String = "Humanoid Local Engine"
+    override val name: String = "Aura 360 Local Engine"
     override val capabilities: Set<AICapability> = setOf(
         AICapability.TEXT,
-        AICapability.LOCAL,
-        AICapability.FAST_RESPONSE
+        AICapability.LOCAL
     )
 
-    override suspend fun isAvailable(): Boolean = true
+    override suspend fun isAvailable(): Boolean = false // Honestly reporting as unavailable
 
-    override suspend fun initialize() {
-        // Initialize local model if available
-    }
+    override suspend fun initialize() {}
 
     override suspend fun generate(request: AIRequest): AIResponse {
-        val startTime = System.currentTimeMillis()
-        
-        // Placeholder for local inference
         return AIResponse(
-            text = "I am processing this locally. [Offline Mode]",
+            text = "Local intelligence engine is not yet initialized.",
             provider = id,
             model = "local-lite",
             requestId = request.requestId,
-            generationTimeMs = System.currentTimeMillis() - startTime
+            error = "LOCAL_MODEL_MISSING"
         )
     }
 
     override fun stream(request: AIRequest): Flow<String> {
-        return flowOf("I am processing this locally. [Offline Mode]")
+        return flowOf("Local intelligence engine is offline.")
     }
 
     override fun cancel() {}

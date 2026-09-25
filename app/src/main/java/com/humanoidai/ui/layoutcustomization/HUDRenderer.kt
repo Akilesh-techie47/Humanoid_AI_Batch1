@@ -4,6 +4,7 @@ import androidx.camera.view.PreviewView
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -17,8 +18,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.automirrored.filled.*
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -48,6 +49,7 @@ import com.humanoidai.ui.layouts.HomeLayoutPreset
 import com.humanoidai.ui.theme.*
 import com.humanoidai.ui.screens.CameraAperture
 import com.humanoidai.ui.screens.SecondaryRoiBlip
+import com.humanoidai.ui.components.AuraLensOverlay
 import com.humanoidai.vision.DetectedPerson
 import com.humanoidai.ui.customization.AppearanceSettings
 import com.humanoidai.hearing.AudioDirectionState
@@ -60,6 +62,11 @@ import com.humanoidai.ui.screens.SystemControlBar
 import com.humanoidai.navigation.NavRoutes
 import com.humanoidai.ui.layoutcustomization.domain.perception.PerceptionState
 import com.humanoidai.ui.widgets.TacticalBrackets
+import com.humanoidai.platform.model.GestureType
+import com.humanoidai.platform.model.GestureEvent
+import com.humanoidai.platform.model.MovementState
+import com.humanoidai.platform.model.SpatialContext
+import com.humanoidai.platform.model.VisualTarget
 
 /**
  * The modular HUD Renderer.
@@ -94,7 +101,11 @@ fun HUDRenderer(
     layoutPreset: HomeLayoutPreset,
     scale: Float, // UI Global Scale
     debugEnabled: Boolean = false,
-    companionState: CompanionState = CompanionState.OBSERVING
+    companionState: CompanionState = CompanionState.OBSERVING,
+    lastGesture: GestureEvent? = null,
+    spatialContext: SpatialContext? = null,
+    lockedTarget: VisualTarget? = null,
+    allTargets: List<VisualTarget> = emptyList()
 ) {
     val isThinking = companionState == CompanionState.THINKING
     val isSpeaking = companionState == CompanionState.SPEAKING
@@ -109,6 +120,14 @@ fun HUDRenderer(
         if (settings.showGrid) {
             HudGridOverlay(accent = Color(settings.accentColor))
         }
+
+        // Phase 7: Spatial AR Overlay
+        AuraLensOverlay(
+            targets = allTargets,
+            lockedTarget = lockedTarget,
+            spatialContext = spatialContext,
+            scale = scale
+        )
 
         // Draw standard components with animations
         components.forEach { widget ->
@@ -132,11 +151,18 @@ fun HUDRenderer(
                 0.dp
             }
 
+            val fillWidthModifier = if (widget.id == HUDComponentRegistry.STATUS_BAR || widget.id == HUDComponentRegistry.ASSISTANT) {
+                Modifier.fillMaxWidth()
+            } else {
+                Modifier
+            }
+
             AnimatedVisibility(
                 visible = widget.isVisible,
                 enter = fadeIn(tween(400)) + scaleIn(tween(400, easing = FastOutSlowInEasing), initialScale = 0.9f),
                 exit = fadeOut(tween(300)) + scaleOut(tween(300), targetScale = 0.9f),
                 modifier = Modifier
+                    .then(fillWidthModifier)
                     .align(alignment)
                     .padding(horizontal = 16.dp, vertical = 8.dp)
                     .padding(top = topPadding)
@@ -159,7 +185,11 @@ fun HUDRenderer(
                                 accent = Color(settings.accentColor),
                                 glowEnabled = settings.glowEnabled,
                                 isThinking = isThinking,
-                                isSpeaking = isSpeaking
+                                isSpeaking = isSpeaking,
+                                battery = battery,
+                                noise = noise,
+                                person = detectedPersons.firstOrNull(),
+                                lockedTarget = lockedTarget
                             )
                         }
 
@@ -173,16 +203,7 @@ fun HUDRenderer(
                             }
                         }
                         HUDComponentRegistry.STATUS_BAR -> {
-                            if (settings.showAiStatus) {
-                                HudTopBar(
-                                    settings = settings,
-                                    status = status,
-                                    isThinking = isThinking,
-                                    onMenu = onMenu,
-                                    onSwitchCamera = onSwitchCamera,
-                                    onSettings = { onNavigate(NavRoutes.SETTINGS) }
-                                )
-                            }
+                            // Handled by fixed top header
                         }
                         HUDComponentRegistry.ASSISTANT -> {
                             SystemControlBar(
@@ -209,12 +230,25 @@ fun HUDRenderer(
                         }
                         HUDComponentRegistry.ALERTS -> {
                             if (settings.showAlertBanner) {
-                                AlertBanner(message = latestAlert ?: "SYSTEM STABLE", scale = scale * widget.scale)
+                                AlertBanner(
+                                    message = latestAlert ?: "SYSTEM STABLE",
+                                    scale = scale * widget.scale,
+                                    onClick = { onNavigate(NavRoutes.ALERTS) }
+                                )
                             }
                         }
                         HUDComponentRegistry.FPS_COUNTER -> {
                             if (settings.showFpsCounter) {
-                                DebugTag("STABLE", color = SuccessGreen)
+                                Column(horizontalAlignment = Alignment.End) {
+                                    DebugTag("STABLE", color = SuccessGreen)
+                                    spatialContext?.let { ctx ->
+                                        Spacer(Modifier.height(4.dp))
+                                        DebugTag(
+                                            text = "SPATIAL: ${ctx.movementState}",
+                                            color = if (ctx.movementState == MovementState.STABLE) SuccessGreen else WarningOrange
+                                        )
+                                    }
+                                }
                             }
                         }
                         HUDComponentRegistry.RECORDING_INDICATOR -> {
@@ -223,13 +257,14 @@ fun HUDRenderer(
                             }
                         }
                         HUDComponentRegistry.STATUS_INDICATORS -> {
-                            if (settings.showSensorStatus) {
-                                SensorStatus(battery = battery, noise = noise, scale = scale * widget.scale)
-                            }
+                            // Redundant as it's now inside CameraAperture
                         }
                         HUDComponentRegistry.NOTIFICATIONS -> {
                             if (settings.showLiveContext) {
-                                LiveContextSummary(scale = scale * widget.scale)
+                                LiveContextSummary(
+                                    scale = scale * widget.scale,
+                                    onClick = { onNavigate(NavRoutes.ALERTS) }
+                                )
                             }
                         }
                         HUDComponentRegistry.SECONDARY_ROI -> {
@@ -243,6 +278,15 @@ fun HUDRenderer(
                     }
                 }
                 
+                // Show gesture feedback globally in its zone (Phase 5)
+                if (widget.id == HUDComponentRegistry.NOTIFICATIONS) {
+                    GestureIndicator(
+                        gesture = lastGesture,
+                        scale = scale,
+                        accent = Color(settings.accentColor)
+                    )
+                }
+
                 if (debugEnabled) {
                     DebugOverlay(widget)
                 }
@@ -251,6 +295,25 @@ fun HUDRenderer(
         
         if (debugEnabled) {
             WorkspaceDebugTag(workspaceName, intentName, focusId, activeDecisions, perceptionState)
+        }
+
+        // Fixed Top Status Bar (At absolute top of Z-stack)
+        if (settings.showAiStatus) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.TopCenter)
+                    .zIndex(1000f)
+            ) {
+                HudTopBar(
+                    settings = settings,
+                    status = status,
+                    isThinking = isThinking,
+                    onMenu = onMenu,
+                    onSwitchCamera = onSwitchCamera,
+                    onSettings = { onNavigate(NavRoutes.SETTINGS) }
+                )
+            }
         }
     }
 }
@@ -324,21 +387,27 @@ fun FourRoiContainer(
     cameraSize: Dp
 ) {
     val maxRoi = 4
-    val activePersons = persons.take(maxRoi)
-    val accent = Color(settings.accentColor)
+    // Show people other than the primary one in the 4 corners
+    val activePersons = persons.drop(1).take(maxRoi)
+    if (activePersons.isEmpty()) return
 
-    val offsetDistance = (cameraSize / 2) + (40 * scale).dp
+    val accent = Color(settings.accentColor)
+    val offsetDistance = (cameraSize / 2) + (60 * scale).dp
 
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         activePersons.forEachIndexed { index, person ->
             val offsetX = when (index) {
-                0, 2 -> -offsetDistance
-                1, 3 -> offsetDistance
+                0 -> -offsetDistance // Left
+                1 -> offsetDistance  // Top Right
+                2 -> offsetDistance  // Bottom Right
+                3 -> -offsetDistance // Bottom Left
                 else -> 0.dp
             }
             val offsetY = when (index) {
-                0, 1 -> -offsetDistance
-                2, 3 -> offsetDistance
+                0 -> 0.dp            // Left (Center)
+                1 -> -offsetDistance // Top Right
+                2 -> offsetDistance  // Bottom Right
+                3 -> offsetDistance  // Bottom Left
                 else -> 0.dp
             }
 
@@ -383,34 +452,81 @@ fun SidebarBlips(
 }
 
 @Composable
-fun AlertBanner(message: String, scale: Float) {
+fun GestureIndicator(gesture: GestureEvent?, scale: Float, accent: Color) {
+    if (gesture == null || gesture.type == GestureType.NONE) return
+    
+    val infiniteTransition = rememberInfiniteTransition(label = "gesture")
+    val alpha by infiniteTransition.animateFloat(
+        initialValue = 0.4f, targetValue = 1.0f,
+        animationSpec = infiniteRepeatable(tween(400), RepeatMode.Reverse),
+        label = "alpha"
+    )
+
+    Surface(
+        color = Color.Black.copy(alpha = 0.7f),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, accent.copy(alpha = 0.5f)),
+        modifier = Modifier.padding(16.dp).graphicsLayer(alpha = alpha)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = when(gesture.type) {
+                    GestureType.POINT -> Icons.Default.Place
+                    GestureType.SWIPE_LEFT -> Icons.AutoMirrored.Filled.ArrowBack
+                    GestureType.SWIPE_RIGHT -> Icons.AutoMirrored.Filled.ArrowForward
+                    GestureType.SWIPE_UP -> Icons.Default.ArrowUpward
+                    GestureType.SWIPE_DOWN -> Icons.Default.ArrowDownward
+                    else -> Icons.Default.PanTool
+                },
+                contentDescription = null,
+                tint = accent,
+                modifier = Modifier.size((18 * scale).dp)
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = gesture.type.name.replace("_", " "),
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+        }
+    }
+}
+
+@Composable
+fun AlertBanner(message: String, scale: Float, onClick: () -> Unit = {}) {
     val isStable = message.contains("STABLE", ignoreCase = true)
     val color = if (isStable) SuccessGreen else ErrorRed
     
-    // P0: Compact HUD alert instead of a giant screen-blocking banner
+    // Pill-style alert matching attached image
     Surface(
-        modifier = Modifier.widthIn(max = (220 * scale).dp),
-        color = color.copy(alpha = 0.15f),
-        shape = RoundedCornerShape(CornerRadiusSmall),
-        border = BorderStroke(BorderWidthThin, color.copy(alpha = 0.3f))
+        modifier = Modifier
+            .padding(top = 10.dp)
+            .clickable { onClick() },
+        color = Color.Black.copy(alpha = 0.8f),
+        shape = RoundedCornerShape(24.dp),
+        border = BorderStroke(1.5.dp, color.copy(alpha = 0.6f))
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp)
         ) {
             Icon(
                 if (isStable) Icons.Default.CheckCircle else Icons.Default.Warning, 
                 null, 
                 tint = color, 
-                modifier = Modifier.size((14 * scale).dp)
+                modifier = Modifier.size((18 * scale).dp)
             )
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(12.dp))
             Text(
                 message.uppercase(), 
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f), 
-                fontSize = (9 * scale).sp, 
+                color = Color.White, 
+                fontSize = (11 * scale).sp, 
                 fontWeight = FontWeight.Bold,
-                letterSpacing = 1.sp,
+                letterSpacing = 1.2.sp,
                 fontFamily = FontFamily.Monospace
             )
         }
@@ -439,13 +555,15 @@ private fun StatusTag(label: String, value: String, color: Color, scale: Float) 
 }
 
 @Composable
-fun LiveContextSummary(scale: Float) {
+fun LiveContextSummary(scale: Float, onClick: () -> Unit = {}) {
     // P0: Predictable size and controlled wrapping for CES
     Surface(
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.4f),
         shape = RoundedCornerShape(CornerRadiusMedium),
         border = BorderStroke(BorderWidthThin, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
-        modifier = Modifier.widthIn(max = (180 * scale).dp)
+        modifier = Modifier
+            .widthIn(max = (180 * scale).dp)
+            .clickable { onClick() }
     ) {
         Column(Modifier.padding(10.dp)) {
             Text(

@@ -102,7 +102,7 @@ object HUDComponentRegistry {
                 type = "sensor",
                 anchor = WidgetAnchor.TOP_END,
                 offsetX = (-16).dp,
-                offsetY = 16.dp,
+                offsetY = 120.dp,
                 priority = LayoutPriority.STATUS_INDICATORS,
                 category = HUDComponentCategory.CONTEXT,
                 allowedZones = listOf(WidgetZone.RIGHT_UTILITY, WidgetZone.LEFT_UTILITY)
@@ -134,7 +134,7 @@ object HUDComponentRegistry {
             STATUS_BAR -> WidgetBlueprint(
                 id = STATUS_BAR,
                 type = "system",
-                priority = LayoutPriority.STATUS_INDICATORS,
+                priority = LayoutPriority.CONTROLS,
                 category = HUDComponentCategory.PERMANENT,
                 behaviors = HUDComponentBehavior(canMove = false, canHide = false),
                 allowedZones = listOf(WidgetZone.TOP_INFO)
