@@ -1,6 +1,8 @@
 package com.humanoidai.navigation
 
 import android.util.Log
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -341,7 +343,14 @@ fun NavGraph(navController: NavHostController, startDestination: String = NavRou
         AuraMultimodalOrchestrator(aiManager, bridge)
     }
 
-    NavHost(navController = navController, startDestination = startDestination) {
+    NavHost(
+        navController = navController,
+        startDestination = startDestination,
+        enterTransition = { fadeIn(animationSpec = tween(300)) + slideInHorizontally(initialOffsetX = { 60 }) },
+        exitTransition = { fadeOut(animationSpec = tween(300)) + slideOutHorizontally(targetOffsetX = { -60 }) },
+        popEnterTransition = { fadeIn(animationSpec = tween(300)) + slideInHorizontally(initialOffsetX = { -60 }) },
+        popExitTransition = { fadeOut(animationSpec = tween(300)) + slideOutHorizontally(targetOffsetX = { 60 }) }
+    ) {
         composable(NavRoutes.LOGIN) {
             LoginScreen(
                 onLoginSuccess = {

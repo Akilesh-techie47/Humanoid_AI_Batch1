@@ -482,6 +482,10 @@ class AIManager(
 
     fun getMessages(): StateFlow<List<ChatMessage>> = conversationMemory.messages
 
+    fun clearMessages() {
+        conversationMemory.clear()
+    }
+
     fun cancel() {
         orchestrator.cancel()
         _aiState.value = AIState.Idle

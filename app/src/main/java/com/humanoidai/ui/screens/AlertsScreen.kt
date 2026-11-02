@@ -1,13 +1,18 @@
 package com.humanoidai.ui.screens
 
-import androidx.compose.foundation.*
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -18,9 +23,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -29,10 +32,10 @@ import androidx.navigation.NavController
 import com.humanoidai.alerts.AlertEngine
 import com.humanoidai.alerts.AlertItem
 import com.humanoidai.alerts.AlertPriority
+import com.humanoidai.ui.components.BottomNavBar
 import com.humanoidai.ui.components.SidePanelDrawer
 import com.humanoidai.ui.theme.*
 import kotlinx.coroutines.launch
-import com.humanoidai.ui.components.ArmsunFooter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,12 +49,11 @@ fun AlertsScreen(
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
 
-    var selectedFilter by remember { mutableStateOf<AlertPriority?>(null) }
+    var selectedPriority by remember { mutableStateOf<AlertPriority?>(null) }
 
-    val filteredAlerts = if (selectedFilter != null) {
-        alerts.filter { it.priority == selectedFilter }
-    } else {
-        alerts
+    val filteredAlerts = remember(alerts, selectedPriority) {
+        if (selectedPriority != null) alerts.filter { it.priority == selectedPriority }
+        else alerts
     }
 
     SidePanelDrawer(
@@ -62,228 +64,213 @@ fun AlertsScreen(
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
             topBar = {
-                Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = { 
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        scope.launch { drawerState.open() } 
+                CenterAlignedTopAppBar(
+                    title = {
+                        Text(
+                            text = "Alerts Center",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
                     },
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(MaterialTheme.colorScheme.surface)
-                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
-                ) {
-                    Icon(Icons.Default.Menu, "Menu", tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
-                }
-                
-                Spacer(Modifier.width(16.dp))
-                
-                Text(
-                    "ALERTS CENTER", 
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold, 
-                    color = MaterialTheme.colorScheme.primary, 
-                    letterSpacing = 1.sp
-                )
-            }
-        }
-    ) { padding ->
-            Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-                Column(
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    // ---- Summary Header ----
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = AuraSpacing.large, vertical = AuraSpacing.large),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            if (unreadCount > 0) {
-                                Text(
-                                    "$unreadCount unread notifications",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = Color(0xFFFF5C5C)
-                                )
-                            } else {
-                                Text("All alerts reviewed", style = MaterialTheme.typography.bodySmall, color = SuccessGreen)
-                            }
-                        }
-
-                        Row(horizontalArrangement = Arrangement.spacedBy(AuraSpacing.small)) {
-                            if (unreadCount > 0) {
-                                TextButton(onClick = { 
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    alertEngine.markAllRead() 
-                                }) {
-                                    Text("Mark all read", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp)
-                                }
-                            }
-                            IconButton(onClick = { 
+                    navigationIcon = {
+                        IconButton(
+                            onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                alertEngine.clearAll() 
-                            }) {
-                                Icon(Icons.Default.DeleteSweep, "Clear all alerts", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                scope.launch { drawerState.open() }
                             }
-                        }
-                    }
-
-                    // ---- Priority Filter Chips ----
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = AuraSpacing.large),
-                        horizontalArrangement = Arrangement.spacedBy(AuraSpacing.small)
-                    ) {
-                        FilterChip(
-                            selected = selectedFilter == null,
-                            onClick = { 
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                selectedFilter = null 
-                            },
-                            label = { Text("All (${alerts.size})", fontSize = 12.sp) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
-                                selectedLabelColor = MaterialTheme.colorScheme.primary
-                            )
-                        )
-                        FilterChip(
-                            selected = selectedFilter == AlertPriority.CRITICAL,
-                            onClick = { 
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                selectedFilter = if (selectedFilter == AlertPriority.CRITICAL) null else AlertPriority.CRITICAL 
-                            },
-                            label = { Text("Critical", fontSize = 12.sp) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = Color(0xFFFF3B30).copy(alpha = 0.2f),
-                                selectedLabelColor = Color(0xFFFF3B30)
-                            )
-                        )
-                        FilterChip(
-                            selected = selectedFilter == AlertPriority.HIGH,
-                            onClick = { 
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                selectedFilter = if (selectedFilter == AlertPriority.HIGH) null else AlertPriority.HIGH 
-                            },
-                            label = { Text("High", fontSize = 12.sp) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = ErrorRed.copy(alpha = 0.2f),
-                                selectedLabelColor = ErrorRed
-                            )
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(AuraSpacing.small))
-
-                    // ---- Alert List ----
-                    if (filteredAlerts.isEmpty()) {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
                         ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                imageVector = Icons.Default.Menu,
+                                contentDescription = "Menu",
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    },
+                    actions = {
+                        if (unreadCount > 0) {
+                            IconButton(
+                                onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    alertEngine.markAllRead()
+                                }
+                            ) {
                                 Icon(
-                                    Icons.Default.NotificationsNone,
-                                    null,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                                    modifier = Modifier.size(56.dp)
-                                )
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Text(
-                                    if (selectedFilter != null) "No ${selectedFilter?.name?.lowercase()} alerts"
-                                    else "No alerts yet",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Text(
-                                    "Alerts appear when unknown persons\nare detected by the camera",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                    textAlign = TextAlign.Center
+                                    imageVector = Icons.Outlined.MarkChatRead,
+                                    contentDescription = "Mark All Read",
+                                    tint = MaterialTheme.colorScheme.primary
                                 )
                             }
                         }
-                    } else {
-                        LazyColumn(
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 60.dp)
-                        ) {
-                            items(filteredAlerts, key = { it.id }) { alert ->
-                                AlertCard(
-                                    alert = alert,
-                                    formattedTime = alertEngine.getFormattedTime(alert.timestamp),
-                                    onTap = { alertEngine.markRead(alert.id) }
-                                )
+                        IconButton(
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                alertEngine.clearAll()
                             }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.DeleteSweep,
+                                contentDescription = "Clear All",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.background
+                    )
+                )
+            },
+            bottomBar = {
+                BottomNavBar(navController = navController)
+            }
+        ) { padding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+            ) {
+                // Priority Filter Row
+                LazyRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    item {
+                        AuraChip(
+                            text = "All (${alerts.size})",
+                            isSelected = selectedPriority == null,
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                selectedPriority = null
+                            }
+                        )
+                    }
+                    item {
+                        AuraChip(
+                            text = "Critical",
+                            isSelected = selectedPriority == AlertPriority.CRITICAL,
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                selectedPriority = if (selectedPriority == AlertPriority.CRITICAL) null else AlertPriority.CRITICAL
+                            }
+                        )
+                    }
+                    item {
+                        AuraChip(
+                            text = "High",
+                            isSelected = selectedPriority == AlertPriority.HIGH,
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                selectedPriority = if (selectedPriority == AlertPriority.HIGH) null else AlertPriority.HIGH
+                            }
+                        )
+                    }
+                    item {
+                        AuraChip(
+                            text = "Medium",
+                            isSelected = selectedPriority == AlertPriority.MEDIUM,
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                selectedPriority = if (selectedPriority == AlertPriority.MEDIUM) null else AlertPriority.MEDIUM
+                            }
+                        )
+                    }
+                }
+
+                if (filteredAlerts.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                imageVector = Icons.Outlined.NotificationsNone,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                modifier = Modifier.size(56.dp)
+                            )
+                            Spacer(Modifier.height(14.dp))
+                            Text(
+                                text = if (selectedPriority != null) "No ${selectedPriority?.name?.lowercase()} alerts"
+                                else "All caught up!",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                text = "New alerts will appear here when detected by camera vision sensors",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)
+                    ) {
+                        items(filteredAlerts, key = { it.id }) { alert ->
+                            ModernAlertCard(
+                                alert = alert,
+                                formattedTime = alertEngine.getFormattedTime(alert.timestamp),
+                                onTap = { alertEngine.markRead(alert.id) }
+                            )
                         }
                     }
                 }
-                
-                ArmsunFooter(modifier = Modifier.align(Alignment.BottomCenter))
             }
         }
     }
 }
 
 @Composable
-private fun AlertCard(
+private fun ModernAlertCard(
     alert: AlertItem,
     formattedTime: String,
     onTap: () -> Unit
 ) {
     val haptic = LocalHapticFeedback.current
-    val (borderColor, iconColor, bgColor, icon) = when (alert.priority) {
-        AlertPriority.CRITICAL -> Quad(
-            Color(0xFFFF3B30), Color(0xFFFF3B30),
-            Color(0xFF1A0505), Icons.Default.Warning
-        )
-        AlertPriority.HIGH -> Quad(
-            ErrorRed, ErrorRed,
-            Color(0xFF140808), Icons.Default.PersonOff
-        )
-        AlertPriority.MEDIUM -> Quad(
-            MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primary,
-            Color(0xFF0F0F0F), Icons.Default.Person
-        )
-        AlertPriority.LOW -> Quad(
-            MaterialTheme.colorScheme.onSurfaceVariant, MaterialTheme.colorScheme.onSurfaceVariant,
-            MaterialTheme.colorScheme.surface, Icons.Default.Info
-        )
+    val (priorityColor, priorityLabel, icon) = when (alert.priority) {
+        AlertPriority.CRITICAL -> Triple(ErrorRed, "Critical", Icons.Outlined.WarningAmber)
+        AlertPriority.HIGH -> Triple(ErrorRed, "High", Icons.Outlined.PersonOff)
+        AlertPriority.MEDIUM -> Triple(WarningOrange, "Medium", Icons.Outlined.Person)
+        AlertPriority.LOW -> Triple(AccentCyan, "Low", Icons.Outlined.Info)
     }
 
-    val alpha = if (alert.isRead) 0.5f else 1f
-
     Surface(
+        shape = RoundedCornerShape(CornerRadiusMedium),
+        color = if (alert.isRead) MaterialTheme.colorScheme.surface.copy(alpha = 0.6f) else MaterialTheme.colorScheme.surface,
+        border = BorderStroke(
+            1.dp,
+            if (!alert.isRead) priorityColor.copy(alpha = 0.4f)
+            else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
+        ),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp)
-            .clickable { 
+            .clip(RoundedCornerShape(CornerRadiusMedium))
+            .clickable {
                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                onTap() 
-            },
-        color = if (!alert.isRead) bgColor.copy(alpha = 0.6f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.3f),
-        shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(if (!alert.isRead) 1.dp else 0.5.dp, borderColor.copy(alpha = if (!alert.isRead) 0.4f else 0.1f))
+                onTap()
+            }
     ) {
         Row(
             modifier = Modifier.padding(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Thumbnail or icon
             Box(
                 modifier = Modifier
                     .size(44.dp)
                     .clip(CircleShape)
-                    .background(iconColor.copy(alpha = 0.1f)),
+                    .background(priorityColor.copy(alpha = 0.12f)),
                 contentAlignment = Alignment.Center
             ) {
                 if (alert.faceBitmap != null) {
@@ -295,15 +282,15 @@ private fun AlertCard(
                     )
                 } else {
                     Icon(
-                        icon,
-                        null,
-                        tint = iconColor.copy(alpha = alpha),
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = priorityColor,
                         modifier = Modifier.size(22.dp)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(Modifier.width(14.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Row(
@@ -312,56 +299,53 @@ private fun AlertCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        alert.title,
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White.copy(alpha = alpha)
+                        text = alert.title,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        formattedTime,
+                        text = formattedTime,
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                     )
                 }
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    alert.description,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha),
-                    lineHeight = 16.sp
-                )
-                Spacer(modifier = Modifier.height(8.dp))
 
-                PriorityBadge(alert.priority, alpha)
+                Spacer(Modifier.height(2.dp))
+
+                Text(
+                    text = alert.description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 18.sp
+                )
+
+                Spacer(Modifier.height(8.dp))
+
+                // Priority Badge
+                Surface(
+                    shape = RoundedCornerShape(CornerRadiusSmall),
+                    color = priorityColor.copy(alpha = 0.12f)
+                ) {
+                    Text(
+                        text = priorityLabel,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = priorityColor,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                    )
+                }
             }
 
             if (!alert.isRead) {
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(Modifier.width(8.dp))
                 Box(
                     modifier = Modifier
-                        .size((6).dp)
-                        .background(borderColor, CircleShape)
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(priorityColor)
                 )
             }
         }
     }
 }
-
-@Composable
-private fun PriorityBadge(priority: AlertPriority, alpha: Float = 1f) {
-    val (color, label) = when (priority) {
-        AlertPriority.CRITICAL -> Pair(Color(0xFFFF3B30), "CRITICAL")
-        AlertPriority.HIGH     -> Pair(Color(0xFFFF5C5C), "HIGH")
-        AlertPriority.MEDIUM   -> Pair(AccentCyan, "MEDIUM")
-        AlertPriority.LOW      -> Pair(MaterialTheme.colorScheme.onSurfaceVariant, "LOW")
-    }
-    Box(
-        modifier = Modifier
-            .background(color.copy(alpha = 0.15f * alpha), RoundedCornerShape(4.dp))
-            .padding(horizontal = 6.dp, vertical = 2.dp)
-    ) {
-        Text(label, style = MaterialTheme.typography.labelSmall, color = color.copy(alpha = alpha), fontWeight = FontWeight.Bold)
-    }
-}
-
-private data class Quad<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)

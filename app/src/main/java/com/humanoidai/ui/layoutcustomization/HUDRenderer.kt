@@ -98,6 +98,7 @@ fun HUDRenderer(
     activeDecisions: List<Decision> = emptyList(),
     perceptionState: PerceptionState? = null,
     previewView: (PreviewView) -> Unit,
+    rearPreviewView: (PreviewView) -> Unit = {},
     layoutPreset: HomeLayoutPreset,
     scale: Float, // UI Global Scale
     debugEnabled: Boolean = false,
@@ -105,7 +106,9 @@ fun HUDRenderer(
     lastGesture: GestureEvent? = null,
     spatialContext: SpatialContext? = null,
     lockedTarget: VisualTarget? = null,
-    allTargets: List<VisualTarget> = emptyList()
+    allTargets: List<VisualTarget> = emptyList(),
+    isRearCameraActive: Boolean = true,
+    rearCameraMessage: String? = null
 ) {
     val isThinking = companionState == CompanionState.THINKING
     val isSpeaking = companionState == CompanionState.SPEAKING
@@ -157,8 +160,11 @@ fun HUDRenderer(
                 Modifier
             }
 
+            val isKeyboardOpen = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+            val isWidgetVisible = widget.isVisible && (!isKeyboardOpen || widget.id == HUDComponentRegistry.ASSISTANT || widget.id == HUDComponentRegistry.CAMERA)
+
             AnimatedVisibility(
-                visible = widget.isVisible,
+                visible = isWidgetVisible,
                 enter = fadeIn(tween(400)) + scaleIn(tween(400, easing = FastOutSlowInEasing), initialScale = 0.9f),
                 exit = fadeOut(tween(300)) + scaleOut(tween(300), targetScale = 0.9f),
                 modifier = Modifier
@@ -178,10 +184,11 @@ fun HUDRenderer(
                     when (widget.id) {
                         HUDComponentRegistry.CAMERA -> {
                             CameraAperture(
-                                size = widget.width.coerceAtMost(320.dp),
+                                size = if (isKeyboardOpen) 100.dp else widget.width.coerceAtMost(320.dp),
                                 preset = layoutPreset,
                                 preview = previewView,
-                                scale = scale * widget.scale,
+                                rearPreview = rearPreviewView,
+                                scale = if (isKeyboardOpen) 0.5f else (scale * widget.scale),
                                 accent = Color(settings.accentColor),
                                 glowEnabled = settings.glowEnabled,
                                 isThinking = isThinking,
@@ -189,7 +196,10 @@ fun HUDRenderer(
                                 battery = battery,
                                 noise = noise,
                                 person = detectedPersons.firstOrNull(),
-                                lockedTarget = lockedTarget
+                                lockedTarget = lockedTarget,
+                                isCompact = isKeyboardOpen,
+                                isRearCameraActive = isRearCameraActive,
+                                rearCameraMessage = rearCameraMessage
                             )
                         }
 
@@ -229,27 +239,16 @@ fun HUDRenderer(
                             }
                         }
                         HUDComponentRegistry.ALERTS -> {
-                            if (settings.showAlertBanner) {
+                            if (settings.showAlertBanner && latestAlert != null && !latestAlert.contains("STABLE", ignoreCase = true)) {
                                 AlertBanner(
-                                    message = latestAlert ?: "SYSTEM STABLE",
+                                    message = latestAlert,
                                     scale = scale * widget.scale,
                                     onClick = { onNavigate(NavRoutes.ALERTS) }
                                 )
                             }
                         }
                         HUDComponentRegistry.FPS_COUNTER -> {
-                            if (settings.showFpsCounter) {
-                                Column(horizontalAlignment = Alignment.End) {
-                                    DebugTag("STABLE", color = SuccessGreen)
-                                    spatialContext?.let { ctx ->
-                                        Spacer(Modifier.height(4.dp))
-                                        DebugTag(
-                                            text = "SPATIAL: ${ctx.movementState}",
-                                            color = if (ctx.movementState == MovementState.STABLE) SuccessGreen else WarningOrange
-                                        )
-                                    }
-                                }
-                            }
+                            // Production clean: hidden unless debugging
                         }
                         HUDComponentRegistry.RECORDING_INDICATOR -> {
                             if (isListening) {
@@ -344,8 +343,8 @@ fun PrimaryRoiOverlay(
     val box = person.boundingBox
     
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        val w = maxWidth
-        val h = maxHeight
+        val w = this.maxWidth
+        val h = this.maxHeight
         
         val left = w * box.left
         val top = h * box.top
@@ -556,9 +555,8 @@ private fun StatusTag(label: String, value: String, color: Color, scale: Float) 
 
 @Composable
 fun LiveContextSummary(scale: Float, onClick: () -> Unit = {}) {
-    // P0: Predictable size and controlled wrapping for CES
     Surface(
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.4f),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
         shape = RoundedCornerShape(CornerRadiusMedium),
         border = BorderStroke(BorderWidthThin, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
         modifier = Modifier
@@ -567,19 +565,18 @@ fun LiveContextSummary(scale: Float, onClick: () -> Unit = {}) {
     ) {
         Column(Modifier.padding(10.dp)) {
             Text(
-                "CONTEXTUAL ANALYSIS", 
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f), 
-                fontSize = (8 * scale).sp, 
+                "Active Context", 
+                color = AccentCyan, 
+                fontSize = (10 * scale).sp, 
                 fontWeight = FontWeight.Bold,
-                letterSpacing = 1.sp
+                letterSpacing = 0.5.sp
             )
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(4.dp))
             Text(
-                "STABLE / RESIDENTIAL / ACTIVITY HIGH", 
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f), 
-                fontSize = (9 * scale).sp,
-                lineHeight = 14.sp,
-                fontFamily = FontFamily.Monospace
+                "Home • Normal Activity", 
+                color = MaterialTheme.colorScheme.onSurface, 
+                fontSize = (11 * scale).sp,
+                lineHeight = 15.sp
             )
         }
     }

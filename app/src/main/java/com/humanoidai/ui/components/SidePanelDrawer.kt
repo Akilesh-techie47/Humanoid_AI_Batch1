@@ -1,14 +1,22 @@
 package com.humanoidai.ui.components
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -31,6 +39,7 @@ fun SidePanelDrawer(
     content: @Composable () -> Unit
 ) {
     val scope = rememberCoroutineScope()
+    val haptic = LocalHapticFeedback.current
 
     LaunchedEffect(isOpen) {
         if (isOpen) {
@@ -51,71 +60,151 @@ fun SidePanelDrawer(
         drawerContent = {
             ModalDrawerSheet(
                 drawerContainerColor = MaterialTheme.colorScheme.surface,
-                modifier = Modifier.width(280.dp)
+                drawerShape = RoundedCornerShape(topEnd = 24.dp, bottomEnd = 24.dp),
+                modifier = Modifier
+                    .width(310.dp)
+                    .fillMaxHeight()
             ) {
                 Column(
                     modifier = Modifier
-                        .fillMaxHeight()
-                        .padding(16.dp)
-                        .verticalScroll(rememberScrollState())
+                        .fillMaxSize()
+                        .statusBarsPadding()
+                        .navigationBarsPadding()
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
                 ) {
-                    // Header
+                    // Modern App Header
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(bottom = 24.dp, top = 8.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 4.dp, vertical = 8.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.SmartToy,
-                            contentDescription = "Aura 360 Logo",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(32.dp)
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primary),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.SmartToy,
+                                contentDescription = "Aura Logo",
+                                tint = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                         Spacer(Modifier.width(12.dp))
-                        Text(
-                            "AURA 360",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Black,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            letterSpacing = 1.sp
-                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Aura 360",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Intelligent Companion",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
 
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f), modifier = Modifier.padding(bottom = 16.dp))
+                    Spacer(Modifier.height(12.dp))
 
-                    // PRIMARY
-                    DrawerSectionHeader("PRIMARY")
-                    NavItem(Icons.Default.Dashboard, "Dashboard", NavRoutes.DASHBOARD, navController, drawerState)
-                    NavItem(Icons.Default.Apps, "Aura Apps", NavRoutes.APPS_HUB, navController, drawerState)
-                    NavItem(Icons.Default.CameraAlt, "Camera Home", NavRoutes.ENVIRONMENT, navController, drawerState)
-                    NavItem(Icons.Default.Notifications, "Alerts", NavRoutes.ALERTS, navController, drawerState, badge = unreadCount)
-                    NavItem(Icons.Default.AutoAwesome, "AI Assistant", NavRoutes.ASSISTANT, navController, drawerState)
-                    NavItem(Icons.Default.Forum, "Communication Intel", NavRoutes.COMMUNICATION_ACCESS, navController, drawerState)
-                    NavItem(Icons.Default.QuestionAnswer, "What Did I Miss?", NavRoutes.COMMUNICATION_BRIEFING, navController, drawerState)
-                    NavItem(Icons.Default.Face, "Face Recognition", NavRoutes.RECOGNITION, navController, drawerState)
-                    NavItem(Icons.Default.PersonAdd, "Face Enrollment", NavRoutes.ENROLLMENT, navController, drawerState)
-                    
+                    // "+ New Chat" Action Button (ChatGPT / Claude style)
+                    Surface(
+                        shape = RoundedCornerShape(CornerRadiusMedium),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(CornerRadiusMedium))
+                            .clickable {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                scope.launch { drawerState.close() }
+                                navController.navigate(NavRoutes.ASSISTANT) {
+                                    popUpTo(NavRoutes.DASHBOARD) { saveState = true }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.AddComment,
+                                contentDescription = "New Chat",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Text(
+                                text = "New Chat",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+
                     Spacer(Modifier.height(16.dp))
-                    
-                    // MONITORING
-                    DrawerSectionHeader("MONITORING")
-                    NavItem(Icons.Default.History, "Activity History", NavRoutes.HISTORY, navController, drawerState)
-                    NavItem(Icons.Default.Analytics, "Security Analytics", NavRoutes.ANALYTICS, navController, drawerState)
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                    Spacer(Modifier.height(8.dp))
 
-                    Spacer(Modifier.height(16.dp))
+                    // Scrollable navigation destinations
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        // Section: AI & Assistant
+                        DrawerSectionHeader("AI ASSISTANT")
+                        ModernNavItem(Icons.Outlined.AutoAwesome, "AI Assistant", NavRoutes.ASSISTANT, navController, drawerState)
+                        ModernNavItem(Icons.Outlined.QuestionAnswer, "What Did I Miss?", NavRoutes.COMMUNICATION_BRIEFING, navController, drawerState)
+                        ModernNavItem(Icons.Outlined.Forum, "Communication Intel", NavRoutes.COMMUNICATION_ACCESS, navController, drawerState)
 
-                    // DIAGNOSTICS
-                    DrawerSectionHeader("DIAGNOSTICS")
-                    NavItem(Icons.Default.Troubleshoot, "Runtime Inspector", NavRoutes.RUNTIME_INSPECTOR, navController, drawerState)
-                    NavItem(Icons.Default.PrivacyTip, "Privacy Gateway", NavRoutes.PRIVACY_DASHBOARD, navController, drawerState)
-                    NavItem(Icons.Default.TrackChanges, "AI Goal Plan", NavRoutes.GOAL_INSPECTOR, navController, drawerState)
+                        Spacer(Modifier.height(12.dp))
 
-                    Spacer(Modifier.height(16.dp))
+                        // Section: Vision & Perception
+                        DrawerSectionHeader("VISION & SENSORS")
+                        ModernNavItem(Icons.Outlined.CameraAlt, "Camera Vision Home", NavRoutes.ENVIRONMENT, navController, drawerState)
+                        ModernNavItem(Icons.Outlined.Face, "Face Recognition", NavRoutes.RECOGNITION, navController, drawerState)
+                        ModernNavItem(Icons.Outlined.PersonAdd, "Face Enrollment", NavRoutes.ENROLLMENT, navController, drawerState)
 
-                    // SETTINGS
-                    DrawerSectionHeader("SYSTEM")
-                    NavItem(Icons.Default.Settings, "Settings", NavRoutes.SETTINGS, navController, drawerState)
+                        Spacer(Modifier.height(12.dp))
 
-                    Spacer(Modifier.height(32.dp))
+                        // Section: System & Ecosystem
+                        DrawerSectionHeader("ECOSYSTEM & OVERVIEW")
+                        ModernNavItem(Icons.Outlined.Dashboard, "Dashboard", NavRoutes.DASHBOARD, navController, drawerState)
+                        ModernNavItem(Icons.Outlined.Apps, "Aura Apps Hub", NavRoutes.APPS_HUB, navController, drawerState)
+                        ModernNavItem(Icons.Outlined.Notifications, "Alerts", NavRoutes.ALERTS, navController, drawerState, badge = unreadCount)
+                        ModernNavItem(Icons.Outlined.History, "Activity History", NavRoutes.HISTORY, navController, drawerState)
+                        ModernNavItem(Icons.Outlined.Analytics, "Security Analytics", NavRoutes.ANALYTICS, navController, drawerState)
+
+                        Spacer(Modifier.height(12.dp))
+
+                        // Section: Diagnostics
+                        DrawerSectionHeader("DIAGNOSTICS")
+                        ModernNavItem(Icons.Outlined.Troubleshoot, "Runtime Inspector", NavRoutes.RUNTIME_INSPECTOR, navController, drawerState)
+                        ModernNavItem(Icons.Outlined.PrivacyTip, "Privacy Gateway", NavRoutes.PRIVACY_DASHBOARD, navController, drawerState)
+                        ModernNavItem(Icons.Outlined.TrackChanges, "AI Goal Plan", NavRoutes.GOAL_INSPECTOR, navController, drawerState)
+
+                        Spacer(Modifier.height(16.dp))
+                    }
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                    Spacer(Modifier.height(8.dp))
+
+                    // Bottom Settings destination
+                    ModernNavItem(
+                        icon = Icons.Outlined.Settings,
+                        label = "Settings",
+                        route = NavRoutes.SETTINGS,
+                        navController = navController,
+                        drawerState = drawerState
+                    )
                 }
             }
         }
@@ -127,17 +216,17 @@ fun SidePanelDrawer(
 @Composable
 private fun DrawerSectionHeader(title: String) {
     Text(
-        title, 
-        fontSize = 10.sp, 
+        text = title,
+        style = MaterialTheme.typography.labelSmall,
         fontWeight = FontWeight.Bold,
-        color = TextMuted, 
-        modifier = Modifier.padding(start = 12.dp, bottom = 8.dp),
-        letterSpacing = 1.sp
+        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+        letterSpacing = 0.8.sp,
+        modifier = Modifier.padding(start = 12.dp, top = 8.dp, bottom = 4.dp)
     )
 }
 
 @Composable
-private fun NavItem(
+private fun ModernNavItem(
     icon: ImageVector,
     label: String,
     route: String,
@@ -148,37 +237,57 @@ private fun NavItem(
     val isSelected = navController.currentDestination?.route == route
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
-    
+
     NavigationDrawerItem(
-        label = { Text(label, fontSize = 14.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
+        label = {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+            )
+        },
         selected = isSelected,
         onClick = {
             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
             scope.launch { drawerState.close() }
             if (!isSelected) {
                 navController.navigate(route) {
-                    popUpTo(NavRoutes.ENVIRONMENT) { saveState = true }
+                    popUpTo(NavRoutes.DASHBOARD) { saveState = true }
                     launchSingleTop = true
                     restoreState = true
                 }
             }
         },
-        icon = { Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp)) },
+        icon = {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp)
+            )
+        },
         badge = {
             if (badge > 0) {
-                Badge(containerColor = Color.Red) {
-                    Text(badge.toString(), color = Color.White)
+                Badge(
+                    containerColor = ErrorRed,
+                    contentColor = Color.White
+                ) {
+                    Text(
+                        text = badge.toString(),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         },
         colors = NavigationDrawerItemDefaults.colors(
             unselectedContainerColor = Color.Transparent,
-            selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-            selectedIconColor = MaterialTheme.colorScheme.primary,
-            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-            selectedTextColor = MaterialTheme.colorScheme.onSurface
+            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            unselectedTextColor = MaterialTheme.colorScheme.onSurface,
+            selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer
         ),
+        shape = RoundedCornerShape(CornerRadiusMedium),
         modifier = Modifier.padding(vertical = 2.dp)
     )
 }

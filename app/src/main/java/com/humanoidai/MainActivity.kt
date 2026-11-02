@@ -51,9 +51,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         Log.i("Aura360Main", "MainActivity: onCreate")
 
-        // Reset enrollment for first-time setup testing
-        deleteDatabase("aura360_memory_v2.db")
-        getSharedPreferences("aura360_owner_biometrics", MODE_PRIVATE).edit().clear().apply()
+        // Reset enrollment for first-time setup testing (disabled to retain enrolled owner during testing)
+        // deleteDatabase("aura360_memory_v2.db")
+        // getSharedPreferences("aura360_owner_biometrics", MODE_PRIVATE).edit().clear().apply()
 
         val trust = TrustFramework.getInstance(this)
         trust.initialize()

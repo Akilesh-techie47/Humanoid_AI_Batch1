@@ -1,6 +1,10 @@
 package com.humanoidai.ui.screens
 
 import android.util.Log
+import android.content.Context
+import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraManager
+import android.os.Build
 import android.graphics.RectF
 import android.view.Surface
 import android.view.WindowManager
@@ -240,6 +244,9 @@ fun EnvironmentScreen(
         }
     }
     var previewView by remember { mutableStateOf<PreviewView?>(null) }
+    var rearPreviewView by remember { mutableStateOf<PreviewView?>(null) }
+    var isRearCameraActive by remember { mutableStateOf(false) }
+    var rearCameraMessage by remember { mutableStateOf<String?>("HW CONCURRENCY UNSUPPORTED") }
     var lensFacing by remember { mutableIntStateOf(CameraSelector.LENS_FACING_FRONT) }
     val cameraStatus by capabilityManager.getStatus(Capability.CAMERA).collectAsState()
 
@@ -371,8 +378,9 @@ fun EnvironmentScreen(
         }
     }
 
-    LaunchedEffect(lensFacing, previewView, cameraStatus) {
-        val pv = previewView ?: return@LaunchedEffect
+    LaunchedEffect(previewView, rearPreviewView, cameraStatus) {
+        val fv = previewView ?: return@LaunchedEffect
+        val rv = rearPreviewView
         if (cameraStatus != CapabilityStatus.ACTIVE && cameraStatus != CapabilityStatus.AVAILABLE) {
             Log.d("EnvironmentScreen", "Waiting for camera capability status to become AVAILABLE or ACTIVE. Current status: $cameraStatus")
             return@LaunchedEffect
@@ -383,31 +391,82 @@ fun EnvironmentScreen(
             Log.w("EnvironmentScreen", "Camera capability status is $cameraStatus but getCapability returned null")
             return@LaunchedEffect
         }
+
+        // Camera2 Hardware Diagnostic Probe
+        try {
+            val cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as? CameraManager
+            if (cameraManager != null) {
+                val ids = cameraManager.cameraIdList
+                Log.i("CameraDiagnostic", "CameraManager found ${ids.size} camera IDs: ${ids.joinToString()}")
+                for (id in ids) {
+                    val chars = cameraManager.getCameraCharacteristics(id)
+                    val facing = chars.get(CameraCharacteristics.LENS_FACING)
+                    val facingName = when (facing) {
+                        CameraCharacteristics.LENS_FACING_FRONT -> "FRONT"
+                        CameraCharacteristics.LENS_FACING_BACK -> "BACK"
+                        CameraCharacteristics.LENS_FACING_EXTERNAL -> "EXTERNAL"
+                        else -> "UNKNOWN ($facing)"
+                    }
+                    Log.i("CameraDiagnostic", "Camera ID: $id -> LENS_FACING: $facingName")
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    val concurrentSet = cameraManager.concurrentCameraIds
+                    Log.i("CameraDiagnostic", "Concurrent camera ID sets count: ${concurrentSet.size}")
+                    for (set in concurrentSet) {
+                        Log.i("CameraDiagnostic", "Concurrent camera ID combination: ${set.joinToString()}")
+                    }
+                } else {
+                    Log.i("CameraDiagnostic", "Android SDK version < R (API 30). Concurrent camera API not present in OS framework.")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("CameraDiagnostic", "Error probing CameraManager", e)
+        }
         
-        Log.i("EnvironmentScreen", "Binding camera preview and analysis to lifecycle...")
-        // Update FaceAnalyzer with current camera orientation
-        faceAnalyzer.isFrontCamera = lensFacing == CameraSelector.LENS_FACING_FRONT
+        Log.i("EnvironmentScreen", "Initializing dual camera pipelines: Front camera (Main) and Rear camera (PiP)...")
+        faceAnalyzer.isFrontCamera = true
 
         val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
         cameraProviderFuture.addListener({
             try {
                 val cameraProvider = cameraProviderFuture.get()
-                
-                val preview = cameraCap.getPreview().also { it.surfaceProvider = pv.surfaceProvider }
+                cameraProvider.unbindAll()
+
+                val frontSelector = CameraSelector.Builder().requireLensFacing(CameraSelector.LENS_FACING_FRONT).build()
+                val frontPreview = cameraCap.getPreview().also { it.surfaceProvider = fv.surfaceProvider }
                 val analysis = cameraCap.getImageAnalysis().also { it.setAnalyzer(analysisExecutor, faceAnalyzer) }
-                
-                val requestedSelector = try {
-                    CameraSelector.Builder().requireLensFacing(lensFacing).build()
-                } catch (e: Exception) {
-                    Log.w("EnvironmentScreen", "Requested lensFacing $lensFacing not available, falling back to BACK camera")
-                    CameraSelector.DEFAULT_BACK_CAMERA
+
+                // Bind front camera (Main Circle)
+                val frontCamera = cameraProvider.bindToLifecycle(lifecycleOwner, frontSelector, frontPreview, analysis)
+                frontCamera.cameraInfo.cameraState.observe(lifecycleOwner) { state ->
+                    Log.i("CameraDiagnostic", "Front Camera State: ${state.type}, Error: ${state.error?.code}")
                 }
 
-                cameraProvider.unbindAll()
-                cameraProvider.bindToLifecycle(lifecycleOwner, requestedSelector, preview, analysis)
-                Log.i("EnvironmentScreen", "Camera successfully bound to lifecycle with lensFacing=$lensFacing")
+                // Bind rear camera (Secondary Circle) if rearPreviewView is attached
+                if (rv != null) {
+                    val rearSelector = CameraSelector.Builder().requireLensFacing(CameraSelector.LENS_FACING_BACK).build()
+                    val rearPreview = Preview.Builder().build().also { it.surfaceProvider = rv.surfaceProvider }
+                    try {
+                        val rearCamera = cameraProvider.bindToLifecycle(lifecycleOwner, rearSelector, rearPreview)
+                        rearCamera.cameraInfo.cameraState.observe(lifecycleOwner) { state ->
+                            Log.i("CameraDiagnostic", "Rear Camera State: ${state.type}, Error: ${state.error?.code}")
+                            if (state.error != null) {
+                                isRearCameraActive = false
+                                rearCameraMessage = "HW UNSUPPORTED"
+                                Log.w("EnvironmentScreen", "Rear Camera asynchronous error detected: ${state.error?.code}")
+                            } else if (state.type.name == "OPEN") {
+                                isRearCameraActive = true
+                                rearCameraMessage = null
+                            }
+                        }
+                    } catch (e: Exception) {
+                        isRearCameraActive = false
+                        rearCameraMessage = "HW UNSUPPORTED"
+                        Log.w("EnvironmentScreen", "Confirmed Redmi Note 8 hardware HAL limitation: Device hardware does not support concurrent front and rear camera streaming in camera driver: ${e.message}")
+                    }
+                }
             } catch (e: Exception) {
-                Log.e("EnvironmentScreen", "Failed to bind camera to lifecycle", e)
+                Log.e("EnvironmentScreen", "Failed to bind camera pipelines", e)
             }
         }, ContextCompat.getMainExecutor(context))
     }
@@ -553,6 +612,9 @@ fun EnvironmentScreen(
                     activeDecisions = decisionState.activeDecisions.values.toList(),
                     perceptionState = perceptionState,
                     previewView = { previewView = it },
+                    rearPreviewView = { rearPreviewView = it },
+                    isRearCameraActive = isRearCameraActive,
+                    rearCameraMessage = rearCameraMessage,
                     layoutPreset = HomeLayoutPreset.fromId(customization.selectedPreset),
                     scale = settings.uiScale.factor,
                     debugEnabled = false,
@@ -607,25 +669,23 @@ fun HudTopBar(
             Icon(Icons.Default.Menu, "Menu", tint = Color.White.copy(alpha = 0.8f), modifier = Modifier.size(24.dp))
         }
         
-        // Central Identity (Matching attached image)
+        // Central Identity
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.align(Alignment.Center)
         ) {
             Text(
-                "AURA 360",
+                "Aura 360",
                 color = Color.White,
-                fontWeight = FontWeight.Black,
-                fontSize = (15 * scale).sp,
-                letterSpacing = 1.2.sp,
-                fontFamily = FontFamily.Monospace
+                fontWeight = FontWeight.Bold,
+                fontSize = (16 * scale).sp,
+                letterSpacing = 0.5.sp
             )
             Text(
-                "CONTEXTUAL ANALYSIS",
-                color = Color.White.copy(alpha = 0.5f),
-                fontSize = (8 * scale).sp,
-                fontWeight = FontWeight.Bold,
-                fontFamily = FontFamily.Monospace
+                status.ifBlank { "Online" },
+                color = AccentCyan.copy(alpha = 0.85f),
+                fontSize = (10 * scale).sp,
+                fontWeight = FontWeight.Medium
             )
         }
         
@@ -683,7 +743,11 @@ fun SystemControlBar(
     val accent = Color(settings.accentColor)
     val scale = settings.uiScale.factor
     
-    Column(modifier = Modifier.padding(bottom = (8 * scale).dp)) {
+    Column(
+        modifier = Modifier
+            .navigationBarsPadding()
+            .padding(bottom = (8 * scale).dp)
+    ) {
         // Chat History (Subtle and clean)
         if (messages.isNotEmpty()) {
             Box(
@@ -697,26 +761,30 @@ fun SystemControlBar(
                     reverseLayout = true
                 ) {
                     items(messages.reversed()) { msg ->
-                        Row(
-                            verticalAlignment = Alignment.Top,
+                        Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 2.dp)
+                                .padding(vertical = 2.dp),
+                            contentAlignment = if (msg.isUser) Alignment.CenterEnd else Alignment.CenterStart
                         ) {
-                            Text(
-                                if (msg.isUser) "YOU › " else "AI  › ",
-                                color = if (msg.isUser) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f) else accent.copy(alpha = 0.6f),
-                                fontSize = (10 * scale).sp,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                msg.text,
-                                color = if (msg.isUser) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurface,
-                                fontSize = (11 * scale).sp,
-                                fontFamily = FontFamily.Monospace,
-                                lineHeight = 14.sp
-                            )
+                            Surface(
+                                shape = RoundedCornerShape(
+                                    topStart = 12.dp,
+                                    topEnd = 12.dp,
+                                    bottomStart = if (msg.isUser) 12.dp else 4.dp,
+                                    bottomEnd = if (msg.isUser) 4.dp else 12.dp
+                                ),
+                                color = if (msg.isUser) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f) else Color.Black.copy(alpha = 0.75f),
+                                border = BorderStroke(1.dp, if (msg.isUser) MaterialTheme.colorScheme.outline.copy(alpha = 0.2f) else accent.copy(alpha = 0.3f))
+                            ) {
+                                Text(
+                                    text = msg.text,
+                                    color = if (msg.isUser) MaterialTheme.colorScheme.onPrimaryContainer else Color.White,
+                                    fontSize = (11 * scale).sp,
+                                    lineHeight = 15.sp,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                                )
+                            }
                         }
                     }
                 }
@@ -741,10 +809,10 @@ fun SystemControlBar(
                 modifier = Modifier
                     .size((48 * scale).dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.4f))
-                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.05f), CircleShape)
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f))
+                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f), CircleShape)
             ) {
-                Icon(Icons.Default.Add, "Add Resource", tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f), modifier = Modifier.size(20.dp))
+                Icon(Icons.Default.Add, "Add Resource", tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f), modifier = Modifier.size(20.dp))
             }
             
             // Central Command Panel
@@ -774,9 +842,9 @@ fun SystemControlBar(
                                 Box {
                                     if (inputText.isEmpty()) {
                                         Text(
-                                            "INITIALIZE AURA 360...",
-                                            color = Color.White.copy(alpha = 0.2f),
-                                            fontSize = (11 * scale).sp,
+                                            "Ask Aura 360...",
+                                            color = Color.White.copy(alpha = 0.35f),
+                                            fontSize = (13 * scale).sp,
                                             fontFamily = FontFamily.Monospace
                                         )
                                     }
@@ -797,21 +865,6 @@ fun SystemControlBar(
                         }
                     }
                 }
-                
-                // Bottom Brackets for the command panel (Matching attached image)
-                Canvas(modifier = Modifier.fillMaxWidth().height(12.dp).align(Alignment.BottomCenter)) {
-                    val stroke = 2.dp.toPx()
-                    val len = 20.dp.toPx()
-                    val color = Color.Red
-                    
-                    // Bottom Left
-                    drawLine(color, Offset(0f, size.height), Offset(len, size.height), stroke)
-                    drawLine(color, Offset(0f, size.height), Offset(0f, size.height - len), stroke)
-                    
-                    // Bottom Right
-                    drawLine(color, Offset(size.width, size.height), Offset(size.width - len, size.height), stroke)
-                    drawLine(color, Offset(size.width, size.height), Offset(size.width, size.height - len), stroke)
-                }
             }
 
             // High-Visibility Microphone
@@ -821,16 +874,16 @@ fun SystemControlBar(
                     onMicToggle() 
                 },
                 modifier = Modifier
-                    .size((56 * scale).dp)
+                    .size((54 * scale).dp)
                     .clip(CircleShape)
-                    .background(if (isListening) accent else accent.copy(alpha = 0.08f))
-                    .border(2.dp, if (isListening) accent else accent.copy(alpha = 0.2f), CircleShape)
+                    .background(if (isListening) accent else accent.copy(alpha = 0.12f))
+                    .border(1.5.dp, if (isListening) accent else accent.copy(alpha = 0.3f), CircleShape)
             ) {
                 Icon(
                     if (isListening) Icons.Default.MicNone else Icons.Default.Mic, 
                     "Microphone Interaction", 
                     tint = if (isListening) Color.Black else accent,
-                    modifier = Modifier.size(26.dp)
+                    modifier = Modifier.size(24.dp)
                 )
             }
         }
@@ -858,6 +911,7 @@ fun CameraAperture(
     size: Dp,
     preset: HomeLayoutPreset, 
     preview: (PreviewView) -> Unit, 
+    rearPreview: (PreviewView) -> Unit,
     scale: Float, 
     accent: Color,
     glowEnabled: Boolean = true,
@@ -866,12 +920,15 @@ fun CameraAperture(
     battery: Int = 0,
     noise: Int = 0,
     person: DetectedPerson? = null,
-    lockedTarget: VisualTarget? = null
+    lockedTarget: VisualTarget? = null,
+    isCompact: Boolean = false,
+    isRearCameraActive: Boolean = true,
+    rearCameraMessage: String? = null
 ) {
     val configuration = LocalConfiguration.current
     val screenWidth = configuration.screenWidthDp.dp
     val screenHeight = configuration.screenHeightDp.dp
-    val effectiveSize = minOf(screenWidth * 0.85f, screenHeight * 0.45f, if (size > 0.dp) size else 320.dp).coerceAtLeast(280.dp)
+    val effectiveSize = if (isCompact) 100.dp else minOf(screenWidth * 0.85f, screenHeight * 0.45f, if (size > 0.dp) size else 320.dp).coerceAtLeast(280.dp)
 
     val infiniteTransition = rememberInfiniteTransition(label = "core_pulse")
     val pulseAlpha by infiniteTransition.animateFloat(
@@ -983,23 +1040,73 @@ fun CameraAperture(
                     modifier = Modifier.align(Alignment.CenterStart).padding(start = 10.dp)
                 )
             }
-            
-            // Telemetry Inside (BAT / NSE)
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.align(Alignment.Center)
+        }
+
+        // Secondary Circle: Rear-facing camera live preview or Device HW Limitation Notice
+        if (!isCompact) {
+            val circleBorder = if (isRearCameraActive) accent else WarningOrange
+            Box(
+                modifier = Modifier
+                    .size(92.dp)
+                    .align(Alignment.BottomEnd)
+                    .padding(12.dp)
+                    .clip(CircleShape)
+                    .border(2.dp, circleBorder, CircleShape)
+                    .background(Color.Black),
+                contentAlignment = Alignment.Center
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("BAT ", color = Color.White.copy(alpha = 0.6f), fontSize = (8 * scale).sp, fontFamily = FontFamily.Monospace)
-                    Text("${if (battery > 0) battery else 85}%", color = SuccessGreen, fontSize = (9 * scale).sp, fontWeight = FontWeight.Bold)
-                }
-                
-                // Center Dot
-                Box(Modifier.size(4.dp).background(Color.White.copy(alpha = 0.8f), CircleShape))
-                
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("NSE ", color = Color.White.copy(alpha = 0.6f), fontSize = (8 * scale).sp, fontFamily = FontFamily.Monospace)
-                    Text("${if (noise > 0) noise else 30}dB", color = Color.White, fontSize = (9 * scale).sp, fontWeight = FontWeight.Bold)
+                if (isRearCameraActive) {
+                    AndroidView(
+                        factory = { ctx -> PreviewView(ctx).also(rearPreview) },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.2f)),
+                        contentAlignment = Alignment.BottomCenter
+                    ) {
+                        Text(
+                            text = "REAR",
+                            color = Color.White,
+                            fontSize = (8 * scale).sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                    }
+                } else {
+                    // Explicit device-level hardware limitation notice
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Videocam,
+                            contentDescription = "HW Dual Stream Unsupported",
+                            tint = WarningOrange,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = "REAR FEED",
+                            color = Color.White,
+                            fontSize = (8 * scale).sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        Text(
+                            text = rearCameraMessage ?: "HW UNSUPPORTED",
+                            color = WarningOrange,
+                            fontSize = (6.5 * scale).sp,
+                            fontWeight = FontWeight.SemiBold,
+                            textAlign = TextAlign.Center,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
                 }
             }
         }
@@ -1044,28 +1151,29 @@ fun SecondaryRoiBlip(person: DetectedPerson, scale: Float, accent: Color, showCo
         )
         if (showConfidence) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = java.lang.String.format(Locale.getDefault(), "%.2f", person.confidence),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
-                    fontSize = (7 * scale).sp,
-                    fontFamily = FontFamily.Monospace
-                )
                 if (person.isLookingAtCamera) {
-                    Spacer(Modifier.width(4.dp))
                     Icon(
                         Icons.Default.RemoveRedEye,
                         "Maintaining eye contact",
-                        tint = accent.copy(alpha = 0.6f),
-                        modifier = Modifier.size((8 * scale).dp)
+                        tint = accent.copy(alpha = 0.8f),
+                        modifier = Modifier.size((10 * scale).dp)
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = "Active",
+                        color = accent.copy(alpha = 0.8f),
+                        fontSize = (7 * scale).sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                } else {
+                    Text(
+                        text = person.distanceCategory,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        fontSize = (7 * scale).sp,
+                        fontWeight = FontWeight.Medium
                     )
                 }
             }
-            Text(
-                text = person.distanceCategory,
-                color = if (person.distanceCategory == "NEAR") SuccessGreen else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                fontSize = (6 * scale).sp,
-                fontWeight = FontWeight.Bold
-            )
         }
     }
 }

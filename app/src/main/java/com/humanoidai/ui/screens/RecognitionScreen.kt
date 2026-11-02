@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,7 +17,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -25,11 +25,10 @@ import com.humanoidai.ml.EnrolledPerson
 import com.humanoidai.ml.FaceEnrollmentManager
 import com.humanoidai.ml.FaceRecognitionManager
 import com.humanoidai.navigation.NavRoutes
+import com.humanoidai.ui.components.ArmsunFooter
 import com.humanoidai.ui.components.SidePanelDrawer
 import com.humanoidai.ui.theme.*
 import kotlinx.coroutines.launch
-
-import com.humanoidai.ui.components.ArmsunFooter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -56,70 +55,62 @@ fun RecognitionScreen(
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
             topBar = {
-                Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = { 
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        scope.launch { drawerState.open() } 
+                CenterAlignedTopAppBar(
+                    title = {
+                        Text(
+                            "Recognized Faces",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
                     },
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surface)
-                        .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
-                ) {
-                    Icon(Icons.Default.Menu, "Open Menu", tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
-                }
-                
-                Spacer(Modifier.width(16.dp))
-                
-                Text(
-                    "RECOGNITION", 
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold, 
-                    color = MaterialTheme.colorScheme.primary, 
-                    letterSpacing = 1.sp
+                    navigationIcon = {
+                        IconButton(
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                scope.launch { drawerState.open() }
+                            }
+                        ) {
+                            Icon(Icons.Default.Menu, "Menu", tint = MaterialTheme.colorScheme.onSurface)
+                        }
+                    },
+                    actions = {
+                        IconButton(
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                navController.navigate(NavRoutes.ENROLLMENT)
+                            }
+                        ) {
+                            Icon(Icons.Outlined.PersonAdd, "Add Person", tint = AccentCyan)
+                        }
+                    },
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = MaterialTheme.colorScheme.background)
                 )
-                
-                Spacer(Modifier.weight(1f))
-
-                IconButton(onClick = { 
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    navController.navigate(NavRoutes.ENROLLMENT) 
-                }) {
-                    Icon(Icons.Default.PersonAdd, "Add Person", tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f), modifier = Modifier.size(20.dp))
-                }
             }
-        }
-    ) { padding ->
+        ) { padding ->
             Box(modifier = Modifier.fillMaxSize().padding(padding)) {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(horizontal = 16.dp)
+                        .navigationBarsPadding()
                 ) {
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        StatChip("Enrolled", people.size.toString(), MaterialTheme.colorScheme.primary, Modifier.weight(1f))
-                        StatChip(
+                        ModernStatChip("Total Enrolled", people.size.toString(), MaterialTheme.colorScheme.primary, Modifier.weight(1f))
+                        ModernStatChip(
                             "Family",
                             people.count { it.label == "Family" }.toString(),
                             SuccessGreen,
                             Modifier.weight(1f)
                         )
-                        StatChip(
+                        ModernStatChip(
                             "Others",
                             people.count { it.label != "Family" }.toString(),
-                            Color(0xFF42A5F5),
+                            AccentPurple,
                             Modifier.weight(1f)
                         )
                     }
@@ -128,31 +119,53 @@ fun RecognitionScreen(
 
                     if (people.isEmpty()) {
                         Box(
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth(),
                             contentAlignment = Alignment.Center
                         ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(
-                                    Icons.Default.Person,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                                    modifier = Modifier.size(56.dp)
-                                )
-                                Spacer(modifier = Modifier.height(12.dp))
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier.padding(24.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(64.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        Icons.Outlined.Face,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(32.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(16.dp))
                                 Text(
-                                    "No persons enrolled yet",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    "No faces enrolled yet",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onBackground
                                 )
-                                Spacer(modifier = Modifier.height(20.dp))
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    "Add family members and trusted people so Aura 360 recognizes them on camera.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                )
+                                Spacer(modifier = Modifier.height(24.dp))
                                 AuraButton(
-                                    text = "Enroll First Person",
+                                    text = "Enroll New Person",
                                     onClick = { navController.navigate(NavRoutes.ENROLLMENT) }
                                 )
                             }
                         }
                     } else {
                         LazyColumn(
+                            modifier = Modifier.weight(1f),
                             verticalArrangement = Arrangement.spacedBy(10.dp),
                             contentPadding = PaddingValues(bottom = 60.dp)
                         ) {
@@ -181,8 +194,9 @@ fun RecognitionScreen(
         AlertDialog(
             onDismissRequest = { showDeleteDialog = null },
             containerColor = MaterialTheme.colorScheme.surface,
-            title = { Text("Remove ${person.name}?", color = MaterialTheme.colorScheme.onBackground) },
-            text = { Text("This person will no longer be recognized by the camera.", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+            shape = RoundedCornerShape(CornerRadiusLarge),
+            title = { Text("Remove ${person.name}?", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold) },
+            text = { Text("This person's face embeddings will be permanently removed. They will no longer be recognized by the camera.", color = MaterialTheme.colorScheme.onSurfaceVariant) },
             confirmButton = {
                 TextButton(onClick = {
                     scope.launch {
@@ -192,7 +206,7 @@ fun RecognitionScreen(
                         showDeleteDialog = null
                     }
                 }) {
-                    Text("Remove", color = Color(0xFFFF5C5C))
+                    Text("Remove", color = ErrorRed, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
@@ -209,51 +223,57 @@ private fun EnrolledPersonCard(person: EnrolledPerson, onDelete: () -> Unit, onT
     val haptic = LocalHapticFeedback.current
     val labelColor = when (person.label) {
         "Family"    -> SuccessGreen
-        "Colleague" -> MaterialTheme.colorScheme.primary
+        "Colleague" -> AccentCyan
         "Neighbor"  -> WarningOrange
-        "Friend"    -> Color(0xFFCE93D8)
+        "Friend"    -> AccentPurple
         else        -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 
     Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.4f),
-        shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(CornerRadiusLarge),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.35f))
     ) {
         Row(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier.padding(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(48.dp)
+                    .size(46.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
-                    .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f), CircleShape),
+                    .background(labelColor.copy(alpha = 0.12f)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.Person, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+                Text(
+                    text = person.name.take(2).uppercase(),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = labelColor
+                )
             }
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(14.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(person.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                Text(
+                    text = person.name,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
                 Spacer(modifier = Modifier.height(4.dp))
                 Surface(
-                    color = labelColor.copy(alpha = 0.1f),
-                    shape = RoundedCornerShape(4.dp),
-                    border = BorderStroke(0.5.dp, labelColor.copy(alpha = 0.3f))
+                    color = labelColor.copy(alpha = 0.12f),
+                    shape = RoundedCornerShape(CornerRadiusSmall)
                 ) {
                     Text(
                         person.label.uppercase(), 
                         style = MaterialTheme.typography.labelSmall, 
                         color = labelColor, 
-                        fontWeight = FontWeight.Black,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
                         letterSpacing = 0.5.sp
                     )
                 }
@@ -264,9 +284,9 @@ private fun EnrolledPersonCard(person: EnrolledPerson, onDelete: () -> Unit, onT
                 onTogglePriority()
             }) {
                 Icon(
-                    if (person.isCritical) Icons.Default.Star else Icons.Default.StarBorder,
+                    if (person.isCritical) Icons.Default.Star else Icons.Outlined.StarOutline,
                     "Priority",
-                    tint = if (person.isCritical) WarningOrange else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                    tint = if (person.isCritical) WarningOrange else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -275,22 +295,27 @@ private fun EnrolledPersonCard(person: EnrolledPerson, onDelete: () -> Unit, onT
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 onDelete()
             }) {
-                Icon(Icons.Default.Delete, "Remove", tint = ErrorRed.copy(alpha = 0.7f), modifier = Modifier.size(18.dp))
+                Icon(Icons.Outlined.DeleteOutline, "Remove", tint = ErrorRed.copy(alpha = 0.8f), modifier = Modifier.size(20.dp))
             }
         }
     }
 }
 
-
 @Composable
-private fun StatChip(label: String, value: String, color: Color, modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier
-            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(10.dp))
-            .padding(vertical = 10.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+private fun ModernStatChip(label: String, value: String, color: Color, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(CornerRadiusLarge),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.35f))
     ) {
-        Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = color)
-        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Column(
+            modifier = Modifier.padding(vertical = 12.dp, horizontal = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = color)
+            Spacer(Modifier.height(2.dp))
+            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }

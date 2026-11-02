@@ -1,11 +1,12 @@
 package com.humanoidai.ui.screens
 
 import android.annotation.SuppressLint
-import android.graphics.Matrix
 import android.util.Log
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -14,19 +15,21 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -37,26 +40,18 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavController
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.face.FaceDetection
-import com.google.mlkit.vision.face.FaceDetector
 import com.google.mlkit.vision.face.FaceDetectorOptions
 import com.humanoidai.hearing.SpeechRecognizerManager
-import com.humanoidai.ml.FacePreprocessor
-
 import com.humanoidai.ml.FaceEmbeddingHelper
 import com.humanoidai.ml.FaceEnrollmentManager
-import com.humanoidai.ml.OwnerEnrollmentManager
+import com.humanoidai.ml.FacePreprocessor
 import com.humanoidai.ml.FaceRecognitionManager
-import com.humanoidai.ml.FisheyeCorrector
-import com.humanoidai.vision.FrameEnhancer
+import com.humanoidai.ml.OwnerEnrollmentManager
 import com.humanoidai.ui.components.ArmsunFooter
-import com.humanoidai.ui.components.SidePanelDrawer
 import com.humanoidai.ui.components.WithCameraPermission
 import com.humanoidai.ui.theme.*
 import com.humanoidai.voice.VoiceEngine
 import kotlinx.coroutines.launch
-import org.opencv.android.Utils
-import org.opencv.core.Mat
-import org.opencv.imgproc.Imgproc
 import java.util.concurrent.Executors
 import kotlin.math.abs
 
@@ -75,7 +70,6 @@ fun EnrollmentScreen(
 ) {
     val context        = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    val drawerState    = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope          = rememberCoroutineScope()
     val haptic         = LocalHapticFeedback.current
 
@@ -130,333 +124,417 @@ fun EnrollmentScreen(
         }
     }
 
-    SidePanelDrawer(
-        navController = navController,
-        drawerState = drawerState
-    ) {
-        Scaffold(
-            containerColor = MaterialTheme.colorScheme.background,
-            topBar = {
-                CenterAlignedTopAppBar(
-                    title = {
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = {
+                    Text(
+                        "Face Enrollment",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = MaterialTheme.colorScheme.onSurface)
+                    }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = MaterialTheme.colorScheme.background)
+            )
+        }
+    ) { padding ->
+        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 20.dp)
+                    .navigationBarsPadding(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                when (step) {
+                    EnrollStep.ENTER_NAME -> {
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        Box(
+                            modifier = Modifier
+                                .size(64.dp)
+                                .clip(CircleShape)
+                                .background(AccentCyan.copy(alpha = 0.12f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Outlined.PersonAdd, null, tint = AccentCyan, modifier = Modifier.size(32.dp))
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            "FACE ENROLLMENT", 
+                            "Who are you enrolling?",
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold, 
-                            color = MaterialTheme.colorScheme.primary,
-                            letterSpacing = 1.sp
+                            color = MaterialTheme.colorScheme.onBackground,
+                            fontWeight = FontWeight.Bold
                         )
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(Icons.Default.Menu, "Menu", tint = MaterialTheme.colorScheme.onSurface)
-                        }
-                    },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
-                )
-            }
-        ) { padding ->
-            Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 20.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    when (step) {
-                        EnrollStep.ENTER_NAME -> {
-                            Spacer(modifier = Modifier.height(32.dp))
-                            Text("Who are you enrolling?", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.SemiBold)
-                            Spacer(modifier = Modifier.height(24.dp))
-                            AuraTextField(
-                                value = name,
-                                onValueChange = { name = it },
-                                label = "Full Name",
-                                trailingIcon = {
-                                    IconButton(onClick = {
-                                        if (isListening) {
-                                            microphoneManager.stopListening()
-                                        } else {
-                                            microphoneManager.startListening(
-                                                onFinalResult = { name = it }
-                                            )
-                                        }
-                                    }) {
-                                        Icon(if (isListening) Icons.Default.MicOff else Icons.Default.Mic, null, tint = if (isListening) Color.Red else MaterialTheme.colorScheme.primary)
-                                    }
-                                }
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text("Relationship", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                labels.forEach { l ->
-                                    val selected = label == l
-                                    Box(
-                                        modifier = Modifier
-                                            .background(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface, RoundedCornerShape(8.dp))
-                                            .border(1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
-                                            .padding(horizontal = 10.dp, vertical = 6.dp)
-                                            .weight(1f, fill = false)
-                                            .clickable { label = l },
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(l, style = MaterialTheme.typography.labelMedium, color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
-                                    }
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(32.dp))
-                            AuraButton(
-                                text = "Continue",
-                                onClick = {
-                                    if (name.isNotBlank()) {
-                                        step = EnrollStep.CAPTURE
-                                    }
-                                },
-                                enabled = name.isNotBlank()
-                            )
-                        }
-                        EnrollStep.CAPTURE -> {
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Surface(
-                                color = Color(0xEE0F172A),
-                                shape = RoundedCornerShape(16.dp),
-                                border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.3f))
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp, vertical = 10.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Column {
-                                        Text(
-                                            "ENROLLING: ${name.uppercase()}",
-                                            style = TextStyle(
-                                                fontSize = 13.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                fontFamily = FontFamily.Monospace,
-                                                color = AccentCyan
-                                            )
-                                        )
-                                        Text(
-                                            "INSTRUCTION: ${currentPose.name}",
-                                            style = TextStyle(
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.Medium,
-                                                fontFamily = FontFamily.Monospace,
-                                                color = TextSecondary
-                                            )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            "Aura 360 will map 60 facial angles for precise real-time recognition.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Spacer(modifier = Modifier.height(28.dp))
+
+                        AuraTextField(
+                            value = name,
+                            onValueChange = { name = it },
+                            label = "Full Name",
+                            placeholder = "e.g. Sarah Connor",
+                            singleLine = true,
+                            leadingIcon = {
+                                Icon(Icons.Outlined.Person, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            },
+                            trailingIcon = {
+                                IconButton(onClick = {
+                                    if (isListening) {
+                                        microphoneManager.stopListening()
+                                    } else {
+                                        microphoneManager.startListening(
+                                            onFinalResult = { name = it }
                                         )
                                     }
-                                    Text(
-                                        "${capturedEmbeddings.size} / 60",
-                                        style = TextStyle(
-                                            fontSize = 14.sp,
-                                            fontWeight = FontWeight.Black,
-                                            fontFamily = FontFamily.Monospace,
-                                            color = SuccessGreen
-                                        )
+                                }) {
+                                    Icon(
+                                        if (isListening) Icons.Default.MicOff else Icons.Outlined.Mic,
+                                        null,
+                                        tint = if (isListening) ErrorRed else AccentCyan
                                     )
                                 }
                             }
-                            
-                            Spacer(modifier = Modifier.height(12.dp))
-                            
-                            WithCameraPermission {
+                        )
+
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        Text(
+                            "RELATIONSHIP CATEGORY",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = AccentCyan,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp,
+                            modifier = Modifier.fillMaxWidth().padding(start = 4.dp)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            labels.forEach { l ->
+                                val selected = label == l
                                 Surface(
                                     modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(340.dp),
-                                    shape = RoundedCornerShape(24.dp),
-                                    color = Color.Black,
-                                    border = BorderStroke(1.5.dp, Brush.horizontalGradient(
-                                        listOf(AccentCyan, AccentPurple, AccentCyan)
-                                    )),
-                                    tonalElevation = 8.dp,
-                                    shadowElevation = 12.dp
+                                        .weight(1f)
+                                        .clickable { label = l },
+                                    shape = RoundedCornerShape(CornerRadiusMedium),
+                                    color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+                                    border = BorderStroke(
+                                        1.dp,
+                                        if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
+                                    )
                                 ) {
-                                    Box(modifier = Modifier.fillMaxSize()) {
-                                        AndroidView(
-                                            factory = { ctx ->
-                                                PreviewView(ctx).apply {
-                                                    implementationMode = PreviewView.ImplementationMode.COMPATIBLE
-                                                }.also { previewView ->
-                                                    val future = ProcessCameraProvider.getInstance(ctx)
-                                                    future.addListener({
-                                                        val cameraProvider = future.get()
-                                                        val preview = Preview.Builder().build().also { it.surfaceProvider = previewView.surfaceProvider }
-                                                        val imageAnalysis = ImageAnalysis.Builder()
-                                                            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                                                            .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888)
-                                                            .build()
-                                                        imageAnalysis.setAnalyzer(analysisExecutor) { imageProxy ->
-                                                            val mediaImage = imageProxy.image
-                                                            if (mediaImage != null) {
-                                                                val inputImage = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
-                                                                detector.process(inputImage)
-                                                                    .addOnSuccessListener { faces ->
-                                                                        if (faces.isNotEmpty()) {
-                                                                            val face = faces[0]
-                                                                            val yaw = face.headEulerAngleY
-                                                                            val pitch = face.headEulerAngleX
-                                                                            
-                                                                            val pose = when {
-                                                                                yaw < -7f -> FacePose.LEFT
-                                                                                yaw > 7f -> FacePose.RIGHT
-                                                                                pitch > 7f -> FacePose.UP
-                                                                                pitch < -7f -> FacePose.DOWN
-                                                                                abs(yaw) < 12f && abs(pitch) < 12f -> FacePose.FRONT
-                                                                                else -> FacePose.NATURAL
-                                                                            }
-
-                                                                            val now = System.currentTimeMillis()
-                                                                            if (now - lastCaptureTime > 120 && (pose == currentPose || currentPose == FacePose.NATURAL)) {
-                                                                                try {
-                                                                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                                                                    lastCaptureTime = now
-                                                                                    
-                                                                                    val bitmap = imageProxy.toBitmap()
-                                                                                    val isolated = FacePreprocessor.alignAndIsolate(bitmap, face)
-                                                                                    capturedEmbeddings.add(embeddingHelper.getEmbedding(isolated))
-                                                                                    poseSamples++
-                                                                                    faceProgress = capturedEmbeddings.size / totalTarget.toFloat()
-                                                                                    
-                                                                                    if (poseSamples >= SAMPLES_PER_POSE) {
-                                                                                        val nextPoseIndex = currentPose.ordinal + 1
-                                                                                        if (nextPoseIndex < FacePose.entries.size) {
-                                                                                            currentPose = FacePose.entries[nextPoseIndex]
-                                                                                            poseSamples = 0
-                                                                                        } else {
-                                                                                            scope.launch {
-                                                                                                enrollmentManager.enrollPerson(name, label, capturedEmbeddings)
-                                                                                                enrollmentManager.loadAllInto(recognitionManager, ownerManager)
-                                                                                                step = EnrollStep.SUCCESS
-                                                                                            }
-                                                                                        }
-                                                                                    }
-                                                                                } catch (e: Exception) {
-                                                                                    Log.e("Enrollment", "Frame processing failed: ${e.message}")
-                                                                                }
-                                                                            }
-                                                                        }
-                                                                    }
-                                                                    .addOnCompleteListener { imageProxy.close() }
-                                                            } else {
-                                                                imageProxy.close()
-                                                            }
-                                                        }
-                                                        try {
-                                                            cameraProvider.unbindAll()
-                                                            val selector = try {
-                                                                CameraSelector.DEFAULT_FRONT_CAMERA
-                                                            } catch (_: Exception) {
-                                                                CameraSelector.DEFAULT_BACK_CAMERA
-                                                            }
-                                                            cameraProvider.bindToLifecycle(lifecycleOwner, selector, preview, imageAnalysis)
-                                                            Log.i("EnrollmentScreen", "Camera bound successfully")
-                                                        } catch (e: Exception) {
-                                                            Log.e("EnrollmentScreen", "Failed to bind camera", e)
-                                                        }
-                                                    }, ContextCompat.getMainExecutor(ctx))
-                                                }
-                                            },
-                                            modifier = Modifier.fillMaxSize()
+                                    Box(
+                                        modifier = Modifier.padding(vertical = 10.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            l,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
                                         )
-                                        
-                                        // Face guide oval overlay
-                                        Box(
-                                            modifier = Modifier
-                                                .size(width = 180.dp, height = 230.dp)
-                                                .align(Alignment.Center)
-                                                .border(2.dp, Brush.sweepGradient(listOf(AccentCyan, AccentPurple, AccentCyan)), CircleShape)
-                                        )
-                                        
-                                        // Top status pill
-                                        Surface(
-                                            modifier = Modifier
-                                                .align(Alignment.TopCenter)
-                                                .padding(top = 12.dp),
-                                            color = Color(0xCC070A14),
-                                            shape = RoundedCornerShape(20.dp),
-                                            border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.4f))
-                                        ) {
-                                            Text(
-                                                text = when(currentPose) {
-                                                    FacePose.FRONT -> "LOOK STRAIGHT"
-                                                    FacePose.LEFT -> "TURN SLIGHTLY LEFT"
-                                                    FacePose.RIGHT -> "TURN SLIGHTLY RIGHT"
-                                                    FacePose.UP -> "LOOK SLIGHTLY UP"
-                                                    FacePose.DOWN -> "LOOK SLIGHTLY DOWN"
-                                                    FacePose.NATURAL -> "LOOK NATURALLY"
-                                                },
-                                                style = TextStyle(
-                                                    fontSize = 11.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    fontFamily = FontFamily.Monospace,
-                                                    color = AccentCyan
-                                                ),
-                                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
-                                            )
-                                        }
                                     }
                                 }
                             }
-                            
-                            Spacer(modifier = Modifier.height(16.dp))
-                            
-                            // Sample progress indicator
-                            LinearProgressIndicator(
-                                progress = { faceProgress },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(10.dp)
-                                    .clip(RoundedCornerShape(5.dp)),
-                                color = AccentCyan,
-                                trackColor = Color(0xFF1E293B)
+                        }
+
+                        Spacer(modifier = Modifier.weight(1f))
+
+                        AuraButton(
+                            text = "Start Biometric Capture",
+                            onClick = {
+                                if (name.isNotBlank()) {
+                                    step = EnrollStep.CAPTURE
+                                }
+                            },
+                            enabled = name.isNotBlank(),
+                            modifier = Modifier.padding(bottom = 24.dp)
+                        )
+                    }
+                    EnrollStep.CAPTURE -> {
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Header pill
+                        Surface(
+                            shape = RoundedCornerShape(CornerRadiusLarge),
+                            color = MaterialTheme.colorScheme.surface,
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text(
+                                        "ENROLLING: ${name.uppercase()}",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = AccentCyan
+                                    )
+                                    Text(
+                                        "POSE: ${currentPose.name}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Surface(
+                                    color = SuccessGreen.copy(alpha = 0.12f),
+                                    shape = RoundedCornerShape(CornerRadiusSmall)
+                                ) {
+                                    Text(
+                                        "${capturedEmbeddings.size} / 60",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        color = SuccessGreen,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        // Circular FaceID-style camera aperture
+                        WithCameraPermission {
+                            val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+                            val pulseAlpha by infiniteTransition.animateFloat(
+                                initialValue = 0.4f,
+                                targetValue = 0.9f,
+                                animationSpec = infiniteRepeatable(
+                                    animation = tween(1200, easing = LinearEasing),
+                                    repeatMode = RepeatMode.Reverse
+                                ),
+                                label = "pulse_alpha"
                             )
-                            
-                            Spacer(modifier = Modifier.height(8.dp))
-                            
+
+                            Box(
+                                modifier = Modifier
+                                    .size(280.dp)
+                                    .drawBehind {
+                                        drawCircle(
+                                            color = AccentCyan.copy(alpha = pulseAlpha * 0.25f),
+                                            radius = size.minDimension / 2 + 12.dp.toPx()
+                                        )
+                                        drawCircle(
+                                            color = AccentCyan.copy(alpha = 0.4f),
+                                            radius = size.minDimension / 2 + 2.dp.toPx(),
+                                            style = Stroke(width = 2.dp.toPx())
+                                        )
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .clip(CircleShape)
+                                        .border(2.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), CircleShape)
+                                ) {
+                                    AndroidView(
+                                        factory = { ctx ->
+                                            PreviewView(ctx).apply {
+                                                implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+                                            }.also { previewView ->
+                                                val future = ProcessCameraProvider.getInstance(ctx)
+                                                future.addListener({
+                                                    val cameraProvider = future.get()
+                                                    val preview = Preview.Builder().build().also { it.surfaceProvider = previewView.surfaceProvider }
+                                                    val imageAnalysis = ImageAnalysis.Builder()
+                                                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                                                        .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888)
+                                                        .build()
+                                                    imageAnalysis.setAnalyzer(analysisExecutor) { imageProxy ->
+                                                        val mediaImage = imageProxy.image
+                                                        if (mediaImage != null) {
+                                                            val inputImage = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
+                                                            detector.process(inputImage)
+                                                                .addOnSuccessListener { faces ->
+                                                                    if (faces.isNotEmpty()) {
+                                                                        val face = faces[0]
+                                                                        val yaw = face.headEulerAngleY
+                                                                        val pitch = face.headEulerAngleX
+
+                                                                        val pose = when {
+                                                                            yaw < -7f -> FacePose.LEFT
+                                                                            yaw > 7f -> FacePose.RIGHT
+                                                                            pitch > 7f -> FacePose.UP
+                                                                            pitch < -7f -> FacePose.DOWN
+                                                                            abs(yaw) < 12f && abs(pitch) < 12f -> FacePose.FRONT
+                                                                            else -> FacePose.NATURAL
+                                                                        }
+
+                                                                        val now = System.currentTimeMillis()
+                                                                        if (now - lastCaptureTime > 120 && (pose == currentPose || currentPose == FacePose.NATURAL)) {
+                                                                            try {
+                                                                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                                                lastCaptureTime = now
+
+                                                                                val bitmap = imageProxy.toBitmap()
+                                                                                val isolated = FacePreprocessor.alignAndIsolate(bitmap, face)
+                                                                                capturedEmbeddings.add(embeddingHelper.getEmbedding(isolated))
+                                                                                poseSamples++
+                                                                                faceProgress = capturedEmbeddings.size / totalTarget.toFloat()
+
+                                                                                if (poseSamples >= SAMPLES_PER_POSE) {
+                                                                                    val nextPoseIndex = currentPose.ordinal + 1
+                                                                                    if (nextPoseIndex < FacePose.entries.size) {
+                                                                                        currentPose = FacePose.entries[nextPoseIndex]
+                                                                                        poseSamples = 0
+                                                                                    } else {
+                                                                                        scope.launch {
+                                                                                            enrollmentManager.enrollPerson(name, label, capturedEmbeddings)
+                                                                                            enrollmentManager.loadAllInto(recognitionManager, ownerManager)
+                                                                                            step = EnrollStep.SUCCESS
+                                                                                        }
+                                                                                    }
+                                                                                }
+                                                                            } catch (e: Exception) {
+                                                                                Log.e("Enrollment", "Frame processing failed: ${e.message}")
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }
+                                                                .addOnCompleteListener { imageProxy.close() }
+                                                        } else {
+                                                            imageProxy.close()
+                                                        }
+                                                    }
+                                                    try {
+                                                        cameraProvider.unbindAll()
+                                                        val selector = try {
+                                                            CameraSelector.DEFAULT_FRONT_CAMERA
+                                                        } catch (_: Exception) {
+                                                            CameraSelector.DEFAULT_BACK_CAMERA
+                                                        }
+                                                        cameraProvider.bindToLifecycle(lifecycleOwner, selector, preview, imageAnalysis)
+                                                    } catch (e: Exception) {
+                                                        Log.e("EnrollmentScreen", "Failed to bind camera", e)
+                                                    }
+                                                }, ContextCompat.getMainExecutor(ctx))
+                                            }
+                                        },
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        // Pose instruction badge
+                        Surface(
+                            color = MaterialTheme.colorScheme.surface,
+                            shape = RoundedCornerShape(CornerRadiusMedium),
+                            border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.4f))
+                        ) {
                             Text(
-                                "Hold still for pose verification...",
-                                style = TextStyle(
-                                    fontSize = 12.sp,
-                                    fontFamily = FontFamily.Monospace,
-                                    color = TextSecondary
-                                )
+                                text = when(currentPose) {
+                                    FacePose.FRONT -> "LOOK STRAIGHT AT CAMERA"
+                                    FacePose.LEFT -> "TURN SLIGHTLY LEFT"
+                                    FacePose.RIGHT -> "TURN SLIGHTLY RIGHT"
+                                    FacePose.UP -> "LOOK SLIGHTLY UP"
+                                    FacePose.DOWN -> "LOOK SLIGHTLY DOWN"
+                                    FacePose.NATURAL -> "LOOK NATURALLY AT CAMERA"
+                                },
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = AccentCyan,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                             )
                         }
-                        EnrollStep.SUCCESS -> {
-                            Spacer(modifier = Modifier.height(80.dp))
-                            Icon(Icons.Default.CheckCircle, null, tint = SuccessGreen, modifier = Modifier.size(72.dp))
-                            Spacer(modifier = Modifier.height(20.dp))
-                            Text("$name enrolled!", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text("This person will now be recognized\nautomatically by the camera.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
-                            Spacer(modifier = Modifier.height(40.dp))
-                            AuraButton(text = "Done", onClick = { navController.popBackStack() })
-                            Spacer(modifier = Modifier.height(12.dp))
-                            TextButton(onClick = {
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        LinearProgressIndicator(
+                            progress = { faceProgress },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(8.dp)
+                                .clip(RoundedCornerShape(4.dp)),
+                            color = AccentCyan,
+                            trackColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            "Hold still while poses are automatically calibrated...",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    EnrollStep.SUCCESS -> {
+                        Spacer(modifier = Modifier.height(60.dp))
+
+                        Box(
+                            modifier = Modifier
+                                .size(88.dp)
+                                .clip(CircleShape)
+                                .background(SuccessGreen.copy(alpha = 0.12f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.CheckCircle, null, tint = SuccessGreen, modifier = Modifier.size(54.dp))
+                        }
+
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Text(
+                            "$name Enrolled!",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            "Face embeddings successfully mapped.\nAura 360 will now identify this person on camera.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Spacer(modifier = Modifier.height(48.dp))
+
+                        AuraButton(
+                            text = "Done",
+                            onClick = { navController.popBackStack() },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        AuraOutlinedButton(
+                            text = "Enroll Another Person",
+                            onClick = {
                                 name = ""
                                 faceProgress = 0f
                                 currentPose = FacePose.FRONT
                                 poseSamples = 0
                                 capturedEmbeddings.clear()
                                 step = EnrollStep.ENTER_NAME
-                            }) {
-                                Text("Enroll Another Person", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                            }
-                        }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
                 }
-                
-                ArmsunFooter(modifier = Modifier.align(Alignment.BottomCenter))
             }
+
+            ArmsunFooter(modifier = Modifier.align(Alignment.BottomCenter))
         }
     }
 }

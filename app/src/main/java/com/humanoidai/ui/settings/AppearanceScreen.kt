@@ -5,7 +5,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -17,16 +19,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.humanoidai.ai.OllamaClient
-import kotlinx.coroutines.launch
+import com.humanoidai.navigation.NavRoutes
+import com.humanoidai.ui.components.ArmsunFooter
+import com.humanoidai.ui.customization.AppearanceSettings
 import com.humanoidai.ui.customization.AppearanceViewModel
 import com.humanoidai.ui.customization.UIScale
-import com.humanoidai.ui.customization.AIMode
 import com.humanoidai.ui.theme.*
-import com.humanoidai.navigation.NavRoutes
-import com.humanoidai.ui.customization.AppearanceSettings
-
-import com.humanoidai.ui.components.ArmsunFooter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,19 +37,18 @@ fun AppearanceScreen(navController: NavController, viewModel: AppearanceViewMode
             CenterAlignedTopAppBar(
                 title = { 
                     Text(
-                        "APPEARANCE", 
+                        "Appearance",
                         style = MaterialTheme.typography.titleMedium, 
                         fontWeight = FontWeight.Bold, 
-                        color = MaterialTheme.colorScheme.primary,
-                        letterSpacing = 1.sp
+                        color = MaterialTheme.colorScheme.onBackground
                     ) 
                 },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, "Back", tint = Color.White)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = MaterialTheme.colorScheme.onSurface)
                     }
                 },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
         }
     ) { padding ->
@@ -61,53 +58,110 @@ fun AppearanceScreen(navController: NavController, viewModel: AppearanceViewMode
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 16.dp)
+                    .navigationBarsPadding()
             ) {
-                SectionHeader("System Theme")
-                AuraPanel {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = if (settings.isDarkMode) "Dark Mode" else "Light Mode",
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.weight(1f)
-                        )
+                Spacer(Modifier.height(8.dp))
+                SectionHeader("SYSTEM THEME")
+                Surface(
+                    shape = RoundedCornerShape(CornerRadiusLarge),
+                    color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                if (settings.isDarkMode) Icons.Outlined.DarkMode else Icons.Outlined.LightMode,
+                                null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Spacer(Modifier.width(16.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = if (settings.isDarkMode) "Dark Theme" else "Light Theme",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = if (settings.isDarkMode) "Optimized for low-light & OLED displays" else "Standard bright appearance",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                         Switch(
                             checked = settings.isDarkMode,
                             onCheckedChange = { viewModel.setDarkMode(it) },
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                uncheckedThumbColor = MaterialTheme.colorScheme.primary,
-                                uncheckedTrackColor = MaterialTheme.colorScheme.onPrimary
+                                checkedTrackColor = MaterialTheme.colorScheme.primary
                             )
                         )
                     }
                 }
 
-                Spacer(Modifier.height(24.dp))
-                SectionHeader("Theme Engine")
+                Spacer(Modifier.height(20.dp))
+                SectionHeader("LAYOUT & STRUCTURE")
                 
-                ActionRow(Icons.Default.Dashboard, "Layout Customization") {
-                    navController.navigate(NavRoutes.LAYOUT_CUSTOMIZATION)
+                Surface(
+                    shape = RoundedCornerShape(CornerRadiusLarge),
+                    color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    ActionRow(Icons.Outlined.DashboardCustomize, "HUD Layout Customization", "Reorganize telemetry widgets and panels") {
+                        navController.navigate(NavRoutes.LAYOUT_CUSTOMIZATION)
+                    }
                 }
                 
-                Spacer(Modifier.height(24.dp))
-
-                SectionHeader("Visual Calibration")
+                Spacer(Modifier.height(20.dp))
+                SectionHeader("INTERFACE SCALE")
                 
                 ScaleSelector(settings.uiScale) { viewModel.setScale(it) }
                 
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(20.dp))
+                SectionHeader("COLOR PALETTE")
                 
                 ThemeGrid(selectedId = settings.themeId) { viewModel.setHudTheme(it) }
 
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(20.dp))
+                SectionHeader("VISUAL EFFECTS")
                 
-                SectionHeader("Core Surface")
-                
-                ToggleRow("Global Glow FX", settings.glowEnabled) { viewModel.toggleComponent("glow", it) }
-                ToggleRow("Scan Animation", settings.cameraScanAnim) { viewModel.toggleComponent("scan", it) }
-                ToggleRow("Audio Radar", settings.showRadar) { viewModel.toggleComponent("radar", it) }
-                ToggleRow("Background Grid", settings.showGrid) { viewModel.toggleComponent("grid", it) }
+                Surface(
+                    shape = RoundedCornerShape(CornerRadiusLarge),
+                    color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column {
+                        ModernToggleRow("Global Glow FX", "Subtle neon pulse on biometric rings", settings.glowEnabled) {
+                            viewModel.toggleComponent("glow", it)
+                        }
+                        HorizontalDivider(modifier = Modifier.padding(start = 56.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+                        ModernToggleRow("Scan Animation", "Dynamic scanner line during detection", settings.cameraScanAnim) {
+                            viewModel.toggleComponent("scan", it)
+                        }
+                        HorizontalDivider(modifier = Modifier.padding(start = 56.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+                        ModernToggleRow("Audio Direction Radar", "Spatial sound azimuth visualization", settings.showRadar) {
+                            viewModel.toggleComponent("radar", it)
+                        }
+                        HorizontalDivider(modifier = Modifier.padding(start = 56.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+                        ModernToggleRow("Background Grid", "Subtle dot-matrix viewport guide", settings.showGrid) {
+                            viewModel.toggleComponent("grid", it)
+                        }
+                    }
+                }
                 
                 Spacer(Modifier.height(80.dp))
             }
@@ -121,49 +175,69 @@ fun AppearanceScreen(navController: NavController, viewModel: AppearanceViewMode
 private fun SectionHeader(title: String) {
     Text(
         title.uppercase(),
-        style = MaterialTheme.typography.labelMedium,
+        style = MaterialTheme.typography.labelSmall,
         fontWeight = FontWeight.Bold,
-        color = MaterialTheme.colorScheme.primary,
+        color = AccentCyan,
         letterSpacing = 1.sp,
-        modifier = Modifier.padding(bottom = 12.dp)
+        modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
     )
 }
 
 @Composable
-private fun ActionRow(icon: ImageVector, title: String, onClick: () -> Unit) {
-    AuraPanel(modifier = Modifier.clickable { onClick() }) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+private fun ActionRow(icon: ImageVector, title: String, subtitle: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+            contentAlignment = Alignment.Center
+        ) {
             Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(16.dp))
-            Text(title, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onBackground, modifier = Modifier.weight(1f))
-            Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
         }
+        Spacer(Modifier.width(16.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
     }
 }
 
 @Composable
-private fun ToggleRow(title: String, checked: Boolean, onChecked: (Boolean) -> Unit) {
-    AuraPanel(modifier = Modifier.padding(vertical = 4.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(title, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onBackground, modifier = Modifier.weight(1f))
-            Switch(
-                checked = checked, 
-                onCheckedChange = onChecked, 
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
-                    checkedTrackColor = MaterialTheme.colorScheme.primary,
-                    uncheckedTrackColor = MaterialTheme.colorScheme.background
-                )
-            )
+private fun ModernToggleRow(title: String, subtitle: String, checked: Boolean, onChecked: (Boolean) -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+        Switch(
+            checked = checked,
+            onCheckedChange = onChecked,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                checkedTrackColor = MaterialTheme.colorScheme.primary
+            )
+        )
     }
 }
 
 @Composable
 private fun ThemeGrid(selectedId: String, onSelect: (String) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         HudThemes.all.chunked(2).forEach { row ->
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 row.forEach { theme ->
                     ThemeCard(
                         theme = theme,
@@ -180,39 +254,90 @@ private fun ThemeGrid(selectedId: String, onSelect: (String) -> Unit) {
 
 @Composable
 private fun ThemeCard(theme: HudTheme, active: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    Box(
+    Surface(
         modifier = modifier
-            .height(100.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(if (active) theme.accent.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surface)
-            .border(1.dp, if (active) theme.accent else MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
-            .clickable { onClick() }
-            .padding(12.dp)
+            .height(96.dp)
+            .clickable { onClick() },
+        shape = RoundedCornerShape(CornerRadiusMedium),
+        color = if (active) theme.accent.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface,
+        border = BorderStroke(
+            if (active) 1.5.dp else 1.dp,
+            if (active) theme.accent else MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
+        )
     ) {
-        Column {
-            Text(theme.name, style = MaterialTheme.typography.labelLarge, color = if (active) theme.accent else MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(4.dp))
-            Text(theme.subtitle, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 14.sp)
+        Box(modifier = Modifier.padding(12.dp)) {
+            Column {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(14.dp)
+                            .background(theme.accent, CircleShape)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        theme.name,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = if (active) theme.accent else MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    theme.subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 14.sp
+                )
+            }
+            if (active) {
+                Icon(
+                    Icons.Default.CheckCircle,
+                    "Active",
+                    tint = theme.accent,
+                    modifier = Modifier.size(16.dp).align(Alignment.TopEnd)
+                )
+            }
         }
     }
 }
 
 @Composable
 private fun ScaleSelector(current: UIScale, onSelect: (UIScale) -> Unit) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        UIScale.entries.forEach { scale ->
-            val active = scale == current
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(48.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(if (active) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surface)
-                    .border(1.dp, if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
-                    .clickable { onSelect(scale) },
-                contentAlignment = Alignment.Center
-            ) {
-                Text(scale.name, style = MaterialTheme.typography.labelMedium, color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
+    Surface(
+        shape = RoundedCornerShape(CornerRadiusLarge),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            UIScale.entries.forEach { scale ->
+                val active = scale == current
+                Surface(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(44.dp)
+                        .clickable { onSelect(scale) },
+                    shape = RoundedCornerShape(CornerRadiusMedium),
+                    color = if (active) MaterialTheme.colorScheme.primary else Color.Transparent,
+                    border = BorderStroke(
+                        1.dp,
+                        if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                    )
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            scale.name,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                            fontWeight = if (active) FontWeight.Bold else FontWeight.Medium
+                        )
+                    }
+                }
             }
         }
     }

@@ -6,6 +6,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -17,6 +18,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -34,24 +36,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.humanoidai.R
-import com.humanoidai.ui.components.ArmsunFooter
 import com.humanoidai.ui.theme.*
-
-// -----------------------------------------------------------------
-// LoginScreen
-// -----------------------------------------------------------------
-
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.lifecycle.viewmodel.compose.viewModel
-
-@Preview(showBackground = true)
-@Composable
-fun PreviewLoginScreen() {
-    LoginScreen(
-        onLoginSuccess = {},
-        authViewModel = viewModel() // This might need a mock/factory if it fails
-    )
-}
 
 enum class LoginTab { PHONE, EMAIL }
 
@@ -76,10 +61,10 @@ fun LoginScreen(
                 if (idToken != null) {
                     authViewModel.signInWithGoogle(idToken, onLoginSuccess)
                 } else {
-                    authViewModel.signOut() // Clear loading
+                    authViewModel.signOut()
                 }
             } catch (e: ApiException) {
-                val msg = when(e.statusCode) {
+                val msg = when (e.statusCode) {
                     7 -> "Network error. Please check your connection."
                     12501 -> "Sign-in cancelled."
                     10 -> "Configuration error. Please contact support."
@@ -98,152 +83,148 @@ fun LoginScreen(
         val googleSignInClient = GoogleSignIn.getClient(context, gso)
         googleSignInLauncher.launch(googleSignInClient.signInIntent)
     }
-    
-    if (authState is AuthState.Loading) {
-        FishLoadingAnimation()
-    } else {
+
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background
+    ) { padding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background),
+                .padding(padding)
+                .statusBarsPadding()
+                .navigationBarsPadding(),
             contentAlignment = Alignment.TopCenter
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 24.dp, end = 24.dp, top = 24.dp, bottom = 90.dp)
+                    .padding(horizontal = 24.dp)
                     .verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Logo & Branding
+                Spacer(modifier = Modifier.height(32.dp))
+
+                // Modern App Icon
                 Box(
                     modifier = Modifier
-                        .size(90.dp)
+                        .size(76.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.05f))
-                        .padding(10.dp),
+                        .background(MaterialTheme.colorScheme.primaryContainer),
                     contentAlignment = Alignment.Center
                 ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.ic_humanoid_logo_new),
+                    Icon(
+                        imageVector = Icons.Default.SmartToy,
                         contentDescription = "Aura 360 Logo",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Fit
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(42.dp)
                     )
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
-                    text = "AURA 360",
-                    style = MaterialTheme.typography.headlineLarge.copy(
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = 4.sp
-                    ),
+                    text = "Aura 360",
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground
                 )
-                
+
                 Text(
-                    text = "Fisheye contextual proactive assistant",
+                    text = "Your AI companion with vision and voice intelligence",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
                 )
-                
-                Spacer(modifier = Modifier.height(24.dp))
 
-                // Social Auth Buttons
-                SocialAuthSection(
-                    onGoogleClick = { signInWithGoogle() },
-                    onAppleClick = { authViewModel.signInWithApple(context as Activity, onLoginSuccess) },
-                    onGuestClick = { authViewModel.signInAnonymously(onLoginSuccess) }
-                )
+                Spacer(modifier = Modifier.height(28.dp))
 
-                Spacer(modifier = Modifier.height(32.dp))
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 16.dp)
+                // Modern Social Login Options
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
-                    Text(
-                        " OR ", 
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), 
-                        style = MaterialTheme.typography.labelSmall, 
-                        modifier = Modifier.padding(horizontal = 12.dp)
+                    AuraOutlinedButton(
+                        text = "Continue with Google",
+                        leadingIcon = Icons.Outlined.AccountCircle,
+                        onClick = { signInWithGoogle() }
                     )
-                    HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+
+                    AuraOutlinedButton(
+                        text = "Continue as Guest",
+                        leadingIcon = Icons.Outlined.PersonOutline,
+                        onClick = { authViewModel.signInAnonymously(onLoginSuccess) }
+                    )
                 }
 
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
-                // Tab Switcher
-                AuraPanel {
+                // Divider
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 8.dp)
+                ) {
+                    HorizontalDivider(
+                        modifier = Modifier.weight(1f),
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
+                    )
+                    Text(
+                        text = "  OR  ",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    HorizontalDivider(
+                        modifier = Modifier.weight(1f),
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Tab Switcher Pill
+                Surface(
+                    shape = RoundedCornerShape(CornerRadiusPill),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(MaterialTheme.colorScheme.surface)
-                            .padding(4.dp)
+                        modifier = Modifier.padding(4.dp)
                     ) {
                         TabButton(
-                            text = "Phone",
+                            text = "Phone Number",
                             selected = selectedTab == LoginTab.PHONE,
                             modifier = Modifier.weight(1f)
                         ) { selectedTab = LoginTab.PHONE }
 
                         TabButton(
-                            text = "Email",
+                            text = "Email & Password",
                             selected = selectedTab == LoginTab.EMAIL,
                             modifier = Modifier.weight(1f)
                         ) { selectedTab = LoginTab.EMAIL }
                     }
+                }
 
-                    Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
-                    when (selectedTab) {
-                        LoginTab.PHONE -> PhoneOtpForm(authViewModel, onLoginSuccess)
-                        LoginTab.EMAIL -> EmailPasswordForm(authViewModel, isSignUp, { isSignUp = it }, onLoginSuccess)
-                    }
-                    
-                    Spacer(modifier = Modifier.height(24.dp))
-                    
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 40.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-                    
-                    Spacer(modifier = Modifier.height(24.dp))
-                    
-                    TextButton(
-                        onClick = { 
-                            selectedTab = LoginTab.EMAIL
-                            isSignUp = !isSignUp
-                        },
-                        modifier = Modifier.align(Alignment.CenterHorizontally)
-                    ) {
-                        Text(
-                            text = if (isSignUp) "Switch to Sign In" else "Don't have an account? Create one now",
-                            color = MaterialTheme.colorScheme.primary,
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Bold
-                        )
+                // Auth Form Card
+                Surface(
+                    shape = RoundedCornerShape(CornerRadiusLarge),
+                    color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        when (selectedTab) {
+                            LoginTab.PHONE -> PhoneOtpForm(authViewModel, onLoginSuccess)
+                            LoginTab.EMAIL -> EmailPasswordForm(authViewModel, isSignUp, { isSignUp = it }, onLoginSuccess)
+                        }
                     }
                 }
-            }
-            
-            ArmsunFooter(modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp))
-        }
-    }
-}
 
-@Composable
-private fun SocialAuthSection(
-    onGoogleClick: () -> Unit,
-    onAppleClick: () -> Unit,
-    onGuestClick: () -> Unit
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        AuraOutlinedButton(text = "Continue with Google", onClick = onGoogleClick)
-        AuraOutlinedButton(text = "Continue with Apple", onClick = onAppleClick)
-        AuraButton(text = "Continue as Guest", onClick = onGuestClick)
+                Spacer(modifier = Modifier.height(32.dp))
+            }
+        }
     }
 }
 
@@ -259,13 +240,18 @@ private fun TabButton(
 
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(6.dp))
+            .clip(RoundedCornerShape(CornerRadiusPill))
             .background(bgColor)
-            .padding(vertical = 8.dp)
-            .clickable { onClick() },
+            .clickable { onClick() }
+            .padding(vertical = 10.dp),
         contentAlignment = Alignment.Center
     ) {
-        Text(text = text, color = textColor, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelMedium)
+        Text(
+            text = text,
+            color = textColor,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+            style = MaterialTheme.typography.labelMedium
+        )
     }
 }
 
@@ -284,7 +270,7 @@ private fun PhoneOtpForm(
     Column(modifier = Modifier.fillMaxWidth()) {
         if (!otpSent) {
             Text(
-                "Verify your mobile number to continue",
+                text = "Enter your phone number to receive a one-time verification code",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 16.dp)
@@ -299,21 +285,24 @@ private fun PhoneOtpForm(
                     value = countryCode,
                     onValueChange = { if (it.startsWith("+") || it.isEmpty()) countryCode = it },
                     label = "Code",
-                    modifier = Modifier.width(80.dp),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
+                    modifier = Modifier.width(84.dp),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    singleLine = true
                 )
 
                 AuraTextField(
                     value = phone,
                     onValueChange = { phone = it.filter { c -> c.isDigit() } },
-                    label = "Mobile Number",
+                    label = "Phone Number",
+                    placeholder = "10 digit number",
                     modifier = Modifier.weight(1f),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    singleLine = true
                 )
             }
         } else {
             Text(
-                "Enter the 6-digit code sent to $countryCode $phone",
+                text = "Enter the 6-digit verification code sent to $countryCode $phone",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 16.dp)
@@ -323,55 +312,68 @@ private fun PhoneOtpForm(
                 value = otp,
                 onValueChange = { if (it.length <= 6) otp = it },
                 label = "Verification Code",
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                placeholder = "6-digit code",
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                singleLine = true
             )
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
         AuraButton(
-            text = if (otpSent) "Verify & Login" else "Send OTP",
-            isLoading = authState is AuthState.Loading
-        ) {
-            if (!otpSent) {
-                if (phone.length >= 10) {
-                    val fullNumber = "${countryCode}${phone}"
-                    authViewModel.sendOtp(
-                        phoneNumber = fullNumber,
-                        activity = context as? Activity,
-                        onCodeSent = { otpSent = true },
-                        onAutoSignIn = onLoginSuccess
-                    )
+            text = if (otpSent) "Verify & Continue" else "Send Verification Code",
+            isLoading = authState is AuthState.Loading,
+            onClick = {
+                if (!otpSent) {
+                    if (phone.length >= 10) {
+                        val fullNumber = "${countryCode}${phone}"
+                        authViewModel.sendOtp(
+                            phoneNumber = fullNumber,
+                            activity = context as? Activity,
+                            onCodeSent = { otpSent = true },
+                            onAutoSignIn = onLoginSuccess
+                        )
+                    } else {
+                        authViewModel.sendOtp("", null, {}, {})
+                    }
                 } else {
-                    // Internal error handling would show state error if we wanted, 
-                    // but let's just use the VM to handle it if they press it.
-                    authViewModel.sendOtp("", null, {}, {}) 
+                    authViewModel.verifyOtp(otp, onLoginSuccess)
                 }
-            } else {
-                authViewModel.verifyOtp(otp, onLoginSuccess)
             }
-        }
+        )
 
         if (otpSent) {
+            Spacer(modifier = Modifier.height(10.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 TextButton(onClick = { otpSent = false; otp = "" }) {
-                    Text("Change Number", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
+                    Text(
+                        text = "Change Number",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelSmall
+                    )
                 }
-                
-                TextButton(onClick = { 
-                    val fullNumber = "${countryCode}${phone}"
-                    authViewModel.sendOtp(fullNumber, context as? Activity, { /* Resent */ }, onLoginSuccess)
-                }) {
-                    Text("Resend Code", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
+
+                TextButton(
+                    onClick = {
+                        val fullNumber = "${countryCode}${phone}"
+                        authViewModel.sendOtp(fullNumber, context as? Activity, {}, onLoginSuccess)
+                    }
+                ) {
+                    Text(
+                        text = "Resend Code",
+                        color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 }
             }
         }
 
-        AuthStatusText(authState)
+        AuthStatusMessage(authState)
     }
 }
 
@@ -393,10 +395,12 @@ private fun EmailPasswordForm(
             value = email,
             onValueChange = { email = it },
             label = "Email Address",
+            placeholder = "name@example.com",
+            singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
         AuraTextField(
             value = password,
@@ -404,35 +408,33 @@ private fun EmailPasswordForm(
             label = "Password",
             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            singleLine = true,
             trailingIcon = {
                 IconButton(onClick = { passwordVisible = !passwordVisible }) {
                     Icon(
-                        if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                        null,
-                        tint = MaterialTheme.colorScheme.primary
+                        imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                        contentDescription = "Toggle Password",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
         AuraButton(
             text = if (isSignUp) "Create Account" else "Sign In",
-            isLoading = authState is AuthState.Loading
-        ) {
-            if (isSignUp) {
-                authViewModel.signUpWithEmail(email, password, onLoginSuccess)
-            } else {
-                authViewModel.signInWithEmail(email, password, onLoginSuccess)
+            isLoading = authState is AuthState.Loading,
+            onClick = {
+                if (isSignUp) {
+                    authViewModel.signUpWithEmail(email, password, onLoginSuccess)
+                } else {
+                    authViewModel.signInWithEmail(email, password, onLoginSuccess)
+                }
             }
-        }
+        )
 
-        Spacer(modifier = Modifier.height(24.dp))
-
-        HorizontalDivider(modifier = Modifier.padding(horizontal = 40.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
         TextButton(
             onClick = { onSignUpToggle(!isSignUp) },
@@ -441,27 +443,34 @@ private fun EmailPasswordForm(
             Text(
                 text = if (isSignUp) "Already have an account? Sign In" else "Don't have an account? Create one now",
                 color = MaterialTheme.colorScheme.primary,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold
             )
         }
 
-        AuthStatusText(authState)
+        AuthStatusMessage(authState)
     }
 }
 
 @Composable
-private fun AuthStatusText(state: AuthState) {
+private fun AuthStatusMessage(state: AuthState) {
     when (state) {
         is AuthState.Error -> {
             Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text = state.message,
-                color = ErrorRed,
-                style = MaterialTheme.typography.bodySmall,
-                textAlign = TextAlign.Center,
+            Surface(
+                shape = RoundedCornerShape(CornerRadiusSmall),
+                color = ErrorRed.copy(alpha = 0.1f),
+                border = BorderStroke(1.dp, ErrorRed.copy(alpha = 0.3f)),
                 modifier = Modifier.fillMaxWidth()
-            )
+            ) {
+                Text(
+                    text = state.message,
+                    color = ErrorRed,
+                    style = MaterialTheme.typography.bodySmall,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(10.dp)
+                )
+            }
         }
         else -> {}
     }
